@@ -27,11 +27,11 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
-      # enablement turns Pages on for the repository on first run, so the
-      # deploy does not need a manual visit to repository settings.
+      # Pages must be switched on once by a repository admin, under
+      # Settings -> Pages -> Source: GitHub Actions. The default GITHUB_TOKEN
+      # cannot create the Pages site itself ("Resource not accessible by
+      # integration"), so enablement here only helps once that is done.
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
