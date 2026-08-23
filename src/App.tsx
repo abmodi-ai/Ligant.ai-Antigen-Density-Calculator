@@ -14,6 +14,7 @@ import { StandardCurve } from './components/StandardCurve'
 import { Results, FlagList } from './components/Results'
 import { StandardsTable, SamplesTable } from './components/Tables'
 import { Method } from './components/Method'
+import { LigantLockup, LigantMark } from './components/LigantMark'
 
 const APP_VERSION = 'v0.1.0'
 const STORAGE_KEY = 'adc.state.v1'
@@ -70,11 +71,8 @@ function loadState(): PersistedState {
   return demoState()
 }
 
-type Theme = 'system' | 'light' | 'dark'
-
 export default function App() {
   const [state, setState] = useState<PersistedState>(loadState)
-  const [theme, setTheme] = useState<Theme>('system')
 
   const kit = BEAD_KITS.find((k) => k.id === state.kitId) ?? BEAD_KITS[0]
   const { standards, samples, options } = state
@@ -86,11 +84,6 @@ export default function App() {
       // Storage unavailable — the app stays fully functional without it.
     }
   }, [state])
-
-  useEffect(() => {
-    if (theme === 'system') document.documentElement.removeAttribute('data-theme')
-    else document.documentElement.setAttribute('data-theme', theme)
-  }, [theme])
 
   const curveResult = useMemo(() => fitStandardCurve(standards), [standards])
   const curve: CurveResult | null = 'error' in curveResult ? null : curveResult
@@ -120,27 +113,17 @@ export default function App() {
     <div className="app">
       <header className="masthead">
         <div>
-          <div className="eyebrow">CAR-T bench tools</div>
-          <h1>Antigen density calculator</h1>
+          <LigantLockup />
+          <h1>Antigen Density Calculator</h1>
           <p>
             Convert flow cytometry MFI into molecules per cell against a calibrated bead standard.
             Every number is computed deterministically from your inputs — no model, no estimation
             beyond the regression shown.
           </p>
         </div>
-        <div className="toggle-theme">
-          <label className="visually-hidden" htmlFor="theme">Colour theme</label>
-          <select
-            id="theme"
-            value={theme}
-            style={{ width: 'auto' }}
-            onChange={(e) => setTheme(e.target.value as Theme)}
-          >
-            <option value="system">Auto</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-          </select>
-        </div>
+        <span className="eyebrow" style={{ paddingTop: 6, whiteSpace: 'nowrap' }}>
+          Bench tools
+        </span>
       </header>
 
       <div className="layout">
@@ -352,8 +335,13 @@ export default function App() {
         the beads and cells were acquired with identical cytometer settings. Antibody-binding
         capacity is not the same quantity as antigen copy number: epitope accessibility, binding
         valency, conjugate performance, and antigen internalisation all sit between them. All
-        calculations run locally in your browser — nothing is uploaded. {APP_VERSION}
+        calculations run locally in your browser — nothing is uploaded.
       </p>
+
+      <div className="colophon">
+        <LigantMark size={16} />
+        <span>Ligant · Antigen Density Calculator {APP_VERSION}</span>
+      </div>
     </div>
   )
 }

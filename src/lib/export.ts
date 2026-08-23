@@ -1,8 +1,9 @@
 import { formatNumber, type BeadStandard, type CurveResult, type QuantifyOptions, type Sample, type SampleResult } from './quantify'
 
 const CSS_VARS = [
-  'surface', 'surface-sunken', 'text-primary', 'text-secondary', 'text-muted',
-  'grid', 'axis', 'border', 'border-strong', 'series-1', 'series-2', 'series-1-wash',
+  'surface', 'surface-sunken', 'surface-inset', 'text-primary', 'text-secondary',
+  'text-muted', 'grid', 'border', 'border-strong', 'series-evidence',
+  'series-decision', 'band-fill', 'brand-teal-pale', 'mono', 'font',
 ]
 
 function download(filename: string, mime: string, content: string) {

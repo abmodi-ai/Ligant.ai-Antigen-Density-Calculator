@@ -1,17 +1,21 @@
 import { DENSITY_BANDS, bandFor, formatNumber, type Flag, type Sample, type SampleResult } from '../lib/quantify'
 
+/**
+ * Density is a magnitude, not a verdict. The ramp is deliberately achromatic so
+ * no band reads as "good" or "bad" (brand §04: green is not good, red is not
+ * bad news; §06.03: epistemic neutrality in the visual language).
+ */
 const BAND_COLOR: Record<string, string> = {
-  subthreshold: 'var(--text-muted)',
-  low: 'var(--warning)',
-  intermediate: 'var(--good)',
-  high: 'var(--series-2)',
+  subthreshold: 'var(--magnitude-1)',
+  low: 'var(--magnitude-2)',
+  intermediate: 'var(--magnitude-3)',
+  high: 'var(--magnitude-4)',
 }
 
-function FlagIcon({ level }: { level: Flag['level'] }) {
-  const color = level === 'critical' ? 'var(--critical)' : 'var(--warning)'
+function FlagIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <path d="M8 1.5 15 14H1L8 1.5Z" fill={color} />
+      <path d="M8 1.5 15 14H1L8 1.5Z" fill="var(--brand-amber)" />
       <path d="M8 6v3.5" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" />
       <circle cx="8" cy="11.8" r="0.9" fill="#fff" />
     </svg>
@@ -23,8 +27,8 @@ export function FlagList({ flags }: { flags: Flag[] }) {
   return (
     <>
       {flags.map((f, i) => (
-        <div key={i} className={`flag ${f.level}`} role={f.level === 'critical' ? 'alert' : undefined}>
-          <FlagIcon level={f.level} />
+        <div key={i} className="flag" role={f.level === 'critical' ? 'alert' : undefined}>
+          <FlagIcon />
           <span>
             <strong>{f.level === 'critical' ? 'Check this: ' : 'Note: '}</strong>
             {f.message}
@@ -82,7 +86,7 @@ export function Results({ entries, valency }: Props) {
                     {valency === 'bivalent'
                       ? `${formatNumber(result.sitesLow as number)} – ${formatNumber(result.sitesHigh as number)}`
                       : formatNumber(result.sitesLow as number)}
-                    <span className="hint">
+                    <span className="hint" style={{ fontFamily: 'var(--font)' }}>
                       {valency === 'bivalent' ? ' (bivalent IgG binding)' : ' (1:1 binding)'}
                     </span>
                   </dd>
@@ -97,7 +101,7 @@ export function Results({ entries, valency }: Props) {
                   {band && (
                     <>
                       <dt>Reading</dt>
-                      <dd>{band.note}</dd>
+                      <dd className="prose-dd">{band.note}</dd>
                     </>
                   )}
                 </dl>

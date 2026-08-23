@@ -80,6 +80,37 @@ npm run build:single   # one self-contained HTML file -> dist-single/
 No backend. No accounts. No data leaves the browser. State persists to
 `localStorage` and degrades cleanly when storage is unavailable.
 
+## Brand
+
+Implements **Ligant Brand Guidelines v1.1**. Every colour is taken from the
+published palette — nothing re-stepped, nothing invented. Inter for UI text,
+IBM Plex Mono for digits, identifiers, and aligned columns. The Council · Ringed
+mark is drawn as inline SVG (ring = the table, six dots = the agents, amber
+centre = the human), so it stays crisp at favicon sizes.
+
+Two brand rules changed the design rather than just its colours:
+
+- **Density bands are achromatic.** §04 states green is not good and red is not
+  bad news, and §06.03 asks for epistemic neutrality. Density is a magnitude, so
+  the bands run along a warm-neutral to navy ramp and assert no verdict. They
+  previously used a green/amber/red status scale, which editorialised the result.
+- **Quality flags wear amber, not red.** Amber is the human decision moment; red
+  is reserved for system error. An extrapolation warning is a decision point,
+  not a failure.
+
+### Single theme, deliberately
+
+The app ships light-only, on the brand's Off-White ground. A dark theme would
+need a Navy ground, and on Navy the primary data-viz teal `#0D7C66` measures
+**2.77:1** — below the 3:1 floor for a graphical object, as does the error red at
+2.61:1. Carrying a chart there would require re-stepped dark-ground values, which
+§08 does not grant. If the companion *Platform UI Design System* defines dark
+steps for teal and red, the theme can be restored from those tokens.
+
+Measured on the Off-White ground: navy 13.3:1, slate body 8.3:1, muted 5.5:1,
+teal 4.8:1 — all AA or better for body text. Amber is 3.05:1, so it carries
+icons, rules, and marks, never small text.
+
 ## Stack
 
 React + TypeScript + Vite. The chart is hand-rolled SVG rather than a charting

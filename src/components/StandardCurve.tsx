@@ -145,20 +145,20 @@ export function StandardCurve({ curve, samples, assignedLabel, confidenceLevel }
           ))}
 
           {/* confidence band, then fitted line */}
-          <path d={band.area} fill="var(--series-1-wash)" stroke="none" />
-          <path d={band.line} fill="none" stroke="var(--series-1)" strokeWidth={2} strokeLinecap="round" />
+          <path d={band.area} fill="var(--band-fill)" stroke="none" />
+          <path d={band.line} fill="none" stroke="var(--series-evidence)" strokeWidth={2} strokeLinecap="round" />
 
           {/* axes */}
-          <line x1={M.left} x2={M.left + PLOT_W} y1={M.top + PLOT_H} y2={M.top + PLOT_H} stroke="var(--axis)" strokeWidth={1} />
-          <line x1={M.left} x2={M.left} y1={M.top} y2={M.top + PLOT_H} stroke="var(--axis)" strokeWidth={1} />
+          <line x1={M.left} x2={M.left + PLOT_W} y1={M.top + PLOT_H} y2={M.top + PLOT_H} stroke="var(--border-strong)" strokeWidth={1} />
+          <line x1={M.left} x2={M.left} y1={M.top} y2={M.top + PLOT_H} stroke="var(--border-strong)" strokeWidth={1} />
 
           {xTicks.map((t) => (
-            <text key={`xt${t}`} x={sx(t)} y={M.top + PLOT_H + 17} textAnchor="middle" fontSize={11} fill="var(--text-muted)">
+            <text key={`xt${t}`} x={sx(t)} y={M.top + PLOT_H + 17} textAnchor="middle" fontSize={11} fill="var(--text-muted)" fontFamily="var(--mono)">
               {formatDecade(t)}
             </text>
           ))}
           {yTicks.map((t) => (
-            <text key={`yt${t}`} x={M.left - 9} y={sy(t) + 4} textAnchor="end" fontSize={11} fill="var(--text-muted)">
+            <text key={`yt${t}`} x={M.left - 9} y={sy(t) + 4} textAnchor="end" fontSize={11} fill="var(--text-muted)" fontFamily="var(--mono)">
               {formatDecade(t)}
             </text>
           ))}
@@ -180,7 +180,7 @@ export function StandardCurve({ curve, samples, assignedLabel, confidenceLevel }
               <circle
                 key={`bead${i}`}
                 cx={sx(lx)} cy={sy(ly)} r={5}
-                fill="var(--series-1)" stroke="var(--surface)" strokeWidth={2}
+                fill="var(--series-evidence)" stroke="var(--surface)" strokeWidth={2}
                 onMouseEnter={() =>
                   setHover({
                     x: sx(lx), y: sy(ly),
@@ -203,16 +203,16 @@ export function StandardCurve({ curve, samples, assignedLabel, confidenceLevel }
               <g key={sample.id}>
                 <line
                   x1={sx(lx)} x2={sx(lx)} y1={sy(ly)} y2={M.top + PLOT_H}
-                  stroke="var(--series-2)" strokeWidth={1} strokeDasharray="3 3" opacity={0.6}
+                  stroke="var(--series-decision)" strokeWidth={1} strokeDasharray="3 3" opacity={0.6}
                 />
                 <line
                   x1={M.left} x2={sx(lx)} y1={sy(ly)} y2={sy(ly)}
-                  stroke="var(--series-2)" strokeWidth={1} strokeDasharray="3 3" opacity={0.6}
+                  stroke="var(--series-decision)" strokeWidth={1} strokeDasharray="3 3" opacity={0.6}
                 />
                 <rect
                   x={sx(lx) - 5} y={sy(ly) - 5} width={10} height={10} rx={2}
                   transform={`rotate(45 ${sx(lx)} ${sy(ly)})`}
-                  fill="var(--series-2)" stroke="var(--surface)" strokeWidth={2}
+                  fill="var(--series-decision)" stroke="var(--surface)" strokeWidth={2}
                   onMouseEnter={() =>
                     setHover({
                       x: sx(lx), y: sy(ly),
@@ -234,7 +234,7 @@ export function StandardCurve({ curve, samples, assignedLabel, confidenceLevel }
                 fill="var(--surface)" stroke="var(--border-strong)" strokeWidth={1} />
               <text x={10} y={17} fontSize={11} fontWeight={600} fill="var(--text-primary)">{hover.title}</text>
               {hover.lines.map((l, i) => (
-                <text key={i} x={10} y={33 + i * 15} fontSize={11} fill="var(--text-secondary)">{l}</text>
+                <text key={i} x={10} y={33 + i * 15} fontSize={11} fill="var(--text-secondary)" fontFamily="var(--mono)">{l}</text>
               ))}
             </g>
           )}
@@ -243,16 +243,16 @@ export function StandardCurve({ curve, samples, assignedLabel, confidenceLevel }
 
       <div className="legend">
         <span className="legend-item">
-          <span className="legend-swatch" style={{ background: 'var(--series-1)' }} />
+          <span className="legend-swatch" style={{ background: 'var(--series-evidence)' }} />
           Calibration standards &amp; fit
         </span>
         <span className="legend-item">
-          <span className="legend-swatch" style={{ background: 'var(--series-1-wash)', border: '1px solid var(--border-strong)' }} />
+          <span className="legend-swatch" style={{ background: 'var(--brand-teal-pale)', border: '1px solid var(--border-strong)' }} />
           {Math.round(confidenceLevel * 100)}% confidence band
         </span>
         {plottedSamples.length > 0 && (
           <span className="legend-item">
-            <span className="legend-swatch" style={{ background: 'var(--series-2)', transform: 'rotate(45deg)' }} />
+            <span className="legend-swatch" style={{ background: 'var(--series-decision)', transform: 'rotate(45deg)' }} />
             Samples
           </span>
         )}
