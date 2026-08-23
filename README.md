@@ -139,10 +139,39 @@ while the repository is private on a Free account — it fails at `configure-pag
 regardless of the workflow definition. Either make the repository public, move
 the account to Pro, or host elsewhere.
 
-Any static host works: the build is plain files with relative asset paths, so it
-runs from a repository sub-path, a custom domain, or a subdirectory unchanged.
-Cloudflare Pages and Netlify both build private repositories on their free tiers
-with `npm run build` and a `dist` output directory.
+### Cloudflare Pages (the intended host)
+
+Free, builds private repositories, and supports a custom domain on `ligant.ai`.
+
+1. Cloudflare dashboard → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**
+2. Authorise GitHub and pick this repository
+3. Settings — everything else can stay at its default:
+
+   | Field | Value |
+   |---|---|
+   | Framework preset | None |
+   | Build command | `npm run build` |
+   | Build output directory | `dist` |
+   | Production branch | the repository's default branch |
+
+   Node comes from `.node-version` (22); no environment variable is needed.
+4. **Custom domains** → add e.g. `tools.ligant.ai`. Cloudflare issues the
+   certificate automatically when the domain is on the same account.
+5. Optional — **Web Analytics**: switch on for the project. It is cookieless and
+   collects no personal data; `public/_headers` already allows its script, so no
+   redeploy is needed.
+
+`public/_headers` also sets a strict Content-Security-Policy, `nosniff`,
+`X-Frame-Options`, a `Referrer-Policy`, and cache rules: hashed assets are
+immutable for a year, while the entry document must revalidate so a deploy
+reaches returning visitors. The policy has been verified against a production
+build — the app renders, computes, and loads both typefaces with no violations.
+
+### Anywhere else
+
+The build is plain files with relative asset paths, so it runs from a repository
+sub-path, a custom domain, or a subdirectory unchanged. Netlify and Vercel take
+the same build command and output directory.
 
 `npm run build:single` emits one self-contained HTML file that needs no server at
 all — useful for a quick host, an offline demo, or emailing to a collaborator.
