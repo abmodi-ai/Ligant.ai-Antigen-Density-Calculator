@@ -86,6 +86,16 @@ React + TypeScript + Vite. The chart is hand-rolled SVG rather than a charting
 library, so exports are true vector suitable for a manuscript figure, and there is
 no dependency to rot.
 
+## Deployment
+
+Pushing to the default branch runs the tests and deploys `dist/` to GitHub Pages
+via `.github/workflows/deploy.yml`. Enable it once under **Settings → Pages →
+Build and deployment → Source: GitHub Actions**; after that every push ships.
+
+The build uses relative asset paths, so it works from a repository sub-path or a
+custom domain without reconfiguration. There is no server to run and no cost at
+any traffic level.
+
 ## Status
 
 `v0.1.0` — first release. Research use only; not for clinical or diagnostic

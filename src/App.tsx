@@ -13,6 +13,7 @@ import { exportChartSvg, exportResultsCsv } from './lib/export'
 import { StandardCurve } from './components/StandardCurve'
 import { Results, FlagList } from './components/Results'
 import { StandardsTable, SamplesTable } from './components/Tables'
+import { Method } from './components/Method'
 
 const APP_VERSION = 'v0.1.0'
 const STORAGE_KEY = 'adc.state.v1'
@@ -267,6 +268,8 @@ export default function App() {
               </div>
             </div>
           </section>
+
+          <Method />
         </div>
 
         {/* ---------------- outputs ---------------- */}
