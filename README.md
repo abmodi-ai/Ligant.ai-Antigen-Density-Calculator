@@ -122,33 +122,45 @@ no dependency to rot.
 `ci.yml` runs typecheck, tests, and both builds on every push, and uploads the
 result as an artifact. It is independent of hosting.
 
-`deploy.yml` publishes `dist/` to GitHub Pages. **Pages is unavailable for
-private repositories on the GitHub Free plan**, so this workflow cannot succeed
-while the repository is private on a Free account — it fails at `configure-pages`
-regardless of the workflow definition. Either make the repository public, move
-the account to Pro, or host elsewhere.
+`deploy-cloudflare.yml` publishes `dist/` to Cloudflare Pages by direct upload.
 
-### Cloudflare Pages (the intended host)
+**GitHub Pages is not an option here**: it is unavailable for private
+repositories on the GitHub Free plan, so no workflow can enable it while the
+repository is private on a Free account.
 
-Free, builds private repositories, and supports a custom domain on `ligant.ai`.
+### Option A — deploy from CI (no dashboard Git connection)
+
+`deploy-cloudflare.yml` builds and uploads on every push. It needs two
+repository secrets, added under **Settings → Secrets and variables → Actions**:
+
+| Secret | Where it comes from |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | Cloudflare → My Profile → API Tokens → Create Token, with the **Cloudflare Pages: Edit** permission |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account home, or the hex string in any dashboard URL |
+
+The workflow creates the Pages project (`ligant-tools`) on first run and deploys
+to it thereafter. Without the secrets it skips rather than failing red, so CI
+stays green until they are set.
+
+### Option B — connect the repository in the dashboard
 
 1. Cloudflare dashboard → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**
 2. Authorise GitHub and pick this repository
-3. Settings — everything else can stay at its default:
+3. Build command `npm run build`, output directory `dist`; everything else default
 
-   | Field | Value |
-   |---|---|
-   | Framework preset | None |
-   | Build command | `npm run build` |
-   | Build output directory | `dist` |
-   | Production branch | the repository's default branch |
+Node comes from `.node-version` (22) either way. Use one option or the other,
+not both, or the two will fight over the same project.
 
-   Node comes from `.node-version` (22); no environment variable is needed.
-4. **Custom domains** → add e.g. `tools.ligant.ai`. Cloudflare issues the
-   certificate automatically when the domain is on the same account.
-5. Optional — **Web Analytics**: switch on for the project. It is cookieless and
-   collects no personal data; `public/_headers` already allows its script, so no
-   redeploy is needed.
+### After either option
+
+**Custom domain**: Pages project → **Custom domains** → add e.g.
+`tools.ligant.ai`. Cloudflare issues the certificate automatically when the
+domain is on the same account. This also keeps the repository name out of the
+public URL.
+
+**Web Analytics** (optional): switch on for the project. It is cookieless and
+collects no personal data; `public/_headers` already allows its script, so no
+redeploy is needed.
 
 `public/_headers` also sets a strict Content-Security-Policy, `nosniff`,
 `X-Frame-Options`, a `Referrer-Policy`, and cache rules: hashed assets are
