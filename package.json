@@ -1,0 +1,28 @@
+{
+  "name": "antigen-density-calculator",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Flow cytometry MFI to molecules-per-cell (ABC) calculator for CAR-T antigen density quantification",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "build:single": "tsc -b && vite build --config vite.config.single.ts",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vite-plugin-singlefile": "^2.0.3",
+    "vitest": "^2.1.8"
+  }
+}
