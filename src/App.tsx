@@ -71,36 +71,11 @@ function loadState(): PersistedState {
   return demoState()
 }
 
-type Theme = 'system' | 'light' | 'dark'
-
-const THEME_KEY = 'adc.theme.v1'
-
-function loadTheme(): Theme {
-  try {
-    const t = localStorage.getItem(THEME_KEY)
-    if (t === 'light' || t === 'dark' || t === 'system') return t
-  } catch {
-    // Storage unavailable; fall back to following the OS.
-  }
-  return 'system'
-}
-
 export default function App() {
   const [state, setState] = useState<PersistedState>(loadState)
-  const [theme, setTheme] = useState<Theme>(loadTheme)
 
   const kit = BEAD_KITS.find((k) => k.id === state.kitId) ?? BEAD_KITS[0]
   const { standards, samples, options } = state
-
-  useEffect(() => {
-    if (theme === 'system') document.documentElement.removeAttribute('data-theme')
-    else document.documentElement.setAttribute('data-theme', theme)
-    try {
-      localStorage.setItem(THEME_KEY, theme)
-    } catch {
-      // Theme still applies for this session without persistence.
-    }
-  }, [theme])
 
   useEffect(() => {
     try {
@@ -146,20 +121,9 @@ export default function App() {
             beyond the regression shown.
           </p>
         </div>
-        <div className="toggle-theme">
-          <span className="eyebrow" style={{ whiteSpace: 'nowrap' }}>Bench tools</span>
-          <label className="visually-hidden" htmlFor="theme">Colour theme</label>
-          <select
-            id="theme"
-            value={theme}
-            style={{ width: 'auto' }}
-            onChange={(e) => setTheme(e.target.value as Theme)}
-          >
-            <option value="system">Auto</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-          </select>
-        </div>
+        <span className="eyebrow" style={{ paddingTop: 6, whiteSpace: 'nowrap' }}>
+          Bench tools
+        </span>
       </header>
 
       <div className="layout">

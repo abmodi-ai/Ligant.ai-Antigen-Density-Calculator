@@ -98,29 +98,18 @@ Two brand rules changed the design rather than just its colours:
   is reserved for system error. An extrapolation warning is a decision point,
   not a failure.
 
-### Dark theme — documented variance
+### Single theme, deliberately
 
-Light theme uses the published palette unchanged. Dark theme sits on the Navy
-ground (approved, §03) and carries a variance: three colours fall under the 3:1
-floor for a graphical object on Navy and needed dark-ground steps.
+The app is light-only, on the brand's Off-White ground, and every colour is a
+published value — nothing re-stepped, derived, or invented. The UI therefore
+carries **no brand variance and needs no sign-off**.
 
-| Role | Published | Dark step | Contrast on Navy |
-|---|---|---|---|
-| Data-viz teal | `#0D7C66` | `#33A78D` | 2.77:1 → 4.78:1 |
-| System error | `#C0392B` | `#D4786F` | 2.61:1 → 4.55:1 |
-| Muted text | `#8B8678` | `#959184` | 3.91:1 → 4.51:1 |
+Measured on Off-White: navy 13.3:1, slate body 8.3:1, muted 5.5:1, teal 4.8:1 —
+all AA or better for body text. Amber is 3.05:1, so it carries icons, rules, and
+marks, never small text.
 
-Amber needed no step. `#B8860B` measures 4.37:1 on Navy and clears every palette
-check unchanged, so the decision-moment colour is identical in both themes. Hues
-are preserved; only lightness moves.
-
-**This needs Design sign-off**, and the companion *Platform UI Design System*
-referenced in §08 may already define these tokens — if so, they supersede the
-values here.
-
-Measured on Off-White: navy 13.3:1, slate 8.3:1, muted 5.5:1, teal 4.8:1 — all AA
-or better for body text. Amber at 3.05:1 carries icons, rules, and marks, never
-small text.
+Backgrounds are painted explicitly rather than left transparent, so the page
+holds its own ground on any host, including a dark one.
 
 ## Stack
 

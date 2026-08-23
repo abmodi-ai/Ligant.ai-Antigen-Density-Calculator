@@ -1,19 +1,12 @@
 /**
  * Ligant Platform UI — tokens from Brand Guidelines v1.1.
  *
- * Light theme uses the published palette unchanged. Dark theme sits on the Navy
- * ground (an approved ground, SS03) and carries a DOCUMENTED VARIANCE: three
- * colours needed dark-ground steps because the published values fall under the
- * 3:1 floor for a graphical object on Navy.
+ * Every colour is the published value. Nothing is re-stepped, derived, or
+ * invented, so the UI needs no brand variance and no sign-off.
  *
- *   teal   #0D7C66 -> #33A78D   (2.77:1 -> 4.78:1)   data-viz, evidence
- *   error  #C0392B -> #D4786F   (2.61:1 -> 4.55:1)   system error only
- *   muted  #8B8678 -> #959184   (3.91:1 -> 4.51:1)   small secondary text
- *
- * Amber #B8860B needed no step: it measures 4.37:1 on Navy and clears every
- * palette check unchanged, so the decision-moment colour is identical in both
- * themes. Hues are preserved; only lightness moves. Pending sign-off against
- * the companion Platform UI Design System, which may define these already.
+ * Single theme by choice: the brand's ground is Off-White, and the identity is
+ * built on it. Backgrounds are painted explicitly rather than left transparent,
+ * so the page holds its own ground on any host — including a dark one.
  */
 
 :root {
@@ -429,85 +422,3 @@ details.options > summary::before { content: "+ "; color: var(--text-muted); fon
 details.options[open] > summary::before { content: "– "; }
 details.options > div { padding-top: 12px; display: flex; flex-direction: column; gap: 12px; }
 
-
-/* ---------- dark theme ---------- */
-/* Redefine tokens only; components are styled through them, never inside a
-   theme block. The media query covers the OS setting, the data-theme scope
-   covers the in-app toggle, and each must win over the other in its direction. */
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-
-    --page:           #14203A;
-    --surface:        var(--brand-navy);
-    --surface-sunken: #182642;
-    --surface-inset:  #223357;
-
-    --text-primary:   var(--brand-offwhite);  /* 13.3:1 */
-    --text-secondary: var(--neutral-300);     /* 9.4:1  */
-    --text-muted:     #959184;                /* 4.5:1  — derived */
-    --text-caption:   var(--neutral-500);
-
-    --border:        #2E4270;
-    --border-strong: #3A5183;
-    --grid:          #263A63;
-
-    --series-evidence: #33A78D;               /* derived dark step */
-    --series-decision: var(--brand-amber);    /* unchanged — 4.4:1 on navy */
-    --band-fill:       rgba(51, 167, 141, 0.18);
-
-    --magnitude-1: #3A5183;
-    --magnitude-2: var(--neutral-500);
-    --magnitude-3: var(--neutral-300);
-    --magnitude-4: var(--brand-offwhite);
-
-    --attention-wash: rgba(184, 134, 11, 0.16);
-    --error-wash:     rgba(212, 120, 111, 0.14);
-    --brand-error:    #D4786F;                /* derived dark step */
-  }
-}
-
-:root[data-theme="dark"] {
-  color-scheme: dark;
-
-  --page:           #14203A;
-  --surface:        var(--brand-navy);
-  --surface-sunken: #182642;
-  --surface-inset:  #223357;
-
-  --text-primary:   var(--brand-offwhite);
-  --text-secondary: var(--neutral-300);
-  --text-muted:     #959184;
-  --text-caption:   var(--neutral-500);
-
-  --border:        #2E4270;
-  --border-strong: #3A5183;
-  --grid:          #263A63;
-
-  --series-evidence: #33A78D;
-  --series-decision: var(--brand-amber);
-  --band-fill:       rgba(51, 167, 141, 0.18);
-
-  --magnitude-1: #3A5183;
-  --magnitude-2: var(--neutral-500);
-  --magnitude-3: var(--neutral-300);
-  --magnitude-4: var(--brand-offwhite);
-
-  --attention-wash: rgba(184, 134, 11, 0.16);
-  --error-wash:     rgba(212, 120, 111, 0.14);
-  --brand-error:    #D4786F;
-}
-
-/* The mark keeps its teal tile on both grounds; only the primary button needs a
-   hover that reads on navy. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) button.primary { background: var(--series-evidence); color: var(--brand-navy); }
-  :root:not([data-theme="light"]) button.primary:hover { background: #46B8A0; color: var(--brand-navy); }
-  :root:not([data-theme="light"]) .panel-head .step { background: var(--series-evidence); color: var(--brand-navy); }
-}
-:root[data-theme="dark"] button.primary { background: var(--series-evidence); color: var(--brand-navy); }
-:root[data-theme="dark"] button.primary:hover { background: #46B8A0; color: var(--brand-navy); }
-:root[data-theme="dark"] .panel-head .step { background: var(--series-evidence); color: var(--brand-navy); }
-
-.toggle-theme { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
