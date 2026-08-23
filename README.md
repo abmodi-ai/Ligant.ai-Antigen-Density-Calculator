@@ -98,18 +98,29 @@ Two brand rules changed the design rather than just its colours:
   is reserved for system error. An extrapolation warning is a decision point,
   not a failure.
 
-### Single theme, deliberately
+### Dark theme — documented variance
 
-The app ships light-only, on the brand's Off-White ground. A dark theme would
-need a Navy ground, and on Navy the primary data-viz teal `#0D7C66` measures
-**2.77:1** — below the 3:1 floor for a graphical object, as does the error red at
-2.61:1. Carrying a chart there would require re-stepped dark-ground values, which
-§08 does not grant. If the companion *Platform UI Design System* defines dark
-steps for teal and red, the theme can be restored from those tokens.
+Light theme uses the published palette unchanged. Dark theme sits on the Navy
+ground (approved, §03) and carries a variance: three colours fall under the 3:1
+floor for a graphical object on Navy and needed dark-ground steps.
 
-Measured on the Off-White ground: navy 13.3:1, slate body 8.3:1, muted 5.5:1,
-teal 4.8:1 — all AA or better for body text. Amber is 3.05:1, so it carries
-icons, rules, and marks, never small text.
+| Role | Published | Dark step | Contrast on Navy |
+|---|---|---|---|
+| Data-viz teal | `#0D7C66` | `#33A78D` | 2.77:1 → 4.78:1 |
+| System error | `#C0392B` | `#D4786F` | 2.61:1 → 4.55:1 |
+| Muted text | `#8B8678` | `#959184` | 3.91:1 → 4.51:1 |
+
+Amber needed no step. `#B8860B` measures 4.37:1 on Navy and clears every palette
+check unchanged, so the decision-moment colour is identical in both themes. Hues
+are preserved; only lightness moves.
+
+**This needs Design sign-off**, and the companion *Platform UI Design System*
+referenced in §08 may already define these tokens — if so, they supersede the
+values here.
+
+Measured on Off-White: navy 13.3:1, slate 8.3:1, muted 5.5:1, teal 4.8:1 — all AA
+or better for body text. Amber at 3.05:1 carries icons, rules, and marks, never
+small text.
 
 ## Stack
 
@@ -119,13 +130,22 @@ no dependency to rot.
 
 ## Deployment
 
-Pushing to the default branch runs the tests and deploys `dist/` to GitHub Pages
-via `.github/workflows/deploy.yml`. Enable it once under **Settings → Pages →
-Build and deployment → Source: GitHub Actions**; after that every push ships.
+`ci.yml` runs typecheck, tests, and both builds on every push, and uploads the
+result as an artifact. It is independent of hosting.
 
-The build uses relative asset paths, so it works from a repository sub-path or a
-custom domain without reconfiguration. There is no server to run and no cost at
-any traffic level.
+`deploy.yml` publishes `dist/` to GitHub Pages. **Pages is unavailable for
+private repositories on the GitHub Free plan**, so this workflow cannot succeed
+while the repository is private on a Free account — it fails at `configure-pages`
+regardless of the workflow definition. Either make the repository public, move
+the account to Pro, or host elsewhere.
+
+Any static host works: the build is plain files with relative asset paths, so it
+runs from a repository sub-path, a custom domain, or a subdirectory unchanged.
+Cloudflare Pages and Netlify both build private repositories on their free tiers
+with `npm run build` and a `dist` output directory.
+
+`npm run build:single` emits one self-contained HTML file that needs no server at
+all — useful for a quick host, an offline demo, or emailing to a collaborator.
 
 ## Status
 

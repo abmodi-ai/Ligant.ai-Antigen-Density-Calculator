@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc -b
+      - run: npm test
+      - run: npm run build
+      # The single-file build is the drop-anywhere copy: no server, no build
+      # step, useful for a quick host or an offline demo.
+      - run: npm run build:single
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: |
+            dist
+            dist-single

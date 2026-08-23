@@ -1,3 +1,7 @@
+# GitHub Pages is unavailable for private repositories on the Free plan, so
+# this workflow only succeeds once the repository is public (or the account is
+# on Pro/Team) AND Pages is switched on under Settings -> Pages. Until then it
+# fails at configure-pages; CI in ci.yml is what gates correctness.
 name: Deploy to GitHub Pages
 
 on:
@@ -25,7 +29,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm test
       - run: npm run build
       # Pages must be switched on once by a repository admin, under
       # Settings -> Pages -> Source: GitHub Actions. The default GITHUB_TOKEN

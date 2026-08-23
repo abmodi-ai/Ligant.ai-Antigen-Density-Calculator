@@ -247,7 +247,7 @@ export function StandardCurve({ curve, samples, assignedLabel, confidenceLevel }
           Calibration standards &amp; fit
         </span>
         <span className="legend-item">
-          <span className="legend-swatch" style={{ background: 'var(--brand-teal-pale)', border: '1px solid var(--border-strong)' }} />
+          <span className="legend-swatch" style={{ background: 'var(--band-fill)', border: '1px solid var(--series-evidence)' }} />
           {Math.round(confidenceLevel * 100)}% confidence band
         </span>
         {plottedSamples.length > 0 && (
