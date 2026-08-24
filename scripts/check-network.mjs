@@ -163,6 +163,42 @@ for (const [name, path] of [['antigen density', '/'], ['cytotoxicity', '/cytotox
     uiFailures.push(`${name}: SVG export failed (${String(e).slice(0, 70)})`)
   }
 
+  // Every guidance panel must be fully on screen. They are portalled out of the
+  // card that holds them precisely because that card clips its overflow, which
+  // once cut the panels off at the edges.
+  const guidanceSwitch = page.getByRole('switch', { name: /Guidance/i })
+  await guidanceSwitch.click()
+  await page.waitForTimeout(300)
+  const pins = page.locator('.guidance-pin-button')
+  const pinCount = await pins.count()
+  if (pinCount === 0) uiFailures.push(`${name}: guidance is on but no pins rendered`)
+  for (let i = 0; i < pinCount; i++) {
+    const pin = pins.nth(i)
+    await pin.scrollIntoViewIfNeeded().catch(() => {})
+    await pin.click()
+    await page.waitForTimeout(140)
+    const panel = await page.evaluate(() => {
+      const el = document.querySelector('.guidance-panel')
+      if (!el) return { missing: true }
+      const r = el.getBoundingClientRect()
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(r.height / 2, 40))
+      return {
+        label: el.querySelector('h4')?.textContent?.slice(0, 40) ?? 'untitled',
+        off:
+          r.left < 0 || r.top < 0 ||
+          r.right > window.innerWidth || r.bottom > window.innerHeight,
+        covered: !(hit && el.contains(hit)),
+      }
+    })
+    if (panel.missing) uiFailures.push(`${name}: a pin opened no panel`)
+    else if (panel.off) uiFailures.push(`${name}: guidance panel "${panel.label}" runs off screen`)
+    else if (panel.covered) uiFailures.push(`${name}: guidance panel "${panel.label}" is obscured`)
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(60)
+  }
+  await guidanceSwitch.click()
+  await page.waitForTimeout(200)
+
   // Narrowest common handset width.
   await page.setViewportSize({ width: 360, height: 900 })
   await page.waitForTimeout(500)
@@ -219,6 +255,7 @@ if (uiFailures.length > 0) {
 }
 
 if (failed) process.exit(1)
-console.log('Runtime checks passed: no request left the origin, both pages carry the privacy')
-console.log('disclosure and a main landmark, nothing is clipped at 360px, and an extreme input')
-console.log('cannot explode the chart.')
+console.log('Runtime checks passed: no request left the origin; both pages carry the privacy')
+console.log('disclosure and a main landmark; every guidance panel is fully on screen; the')
+console.log('exported SVG parses; nothing is clipped at 360px; and an extreme input cannot')
+console.log('explode the chart.')

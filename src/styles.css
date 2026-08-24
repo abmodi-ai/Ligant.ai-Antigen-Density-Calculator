@@ -509,13 +509,18 @@ details.options > div { padding-top: 12px; display: flex; flex-direction: column
 .guidance-pin-button[aria-expanded='true'] { background: var(--brand-teal); color: #fff; }
 
 .guidance-panel {
-  position: absolute;
-  top: calc(100% + 7px);
-  left: 0;
-  z-index: 40;
+  /* Fixed and portalled to the document, so no ancestor's overflow can clip it.
+     Position is computed against the viewport when the panel opens. */
+  position: fixed;
+  z-index: 60;
   display: block;
   width: max-content;
-  max-width: min(360px, calc(100vw - 40px));
+  max-width: min(360px, calc(100vw - 24px));
+  /* Several entries can share one anchor, and the total can exceed the viewport.
+     Cap the height and scroll inside rather than running off the screen. */
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 14px 16px;
   background: var(--surface);
   border: 1px solid var(--border-strong);
@@ -528,10 +533,8 @@ details.options > div { padding-top: 12px; display: flex; flex-direction: column
   white-space: normal;
   font-weight: 400;
 }
-.guidance-panel.align-right { left: auto; right: 0; }
 
 .guidance-entry + .guidance-entry {
-  display: block;
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--grid);
