@@ -1,36 +1,13 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { entriesFor, type AnchorId, type Block } from '../../lib/guidance/types'
+import { entriesFor, type AnchorId } from '../../lib/guidance/types'
 import { useGuidance } from './GuidanceProvider'
+import { BlockView } from './GuidanceBlocks'
+import { AskPanel } from './AskPanel'
 
 /** Distance from the pin, and the minimum gap kept from any viewport edge. */
 const OFFSET = 7
 const MARGIN = 12
-
-/** Renders *emphasis* without letting the corpus hold markup. */
-function withEmphasis(text: string) {
-  return text.split(/(\*[^*]+\*)/g).map((part, i) =>
-    part.startsWith('*') && part.endsWith('*') && part.length > 2 ? (
-      <strong key={i}>{part.slice(1, -1)}</strong>
-    ) : (
-      part
-    ),
-  )
-}
-
-function BlockView({ block }: { block: Block }) {
-  if (block.kind === 'list') {
-    return (
-      <ul>
-        {block.items.map((item, i) => (
-          <li key={i}>{withEmphasis(item)}</li>
-        ))}
-      </ul>
-    )
-  }
-  if (block.kind === 'note') return <p className="guidance-note">{withEmphasis(block.text)}</p>
-  return <p>{withEmphasis(block.text)}</p>
-}
 
 /**
  * A question mark beside a control, which opens an explanation.
@@ -45,7 +22,7 @@ function BlockView({ block }: { block: Block }) {
  * applies to this anchor under the current state, so a pin is never a dead end.
  */
 export function GuidancePin({ anchor, label }: { anchor: AnchorId; label?: string }) {
-  const { enabled, corpus, context } = useGuidance()
+  const { enabled, corpus, context, exchanges } = useGuidance()
   const [open, setOpen] = useState(false)
   const [placement, setPlacement] = useState<{ top: number; left: number } | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -86,7 +63,10 @@ export function GuidancePin({ anchor, label }: { anchor: AnchorId; label?: strin
       window.removeEventListener('scroll', place, true)
       window.removeEventListener('resize', place)
     }
-  }, [open])
+    // An answer changes the panel's height, so placement is recomputed with it.
+    // Without this a panel that opened downwards can grow off the bottom of the
+    // viewport as the thread fills.
+  }, [open, exchanges[anchor]?.length])
 
   useEffect(() => {
     if (!open) return
@@ -135,7 +115,8 @@ export function GuidancePin({ anchor, label }: { anchor: AnchorId; label?: strin
           <div
             ref={panelRef}
             id={panelId}
-            role="note"
+            role="group"
+            aria-label={`Guidance: ${title}`}
             className="guidance-panel"
             style={{
               top: placement?.top ?? 0,
@@ -152,6 +133,7 @@ export function GuidancePin({ anchor, label }: { anchor: AnchorId; label?: strin
                 ))}
               </div>
             ))}
+            <AskPanel anchor={anchor} shown={entries.map((e) => e.id)} />
           </div>,
           document.body,
         )}

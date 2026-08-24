@@ -572,6 +572,107 @@ details.options > div { padding-top: 12px; display: flex; flex-direction: column
   margin: 0;
 }
 .guidance-panel p + p, .guidance-panel ul + p { margin-top: 8px; }
+
+/* ---------- asking about a card ---------- */
+
+/* A form needs room the curated text does not, so the panel takes a floor as
+   well as a ceiling on its width. */
+.guidance-panel { min-width: min(320px, calc(100vw - 24px)); }
+
+.ask {
+  margin-top: 13px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.ask-exchange + .ask-exchange { margin-top: 12px; }
+
+.ask-question {
+  font-weight: 600;
+  color: var(--text-primary) !important;
+  margin-bottom: 7px !important;
+}
+
+/* Teal is evidence in this palette, and a retrieved passage is exactly that:
+   text already in the page, not a new claim. */
+.ask-answer {
+  border-left: 2px solid var(--series-evidence);
+  padding-left: 10px;
+  margin-top: 7px;
+}
+.ask-answer + .ask-answer { margin-top: 9px; }
+.ask-answer h5 {
+  margin: 0 0 5px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ask-scope {
+  margin-left: 7px;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
+}
+
+.ask-empty { color: var(--text-muted) !important; }
+
+/* A match the reader can already see, pointed at rather than repeated. */
+.ask-seen {
+  margin-top: 7px !important;
+  padding-left: 10px;
+  border-left: 2px solid var(--brand-teal-pale);
+  color: var(--text-secondary) !important;
+}
+
+.ask-form { margin-top: 11px; }
+.ask-form label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+.ask-row { display: flex; gap: 6px; }
+.ask-row input {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-primary);
+}
+.ask-row input:focus-visible { outline: 2px solid var(--brand-teal); outline-offset: 1px; }
+.ask-row button {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--brand-teal);
+  cursor: pointer;
+}
+.ask-row button:disabled { color: var(--text-caption); cursor: default; }
+
+.ask-footnote {
+  margin-top: 8px !important;
+  font-size: 11px !important;
+  color: var(--text-muted) !important;
+  line-height: 1.45 !important;
+}
+.ask-forget {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--brand-teal);
+  text-decoration: underline;
+  cursor: pointer;
+}
 .guidance-panel ul {
   margin: 8px 0 0;
   padding-left: 17px;

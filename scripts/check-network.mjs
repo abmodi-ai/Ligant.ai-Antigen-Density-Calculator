@@ -453,6 +453,108 @@ try {
 
 await page.evaluate(() => localStorage.clear())
 
+// ---------------------------------------------------------------------------
+// Asking a question at a card.
+//
+// Every answer is a passage already in the page, so the assertions are about
+// provenance rather than plausibility: what comes back must be a corpus title,
+// a question the corpus cannot answer must be declined rather than approximated,
+// and nothing the reader types may reach storage.
+// ---------------------------------------------------------------------------
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(600)
+await page.getByRole('switch', { name: /Guidance/i }).click()
+await page.waitForTimeout(400)
+
+let opened = false
+const askPins = page.locator('.guidance-pin-button')
+for (let i = 0; i < (await askPins.count()); i++) {
+  const label = await askPins.nth(i).getAttribute('aria-label')
+  if (/isotype|control/i.test(label ?? '')) {
+    await askPins.nth(i).click()
+    opened = true
+    break
+  }
+}
+if (!opened) uiFailures.push('antigen density: no guidance pin to ask a question at')
+else {
+  await page.waitForTimeout(400)
+  const form = page.locator('.guidance-panel .ask-row input')
+  if ((await form.count()) === 0) {
+    uiFailures.push('antigen density: the guidance panel offers no way to ask a question')
+  } else {
+    // A question the corpus answers.
+    await form.fill('isotype or FMO')
+    await page.locator('.guidance-panel .ask-row button').click()
+    await page.waitForTimeout(400)
+
+    // One it cannot.
+    const SECRET = 'how do I cite this tool'
+    await form.fill(SECRET)
+    await page.locator('.guidance-panel .ask-row button').click()
+    await page.waitForTimeout(400)
+
+    const ask = await page.evaluate(() => {
+      const panel = document.querySelector('.guidance-panel')
+      const exchanges = [...(panel?.querySelectorAll('.ask-exchange') ?? [])]
+      return {
+        exchanges: exchanges.length,
+        answered: exchanges.filter((e) => e.querySelector('.ask-answer, .ask-seen')).length,
+        declined: exchanges.filter((e) => e.querySelector('.ask-empty')).length,
+        // Every rendered answer must carry the heading of the passage it came
+        // from. A heading is what lets a reader see a near miss for what it is.
+        headless: [...(panel?.querySelectorAll('.ask-answer') ?? [])].filter(
+          (a) => !a.querySelector('h5')?.textContent?.trim(),
+        ).length,
+      }
+    })
+    if (ask.exchanges !== 2) uiFailures.push(`antigen density: ${ask.exchanges} exchanges rendered, expected 2`)
+    if (ask.answered !== 1) uiFailures.push('antigen density: a question the corpus answers was not answered')
+    if (ask.declined !== 1) {
+      uiFailures.push('antigen density: a question the corpus cannot answer was not declined')
+    }
+    if (ask.headless > 0) {
+      uiFailures.push(`antigen density: ${ask.headless} answer(s) rendered without the title of the passage they came from`)
+    }
+
+    // The panel grew by two exchanges and must still be on screen.
+    const grown = await page.evaluate(() => {
+      const el = document.querySelector('.guidance-panel')
+      if (!el) return null
+      const r = el.getBoundingClientRect()
+      return {
+        ok: r.top >= 0 && r.left >= 0 && r.bottom <= window.innerHeight && r.right <= window.innerWidth,
+        height: Math.round(r.height),
+      }
+    })
+    if (grown && !grown.ok) {
+      uiFailures.push(`antigen density: the panel ran off screen once answers were added (${grown.height}px)`)
+    }
+
+    // Nothing the reader typed may reach storage. A question can carry as much
+    // of their work as the data does.
+    const leaked = await page.evaluate((needle) => {
+      const found = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (!key) continue
+        if ((localStorage.getItem(key) ?? '').includes(needle)) found.push(key)
+      }
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i)
+        if (!key) continue
+        if ((sessionStorage.getItem(key) ?? '').includes(needle)) found.push(`session:${key}`)
+      }
+      return found
+    }, SECRET)
+    if (leaked.length > 0) {
+      uiFailures.push(`antigen density: a question the reader typed was written to storage (${leaked.join(', ')})`)
+    }
+  }
+}
+
+await page.evaluate(() => localStorage.clear())
+
 const fontsApplied = await page.evaluate(async () => {
   await document.fonts.ready
   return {
@@ -499,4 +601,7 @@ console.log('explode the chart; the reported unit is ABC rather than an unqualif
 console.log('count; every result discloses background as a share of gross while only a')
 console.log('material one is flagged; settings persisted by an earlier release restore without')
 console.log('raising a flag the user did not earn; an invalidated calibration reaches every')
-console.log('figure it invalidates; and the CSV export carries a machine-readable status.')
+console.log('figure it invalidates; a question the corpus cannot answer is declined rather')
+console.log('than approximated, every answer carries the title of the passage it came from,')
+console.log('and nothing the reader types reaches storage; and the CSV export carries a')
+console.log('machine-readable status.')
