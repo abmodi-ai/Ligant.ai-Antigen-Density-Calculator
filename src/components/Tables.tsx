@@ -1,57 +1,7 @@
 import type { BeadStandard, Sample } from '../lib/quantify'
+import { NumericCell as NumCell, parseNum } from './shared/NumericCell'
 
-/** Parse a user-typed number: allows thousands separators and scientific notation. */
-export function parseNum(raw: string): number | null {
-  const cleaned = raw.replace(/,/g, '').trim()
-  if (cleaned === '') return null
-  const v = Number(cleaned)
-  return Number.isFinite(v) ? v : null
-}
-
-function fmtInput(v: number | null): string {
-  return v === null ? '' : String(v)
-}
-
-/** Split a clipboard payload into a grid, accepting tab- or comma-separated text. */
-export function parseClipboardGrid(text: string): string[][] {
-  return text
-    .replace(/\r\n?/g, '\n')
-    .replace(/\n+$/, '')
-    .split('\n')
-    .map((line) => (line.includes('\t') ? line.split('\t') : line.split(',')))
-}
-
-interface NumCellProps {
-  value: number | null
-  onChange: (v: number | null) => void
-  onPasteGrid: (grid: string[][]) => void
-  placeholder?: string
-  ariaLabel: string
-}
-
-function NumCell({ value, onChange, onPasteGrid, placeholder, ariaLabel }: NumCellProps) {
-  return (
-    <input
-      type="text"
-      inputMode="decimal"
-      className={value !== null ? 'filled' : undefined}
-      style={{ fontVariantNumeric: 'tabular-nums' }}
-      value={fmtInput(value)}
-      placeholder={placeholder}
-      aria-label={ariaLabel}
-      onChange={(e) => onChange(parseNum(e.target.value))}
-      onPaste={(e) => {
-        const text = e.clipboardData.getData('text/plain')
-        const grid = parseClipboardGrid(text)
-        // Single scalar pastes fall through to normal input handling.
-        if (grid.length > 1 || grid[0]?.length > 1) {
-          e.preventDefault()
-          onPasteGrid(grid)
-        }
-      }}
-    />
-  )
-}
+export { parseNum, parseClipboardGrid } from './shared/NumericCell'
 
 interface StandardsTableProps {
   standards: BeadStandard[]

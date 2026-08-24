@@ -40,7 +40,10 @@ const TYPES = {
 }
 
 const server = createServer(async (req, res) => {
-  const path = req.url === '/' ? '/index.html' : req.url.split('?')[0]
+  // Resolve a directory to its index, the way a static host does, so the
+  // multi-page routes under /cytotoxicity/ behave here as they do in production.
+  let path = req.url.split('?')[0]
+  if (path.endsWith('/')) path += 'index.html'
   try {
     const body = await readFile(join('dist', path))
     res.writeHead(200, {
@@ -71,19 +74,28 @@ page.on('console', (m) => {
   if (/Content Security Policy|Refused to/i.test(m.text())) cspViolations.push(m.text())
 })
 
+// Every page in the suite, each exercised the way a user would, so that any
+// lazily triggered request fires.
 await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' })
 await page.waitForTimeout(1200)
-
-// Exercise the app the way a user would, so any lazily triggered request fires.
 await page.locator('#bg').selectOption('none')
 await page.locator('#valency').selectOption('monovalent')
 await page.locator('#conf').selectOption('0.99')
 await page.getByRole('button', { name: 'Clear all' }).click()
 await page.getByRole('button', { name: 'Load worked example' }).click()
-const mfi = page.locator('table').first().locator('input[inputmode="decimal"]').first()
-await mfi.fill('3000')
+await page.locator('table').first().locator('input[inputmode="decimal"]').first().fill('3000')
 await page.locator('details.options summary').first().click().catch(() => {})
-await page.waitForTimeout(1500)
+await page.waitForTimeout(1000)
+
+await page.goto(ORIGIN + '/cytotoxicity/', { waitUntil: 'networkidle' })
+await page.waitForTimeout(1200)
+await page.locator('#conf').selectOption('0.99')
+await page.locator('#pct').selectOption('other')
+await page.getByRole('button', { name: '+ Add construct' }).click()
+await page.locator('table').first().locator('input[inputmode="decimal"]').first().fill('0.2')
+await page.getByRole('button', { name: 'Clear all' }).click()
+await page.getByRole('button', { name: 'Load worked example' }).click()
+await page.waitForTimeout(1200)
 
 const fontsApplied = await page.evaluate(async () => {
   await document.fonts.ready

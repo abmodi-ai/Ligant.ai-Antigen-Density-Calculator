@@ -422,3 +422,30 @@ details.options > summary::before { content: "+ "; color: var(--text-muted); fon
 details.options[open] > summary::before { content: "-  "; }
 details.options > div { padding-top: 12px; display: flex; flex-direction: column; gap: 12px; }
 
+
+/* ---------- tool navigation ---------- */
+
+.tool-nav { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; flex-shrink: 0; }
+.tool-nav ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 4px; }
+.tool-nav li { display: flex; }
+.tool-nav a, .tool-nav [aria-current] {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.tool-nav a { color: var(--text-muted); }
+.tool-nav a:hover { color: var(--text-primary); background: var(--surface-inset); }
+.tool-nav [aria-current] {
+  color: var(--brand-teal);
+  background: var(--surface);
+  border-color: var(--border);
+}
+@media (max-width: 760px) {
+  .masthead { flex-direction: column; gap: 16px; }
+  .tool-nav { align-items: flex-start; }
+}

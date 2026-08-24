@@ -18,6 +18,9 @@
  */
 
 import { linearRegression, meanResponseInterval, type LinearFit } from './stats'
+import type { Flag, FlagLevel } from './flags'
+
+export type { Flag, FlagLevel }
 
 export type StandardKind = 'abc' | 'pe-molecules'
 export type BackgroundMode = 'abc' | 'mfi' | 'none'
@@ -57,13 +60,6 @@ export const DEFAULT_OPTIONS: QuantifyOptions = {
   backgroundMode: 'abc',
   valency: 'bivalent',
   confidenceLevel: 0.95,
-}
-
-export type FlagLevel = 'warning' | 'critical'
-
-export interface Flag {
-  level: FlagLevel
-  message: string
 }
 
 export interface CurveResult {

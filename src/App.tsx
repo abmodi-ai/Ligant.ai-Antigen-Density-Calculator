@@ -10,11 +10,13 @@ import {
   type Sample,
 } from './lib/quantify'
 import { exportChartSvg, exportResultsCsv } from './lib/export'
+import { formatR2 } from './lib/format'
 import { StandardCurve } from './components/StandardCurve'
 import { Results, FlagList } from './components/Results'
 import { StandardsTable, SamplesTable } from './components/Tables'
 import { Method } from './components/Method'
-import { LigantLockup, LigantMark } from './components/LigantMark'
+import { LigantMark } from './components/LigantMark'
+import { Masthead } from './components/shared/Masthead'
 
 const APP_VERSION = 'v0.1.0'
 const STORAGE_KEY = 'adc.state.v1'
@@ -111,20 +113,11 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="masthead">
-        <div>
-          <LigantLockup />
-          <h1>Antigen Density Calculator</h1>
-          <p>
-            Quantifies surface antigen density from flow cytometry median fluorescence intensity by
-            calibration against certified bead standards. All values are computed deterministically
-            by least-squares regression. No model or inference is applied beyond the reported fit.
-          </p>
-        </div>
-        <span className="eyebrow" style={{ paddingTop: 6, whiteSpace: 'nowrap' }}>
-          Bench tools
-        </span>
-      </header>
+      <Masthead current="antigen-density" title="Antigen Density Calculator">
+        Quantifies surface antigen density from flow cytometry median fluorescence intensity by
+        calibration against certified bead standards. All values are computed deterministically by
+        least-squares regression. No model or inference is applied beyond the reported fit.
+      </Masthead>
 
       <div className="layout">
         {/* ---------------- inputs ---------------- */}
@@ -287,7 +280,7 @@ export default function App() {
                 <div className="fit-stats">
                   <span>Slope <b>{curve.fit.slope.toFixed(3)}</b></span>
                   <span>Intercept <b>{curve.fit.intercept.toFixed(3)}</b></span>
-                  <span>R² <b>{curve.fit.r2.toFixed(4)}</b></span>
+                  <span>R² <b>{formatR2(curve.fit.r2)}</b></span>
                   <span>n <b>{curve.fit.n}</b></span>
                 </div>
                 {curve.flags.length > 0 && (
