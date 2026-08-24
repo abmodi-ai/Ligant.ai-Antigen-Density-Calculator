@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { meanResponseInterval } from '../lib/stats'
+import { decadeTicks, formatDecade, minorTicks } from '../lib/axis'
 import { formatNumber, type CurveResult, type SampleResult, type Sample } from '../lib/quantify'
 
 const W = 580
@@ -25,36 +26,6 @@ interface Hover {
   y: number
   title: string
   lines: string[]
-}
-
-/** Nice decade ticks spanning [lo, hi] in log10 space. */
-function decadeTicks(lo: number, hi: number): number[] {
-  const first = Math.floor(lo)
-  const last = Math.ceil(hi)
-  const ticks: number[] = []
-  for (let d = first; d <= last; d++) if (d >= lo - 1e-9 && d <= hi + 1e-9) ticks.push(d)
-  return ticks
-}
-
-/** Minor (2..9 × 10^n) ticks, drawn only when the axis spans few decades. */
-function minorTicks(lo: number, hi: number): number[] {
-  const out: number[] = []
-  for (let d = Math.floor(lo); d <= Math.ceil(hi); d++) {
-    for (let m = 2; m <= 9; m++) {
-      const v = d + Math.log10(m)
-      if (v >= lo && v <= hi) out.push(v)
-    }
-  }
-  return out
-}
-
-function formatDecade(logValue: number): string {
-  const v = 10 ** logValue
-  if (v >= 1000) {
-    const exp = Math.round(logValue)
-    return `10${String(exp).replace(/\d/g, (d) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[Number(d)])}`
-  }
-  return v >= 1 ? String(Math.round(v)) : v.toPrecision(1)
 }
 
 export function StandardCurve({ curve, samples, assignedLabel, confidenceLevel }: Props) {

@@ -17,6 +17,7 @@ import { StandardsTable, SamplesTable } from './components/Tables'
 import { Method } from './components/Method'
 import { LigantMark } from './components/LigantMark'
 import { Masthead } from './components/shared/Masthead'
+import { SkipLink } from './components/shared/SkipLink'
 import { GuidanceProvider } from './components/guidance/GuidanceProvider'
 import { GuidancePin } from './components/guidance/GuidancePin'
 import { ANTIGEN_DENSITY_GUIDANCE } from './lib/guidance/corpus/antigen-density'
@@ -143,12 +144,14 @@ export default function App() {
   return (
     <GuidanceProvider corpus={CORPUS} context={guidanceContext}>
     <div className="app">
+      <SkipLink />
       <Masthead current="antigen-density" title="Antigen Density Calculator">
         Quantifies surface antigen density from flow cytometry median fluorescence intensity by
         calibration against certified bead standards. All values are computed deterministically by
         least-squares regression. No model or inference is applied beyond the reported fit.
       </Masthead>
 
+      <main id="main">
       <div className="layout">
         {/* ---------------- inputs ---------------- */}
         <div className="stack">
@@ -395,6 +398,8 @@ export default function App() {
           </section>
         </div>
       </div>
+
+      </main>
 
       <p className="disclaimer">
         <strong>Research use only. Not for clinical or diagnostic decision-making.</strong>{' '}

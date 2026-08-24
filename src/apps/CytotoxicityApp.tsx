@@ -14,6 +14,7 @@ import { CytotoxTables } from '../components/CytotoxTables'
 import { DoseResponseCurve } from '../components/DoseResponseCurve'
 import { FlagList } from '../components/Results'
 import { Masthead } from '../components/shared/Masthead'
+import { SkipLink } from '../components/shared/SkipLink'
 import { GuidanceProvider } from '../components/guidance/GuidanceProvider'
 import { GuidancePin } from '../components/guidance/GuidancePin'
 import { CYTOTOXICITY_GUIDANCE } from '../lib/guidance/corpus/cytotoxicity'
@@ -22,7 +23,8 @@ import type { ToolContext } from '../lib/guidance/types'
 
 const CORPUS = [...CYTOTOXICITY_GUIDANCE, ...SHARED_GUIDANCE]
 import { LigantMark } from '../components/LigantMark'
-import { exportChartSvg } from '../lib/export'
+import { exportChartSvg, exportCytotoxCsv } from '../lib/export'
+import { CytotoxMethod } from '../components/CytotoxMethod'
 
 const APP_VERSION = 'v0.1.0'
 const STORAGE_KEY = 'cyto.state.v1'
@@ -111,12 +113,14 @@ export default function CytotoxicityApp() {
   return (
     <GuidanceProvider corpus={CORPUS} context={guidanceContext}>
     <div className="app">
+      <SkipLink />
       <Masthead current="cytotoxicity" title="Cytotoxicity Curve Fitter">
         Fits a four parameter logistic to dose response data and reports potency with a confidence
         interval. Fitting is by Levenberg-Marquardt on a log dose axis. All values are computed
         deterministically. No model or inference is applied beyond the reported fit.
       </Masthead>
 
+      <main id="main">
       <div className="layout">
         <div className="stack">
           <section className="panel">
@@ -230,6 +234,19 @@ export default function CytotoxicityApp() {
               </p>
             </div>
           </section>
+
+          <CytotoxMethod
+            storageKeys={[STORAGE_KEY]}
+            onClearStorage={() => {
+              try {
+                localStorage.removeItem(STORAGE_KEY)
+              } catch {
+                // Nothing was persisted, so there is nothing to remove.
+              }
+              setUndoState(state)
+              setState({ matrix: emptyMatrix(), options: { ...DEFAULT_CYTOTOX_OPTIONS } })
+            }}
+          />
         </div>
 
         <div className="rail">
@@ -246,6 +263,40 @@ export default function CytotoxicityApp() {
           <section className="panel">
             <div className="panel-head">
               <div className="titles"><h2>Potency</h2><GuidancePin anchor="cy.potency" /></div>
+              {analyses.some((a) => a.fit) && (
+                <button
+                  className="primary"
+                  onClick={() =>
+                    exportCytotoxCsv(
+                      {
+                        doseLabel: options.doseLabel,
+                        responseLabel: options.responseLabel,
+                        responseIsPercent: options.responseIsPercent,
+                        confidenceLevel: options.confidenceLevel,
+                        appVersion: APP_VERSION,
+                        series: analyses.map((a) => ({
+                          label: a.series.label,
+                          points: a.series.points.map((p) => ({ dose: p.dose, response: p.response })),
+                          ec50: a.fit?.ec50 ?? null,
+                          ec50Lower: a.fit?.ec50Lower ?? null,
+                          ec50Upper: a.fit?.ec50Upper ?? null,
+                          potencyLabel: a.potencyLabel,
+                          hill: a.fit?.params.hill ?? null,
+                          top: a.fit?.params.top ?? null,
+                          bottom: a.fit?.params.bottom ?? null,
+                          r2: a.fit?.r2 ?? null,
+                          n: a.fit?.n ?? null,
+                          converged: a.fit?.converged ?? null,
+                          flags: a.flags.map((f) => f.message),
+                        })),
+                      },
+                      'cytotoxicity-results.csv',
+                    )
+                  }
+                >
+                  Export CSV
+                </button>
+              )}
             </div>
             <div className="panel-body">
               {analyses.length === 0 && <div className="empty">Add a construct to fit a curve.</div>}
@@ -291,6 +342,8 @@ export default function CytotoxicityApp() {
           </section>
         </div>
       </div>
+
+      </main>
 
       <p className="disclaimer">
         <strong>Research use only. Not for clinical or diagnostic decision-making.</strong>{' '}

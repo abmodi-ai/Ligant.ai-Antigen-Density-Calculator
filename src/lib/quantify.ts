@@ -253,6 +253,15 @@ export function quantifySample(
     })
   }
 
+  if (netAbc > MAX_PLAUSIBLE_DENSITY) {
+    flags.push({
+      level: 'critical',
+      message: `Result (${formatNumber(netAbc)}) exceeds any physically plausible antigen density. A cell surface accommodates on the order of 10⁷ antibody footprints.`,
+      remedy:
+        'Check the entered MFI for a transcription error, particularly a misplaced decimal point or an exponent. This figure is not a measurement.',
+    })
+  }
+
   const sitesLow = netAbc
   const sitesHigh = options.valency === 'bivalent' ? netAbc * 2 : netAbc
 
@@ -334,8 +343,20 @@ export function confidenceLabel(level: number): string {
   return `${rounded}% CI`
 }
 
+/**
+ * A cell surface can accommodate roughly ten million antibody footprints. Above
+ * that a figure is arithmetic rather than measurement, and almost always a
+ * transcription error in the entered MFI.
+ */
+export const MAX_PLAUSIBLE_DENSITY = 2e7
+
+/** Beyond this a value is shown in scientific notation instead of in full. */
+const SCIENTIFIC_ABOVE = 1e9
+
 export function formatNumber(v: number): string {
   if (!Number.isFinite(v)) return 'n/a'
+  // Rendering an absurd value in full breaks the layout it sits in.
+  if (Math.abs(v) >= SCIENTIFIC_ABOVE) return v.toExponential(2)
   if (v >= 10_000) return Math.round(v).toLocaleString('en-US')
   if (v >= 100) return v.toFixed(0)
   if (v >= 10) return v.toFixed(1)

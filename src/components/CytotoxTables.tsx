@@ -59,6 +59,7 @@ export function CytotoxTables({ matrix, doseLabel, onChange }: Props) {
   return (
     <>
       <table>
+        <caption>Dose and response values, one column per construct</caption>
         <thead>
           <tr>
             <th className="num">{doseLabel}<GuidancePin anchor="cy.dose" /></th>

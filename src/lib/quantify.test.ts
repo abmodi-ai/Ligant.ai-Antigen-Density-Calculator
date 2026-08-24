@@ -4,6 +4,7 @@ import {
   bandFor,
   confidenceLabel,
   fitStandardCurve,
+  formatNumber,
   quantifySample,
   type BeadStandard,
   type CurveResult,
@@ -211,5 +212,45 @@ describe('confidenceLabel', () => {
 
   it('keeps a fractional level readable', () => {
     expect(confidenceLabel(0.975)).toBe('97.5% CI')
+  })
+})
+
+describe('formatNumber', () => {
+  it('renders ordinary magnitudes plainly', () => {
+    expect(formatNumber(35_636)).toBe('35,636')
+    expect(formatNumber(632)).toBe('632')
+    expect(formatNumber(1.5)).toBe('1.50')
+  })
+
+  it('switches to scientific notation rather than printing hundreds of digits', () => {
+    // A misplaced exponent used to render 306 digits and burst the result card.
+    const absurd = formatNumber(5.7e302)
+    expect(absurd.length).toBeLessThan(12)
+    expect(absurd).toMatch(/e\+?302/)
+  })
+
+  it('reports a non-finite value rather than NaN', () => {
+    expect(formatNumber(Number.NaN)).toBe('n/a')
+    expect(formatNumber(Number.POSITIVE_INFINITY)).toBe('n/a')
+  })
+})
+
+describe('plausibility ceiling', () => {
+  it('flags a density no cell surface could carry', () => {
+    const beads: BeadStandard[] = [
+      { id: 'a', label: '1', mfi: 100, assigned: 1_000, included: true },
+      { id: 'b', label: '2', mfi: 1_000, assigned: 10_000, included: true },
+      { id: 'c', label: '3', mfi: 10_000, assigned: 100_000, included: true },
+      { id: 'd', label: '4', mfi: 50_000, assigned: 500_000, included: true },
+    ]
+    const fitted = fitStandardCurve(beads)
+    if ('error' in fitted) throw new Error(fitted.error)
+    const r = quantifySample(
+      { id: 's', label: 'S', mfi: 1e300, controlMfi: null },
+      fitted,
+      DEFAULT_OPTIONS,
+    )
+    expect(r.flags.some((f) => /physically plausible/.test(f.message))).toBe(true)
+    expect(r.flags.every((f) => f.remedy)).toBe(true)
   })
 })

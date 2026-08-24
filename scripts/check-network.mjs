@@ -1,12 +1,20 @@
 /**
- * Proves, at runtime, that the application contacts no third party.
+ * Runtime assertions against the production build, in a real browser.
  *
- * Serves the production build, drives a full user session in a real browser, and
- * fails if any request targets an origin other than the one serving the page.
- * String scanning cannot establish this; only observing the browser can.
+ * The original and most important of these is that the application contacts no
+ * third party: string scanning cannot establish that, only observing the browser
+ * can. The CSP from public/_headers is applied as a real response header, so
+ * this also confirms the policy does not break the app.
  *
- * The CSP from public/_headers is applied as a real response header, so this
- * also confirms the policy does not break the app.
+ * The remaining assertions are regressions found during a pre-launch audit,
+ * pinned here so they cannot return:
+ *
+ *   - every page carries the privacy disclosure, since privacy is the product's
+ *     central claim and a tool that quietly lacked it would undercut the rest
+ *   - every page exposes a main landmark and a skip link
+ *   - nothing overflows horizontally at 360px, tables included
+ *   - an extreme numeric input cannot explode the chart, which once turned a
+ *     39 element plot into 729 gridlines and an unreadable smear
  */
 
 import { chromium } from 'playwright'
@@ -97,6 +105,54 @@ await page.getByRole('button', { name: 'Clear all' }).click()
 await page.getByRole('button', { name: 'Load worked example' }).click()
 await page.waitForTimeout(1200)
 
+// ---- pre-launch regressions ------------------------------------------------
+
+const uiFailures = []
+
+for (const [name, path] of [['antigen density', '/'], ['cytotoxicity', '/cytotoxicity/']]) {
+  await page.goto(ORIGIN + path, { waitUntil: 'networkidle' })
+  await page.waitForTimeout(900)
+
+  const structure = await page.evaluate(() => ({
+    hasMain: !!document.querySelector('main#main'),
+    hasSkipLink: !!document.querySelector('a.skip-link'),
+    // The disclosure is rendered by one shared component in both tools.
+    hasPrivacy: /contacts no third party at all/i.test(document.body.innerText),
+    hasClearStorage: !!document.body.innerText.match(/Clear stored data/),
+  }))
+  if (!structure.hasMain) uiFailures.push(`${name}: no main landmark`)
+  if (!structure.hasSkipLink) uiFailures.push(`${name}: no skip link`)
+  if (!structure.hasPrivacy) uiFailures.push(`${name}: privacy disclosure missing`)
+  if (!structure.hasClearStorage) uiFailures.push(`${name}: no control to clear stored data`)
+
+  // An extreme value must coarsen the axis, not multiply it.
+  const before = await page.evaluate(() => document.querySelectorAll('svg.chart line').length)
+  const numeric = page.locator('input[inputmode="decimal"]')
+  await numeric.first().fill('1e300')
+  await page.waitForTimeout(600)
+  const after = await page.evaluate(() => document.querySelectorAll('svg.chart line').length)
+  if (after > 80) {
+    uiFailures.push(`${name}: chart drew ${after} lines after an extreme input (was ${before})`)
+  }
+
+  // Narrowest common handset width.
+  await page.setViewportSize({ width: 360, height: 900 })
+  await page.waitForTimeout(500)
+  const overflow = await page.evaluate(() => {
+    const wide = [...document.querySelectorAll('table')]
+      .filter((t) => t.scrollWidth > t.parentElement.clientWidth + 2)
+      .filter((t) => getComputedStyle(t.parentElement).overflowX === 'visible')
+      .map((t) => t.querySelector('caption')?.textContent ?? 'untitled table')
+    return { page: document.documentElement.scrollWidth > window.innerWidth, clipped: wide }
+  })
+  if (overflow.page) uiFailures.push(`${name}: page scrolls horizontally at 360px`)
+  for (const t of overflow.clipped) uiFailures.push(`${name}: "${t}" is clipped at 360px`)
+  await page.setViewportSize({ width: 1280, height: 900 })
+}
+
+await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' })
+await page.waitForTimeout(600)
+
 const fontsApplied = await page.evaluate(async () => {
   await document.fonts.ready
   return {
@@ -128,6 +184,13 @@ if (!fontsApplied.inter || !fontsApplied.plex) {
   console.error('\nFAIL: a self-hosted typeface did not load under the production CSP.')
   failed = true
 }
+if (uiFailures.length > 0) {
+  console.error(`\nFAIL: ${uiFailures.length} pre-launch regression(s):`)
+  for (const f of uiFailures) console.error('  ' + f)
+  failed = true
+}
 
 if (failed) process.exit(1)
-console.log('Network check passed: zero requests left the origin during a full session.')
+console.log('Runtime checks passed: no request left the origin, both pages carry the privacy')
+console.log('disclosure and a main landmark, nothing is clipped at 360px, and an extreme input')
+console.log('cannot explode the chart.')

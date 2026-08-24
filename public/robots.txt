@@ -1,0 +1,5 @@
+# Ligant Bench Tools. Free tools for cell and gene therapy research.
+User-agent: *
+Allow: /
+
+Sitemap: https://ligant-tools.pages.dev/sitemap.xml

@@ -192,6 +192,8 @@ export function analyseAll(series: Series[], options: CytotoxOptions): SeriesAna
 
 export function formatDose(v: number): string {
   if (!Number.isFinite(v)) return 'n/a'
+  // Rendering an absurd value in full breaks the layout it sits in.
+  if (Math.abs(v) >= 1e9) return v.toExponential(2)
   if (v >= 1000) return Math.round(v).toLocaleString('en-US')
   if (v >= 10) return v.toFixed(1)
   if (v >= 1) return v.toFixed(2)

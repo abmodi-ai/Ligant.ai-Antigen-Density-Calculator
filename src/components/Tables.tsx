@@ -41,6 +41,7 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
   return (
     <>
       <table>
+        <caption>Calibration bead standards</caption>
         <thead>
           <tr>
             <th style={{ width: '1%' }}>
@@ -158,6 +159,7 @@ export function SamplesTable({ samples, showControl, onChange }: SamplesTablePro
   return (
     <>
       <table>
+        <caption>Samples and their control readings</caption>
         <thead>
           <tr>
             <th>Sample</th>

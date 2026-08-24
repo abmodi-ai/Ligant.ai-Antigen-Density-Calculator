@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { predict } from '../lib/doseresponse'
+import { decadeTicks, formatDecade } from '../lib/axis'
 import { formatDose, formatResponse, type CytotoxOptions, type SeriesAnalysis } from '../lib/cytotox'
 
 const W = 580
@@ -41,22 +42,6 @@ function markerPath(shape: Shape, x: number, y: number, r = 4.5): string {
 }
 
 const OPEN_SHAPES = new Set<Shape>(['plus', 'cross'])
-
-function decadeTicks(lo: number, hi: number): number[] {
-  const out: number[] = []
-  for (let d = Math.floor(lo); d <= Math.ceil(hi); d++) if (d >= lo - 1e-9 && d <= hi + 1e-9) out.push(d)
-  return out
-}
-
-function formatDecade(logValue: number): string {
-  const v = 10 ** logValue
-  if (v >= 1000 || v < 0.01) {
-    const exp = Math.round(logValue)
-    const digits = String(Math.abs(exp)).replace(/\d/g, (d) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[Number(d)])
-    return `10${exp < 0 ? '⁻' : ''}${digits}`
-  }
-  return v >= 1 ? String(v) : String(Number(v.toPrecision(2)))
-}
 
 function niceTicks(lo: number, hi: number, count = 5): number[] {
   const span = hi - lo

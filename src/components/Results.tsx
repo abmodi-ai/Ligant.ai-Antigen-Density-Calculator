@@ -136,7 +136,9 @@ export function Results({ entries, valency, confidenceLevel }: Props) {
               density than cytokine release or proliferation. Determine the threshold empirically for
               the construct in use.
             </p>
+            <div className="table-scroll">
             <table style={{ marginTop: 4 }}>
+              <caption>Density bands and their interpretation</caption>
               <tbody>
                 {DENSITY_BANDS.map((b) => (
                   <tr key={b.id}>
@@ -156,6 +158,7 @@ export function Results({ entries, valency, confidenceLevel }: Props) {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </details>
       )}
