@@ -178,3 +178,102 @@ export function meanResponseInterval(
   const halfWidth = tCritical(level, fit.df) * se
   return { fitted, lower: fitted - halfWidth, upper: fitted + halfWidth, halfWidth }
 }
+
+/**
+ * Significance of a quadratic term, for testing whether a calibration is
+ * straight in the space it is fitted in.
+ *
+ * A curved standard biases every value converted through it, and neither of the
+ * checks that look like they would catch it does. Symmetric curvature leaves
+ * the overall slope at unity, because the departures at the two ends cancel,
+ * and leaves R squared high, because a parabola over a short range is mostly
+ * line. A curve whose local slope runs from 1.16 at the low end to 0.84 at the
+ * high end fits with slope 1.0000 and R squared 0.998.
+ *
+ * Magnitude is what makes this test worth running where a runs test on the
+ * residual signs is not: a sign test discards how far each point sits from the
+ * line, which is the whole of the evidence at these sample sizes.
+ *
+ * Fitted on x centred about its mean. Centring leaves the quadratic coefficient
+ * unchanged and conditions the normal equations, whose closed-form solution is
+ * used here rather than a general solver.
+ */
+export interface CurvatureTest {
+  /** Quadratic coefficient. Its sign is the direction of the bend. */
+  quadratic: number
+  standardError: number
+  t: number
+  df: number
+  /** Two-sided p-value for the quadratic coefficient being zero. */
+  p: number
+  /** Local slope at the low and high ends of the fitted range. */
+  slopeAtLow: number
+  slopeAtHigh: number
+  /** Change in local slope across the range: the readable form of `quadratic`. */
+  slopeDrift: number
+}
+
+/**
+ * Test a quadratic term against a straight line. Null where the design cannot
+ * support one: fewer than four points leaves no residual degrees of freedom,
+ * and a degenerate spread of x has no quadratic to estimate.
+ */
+export function quadraticCurvature(xs: number[], ys: number[]): CurvatureTest | null {
+  const n = xs.length
+  if (n !== ys.length || n < 4) return null
+
+  const meanX = xs.reduce((a, b) => a + b, 0) / n
+  const centred = xs.map((x) => x - meanX)
+
+  const s2 = centred.reduce((a, x) => a + x * x, 0)
+  const s3 = centred.reduce((a, x) => a + x * x * x, 0)
+  const s4 = centred.reduce((a, x) => a + x * x * x * x, 0)
+  const denominator = s4 - (s2 * s2) / n
+  if (!(s2 > 0) || !(Math.abs(denominator) > 0)) return null
+
+  const t0 = ys.reduce((a, y) => a + y, 0)
+  const t1 = centred.reduce((a, x, i) => a + x * ys[i], 0)
+  const t2 = centred.reduce((a, x, i) => a + x * x * ys[i], 0)
+
+  const linear = t1 / s2
+  const quadratic = (t2 - (s2 * t0) / n - s3 * linear) / denominator
+  const constant = (t0 - s2 * quadratic) / n
+
+  const df = n - 3
+  const sse = centred.reduce((acc, x, i) => {
+    const residual = ys[i] - (constant + linear * x + quadratic * x * x)
+    return acc + residual * residual
+  }, 0)
+
+  // (X'X)^-1 at the quadratic term, for the standard error of its coefficient.
+  const determinant = n * (s2 * s4 - s3 * s3) - s2 * s2 * s2
+  if (!(Math.abs(determinant) > 0)) return null
+  const variance = ((sse / df) * (n * s2)) / determinant
+  if (!(variance > 0)) {
+    // An exactly quadratic fit leaves no residual, so the term is certain.
+    return {
+      quadratic,
+      standardError: 0,
+      t: quadratic === 0 ? 0 : Infinity,
+      df,
+      p: quadratic === 0 ? 1 : 0,
+      slopeAtLow: linear + 2 * quadratic * (Math.min(...centred)),
+      slopeAtHigh: linear + 2 * quadratic * (Math.max(...centred)),
+      slopeDrift: 2 * quadratic * (Math.max(...xs) - Math.min(...xs)),
+    }
+  }
+
+  const standardError = Math.sqrt(variance)
+  const t = quadratic / standardError
+
+  return {
+    quadratic,
+    standardError,
+    t,
+    df,
+    p: 2 * (1 - studentTCdf(Math.abs(t), df)),
+    slopeAtLow: linear + 2 * quadratic * Math.min(...centred),
+    slopeAtHigh: linear + 2 * quadratic * Math.max(...centred),
+    slopeDrift: 2 * quadratic * (Math.max(...xs) - Math.min(...xs)),
+  }
+}

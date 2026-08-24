@@ -17,7 +17,13 @@
  * Every function here is pure and deterministic.
  */
 
-import { linearRegression, meanResponseInterval, type LinearFit } from './stats'
+import {
+  linearRegression,
+  meanResponseInterval,
+  quadraticCurvature,
+  type CurvatureTest,
+  type LinearFit,
+} from './stats'
 import type { Flag, FlagLevel } from './flags'
 
 export type { Flag, FlagLevel }
@@ -87,6 +93,12 @@ export interface CurveResult {
   assignedRange: [number, number]
   /** Per-population departure from the fitted line. */
   residuals: CurveResidual[]
+  /**
+   * Test of a quadratic term against the straight line, where the standard has
+   * enough populations to support one. Null below that, and null is the absence
+   * of a test rather than the absence of curvature.
+   */
+  curvature: CurvatureTest | null
   flags: Flag[]
 }
 
@@ -98,16 +110,13 @@ export interface CurveResult {
  * 0.9995. The per-population residual is what identifies which vial entry to
  * check, so it is computed here rather than left to the reader.
  *
- * Deliberately no runs test on the residual signs, though the tool does allow
- * enough populations to make one arithmetically possible. A runs test detects
- * too FEW runs, and the exact null distribution gives it almost no power at the
- * sizes a bead kit supplies: the textbook curvature signature, one positive
- * residual at each end and negatives between, scores p = 0.40 at six
- * populations and p = 0.29 at eight. It does not reach 0.05 until ten. A check
- * that cannot fire on the data it will see reads as coverage without being any,
- * which is worse than its absence. If curvature is worth detecting later, the
- * test is the significance of a quadratic term, which uses residual magnitude
- * rather than discarding it for sign.
+ * Deliberately no runs test on the residual signs. A runs test detects too FEW
+ * runs, and the exact null distribution gives it almost no power at the sizes a
+ * bead kit supplies: the textbook curvature signature, one positive residual at
+ * each end and negatives between, scores p = 0.40 at six populations and
+ * p = 0.29 at eight, and does not reach 0.05 until ten. Curvature is tested
+ * instead by the significance of a quadratic term, which uses how far each
+ * point sits from the line rather than discarding that for its sign.
  */
 export interface CurveResidual {
   label: string
@@ -165,6 +174,21 @@ export interface SampleResult {
 /** log-log slope far from unity indicates detector or staining non-linearity. */
 const SLOPE_TOLERANCE = 0.15
 const MIN_R2 = 0.98
+
+/**
+ * Populations required before the curvature test is run at all.
+ *
+ * Six leaves three residual degrees of freedom, where the smallest detectable
+ * drift in local slope across a typical calibrated range is about 0.31. Five
+ * leaves two, where it is 0.44, and four leaves one, where it is 1.38: a bend
+ * no calibration could survive and no user would need telling about. Running
+ * the test there would report "no curvature detected" on curves it has no
+ * ability to detect curvature in.
+ */
+const MIN_CURVATURE_POPULATIONS = 6
+
+/** Two-sided level for the quadratic term. */
+const CURVATURE_ALPHA = 0.05
 
 /** Fit the calibration curve in log10-log10 space, in the beads' own certified units. */
 export function fitStandardCurve(standards: BeadStandard[]): CurveResult | { error: string } {
@@ -252,6 +276,22 @@ export function fitStandardCurve(standards: BeadStandard[]): CurveResult | { err
     }
   })
 
+  // Curvature last, because it is the check the other two are blind to: a
+  // symmetric bend leaves the overall slope at unity and R squared high, so a
+  // curve can clear both and still convert every value with a bias that changes
+  // sign across the range.
+  const curvature =
+    usable.length >= MIN_CURVATURE_POPULATIONS ? quadraticCurvature(logMfi, logAssigned) : null
+
+  if (curvature && curvature.p < CURVATURE_ALPHA) {
+    flags.push({
+      level: 'warning',
+      message: `The standard is not straight in log-log space. Its local slope runs from ${curvature.slopeAtLow.toFixed(2)} at the low end to ${curvature.slopeAtHigh.toFixed(2)} at the high end, a drift of ${Math.abs(curvature.slopeDrift).toFixed(2)} across the calibrated range (quadratic term p = ${curvature.p < 0.001 ? '< 0.001' : curvature.p.toFixed(3)}).`,
+      remedy:
+        'A curved standard biases every value converted through it, and the bias changes sign across the range. Neither the slope nor R² reveals it, because a symmetric bend leaves the overall slope at unity and most of a parabola over this range is line. Look for detector non-linearity: lower the voltage if the brightest population approaches the top of the scale, confirm compensation was applied identically to beads and cells, and check that no population is off-scale at either end.',
+    })
+  }
+
   return {
     fit,
     logMfi,
@@ -259,6 +299,7 @@ export function fitStandardCurve(standards: BeadStandard[]): CurveResult | { err
     mfiRange: [Math.min(...mfis), Math.max(...mfis)],
     assignedRange: [Math.min(...assigned), Math.max(...assigned)],
     residuals,
+    curvature,
     flags,
   }
 }

@@ -62,6 +62,11 @@ The tool refuses to be quietly wrong. It flags:
 - sample MFI outside the bead range (extrapolated, not quantitative)
 - R² below 0.98
 - log-log slope more than 0.15 from unity (detector or compensation problem)
+- a standard that is not straight in log-log space, tested by the significance
+  of a quadratic term and reported as the drift in local slope across the range.
+  A symmetric bend leaves the overall slope at unity and R² high, so neither of
+  those catches it. Requires six populations; below that the test has no power
+  and is not run
 - assigned values not increasing with MFI (transposed rows)
 - a fit resting on three populations, leaving one degree of freedom
 - background at or above sample signal, reported as below detection

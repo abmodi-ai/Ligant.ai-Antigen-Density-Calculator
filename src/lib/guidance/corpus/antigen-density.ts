@@ -184,6 +184,29 @@ export const ANTIGEN_DENSITY_GUIDANCE: GuidanceEntry[] = [
     ],
   },
   {
+    id: 'ad.curve.straight',
+    anchor: 'ad.curve',
+    title: 'Is my standard actually a straight line?',
+    body: [
+      {
+        kind: 'p',
+        text: 'The calibration assumes the relationship between log MFI and log assigned value is a straight line. A standard that bends biases every value converted through it, and the bias changes sign across the range: too high at one end, too low at the other.',
+      },
+      {
+        kind: 'p',
+        text: 'Neither of the two figures you would reach for reveals it. A symmetric bend leaves the *overall slope at unity*, because the departures at the two ends cancel, and leaves *R squared high*, because most of a gentle parabola over this range is line. A curve whose local slope runs from 1.16 at the low end to 0.84 at the high end fits with slope 1.00 and R squared 0.998.',
+      },
+      {
+        kind: 'p',
+        text: 'So the tool tests a quadratic term directly, and reports the bend as the drift in local slope across the range, which is the form you can act on. The usual cause is detector non-linearity at one end of the scale.',
+      },
+      {
+        kind: 'note',
+        text: 'The test needs six populations. Below that it is not reported, because it has no power to report anything: at five populations the smallest bend it could distinguish from noise is a slope drift of about 0.44, and at four about 1.38. Absence of the test is not evidence the standard is straight.',
+      },
+    ],
+  },
+  {
     id: 'ad.curve.slope',
     anchor: 'ad.curve',
     title: 'Reading the standard curve',

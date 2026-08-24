@@ -513,3 +513,71 @@ describe('calibration flags reaching the result', () => {
     expect(resultStatus([...r.calibrationFlags, ...r.flags])).toBe('do_not_report')
   })
 })
+
+describe('curvature in the standard', () => {
+  /** Populations log-spaced over the range a real kit covers. */
+  function beads(n: number, quadratic: number): BeadStandard[] {
+    const lo = Math.log10(2_050)
+    const hi = Math.log10(121_000)
+    const xs = Array.from({ length: n }, (_, i) => lo + ((hi - lo) * i) / (n - 1))
+    const mean = xs.reduce((a, b) => a + b, 0) / n
+    return xs.map((x, i) => ({
+      id: `b${i}`,
+      label: `Population ${i + 1}`,
+      mfi: 10 ** x,
+      // A symmetric bend, plus scatter so the fit is not exact.
+      assigned: 10 ** (0.545 + x + quadratic * (x - mean) ** 2 + (i % 2 ? 0.01 : -0.01)),
+      included: true,
+    }))
+  }
+
+  const curvatureFlag = (c: CurveResult) => c.flags.find((f) => f.message.includes('not straight'))
+
+  it('catches a bend that the slope and R squared checks both clear', () => {
+    const c = curve(beads(8, -0.09))
+    // The two checks that look like they would catch it, both satisfied.
+    expect(Math.abs(c.fit.slope - 1)).toBeLessThan(0.15)
+    expect(c.fit.r2).toBeGreaterThan(0.98)
+    expect(c.flags.some((f) => f.message.includes('Log-log slope'))).toBe(false)
+    expect(c.flags.some((f) => f.message.includes('R²'))).toBe(false)
+    // The one that does.
+    expect(curvatureFlag(c)).toBeDefined()
+    expect(curvatureFlag(c)?.message).toContain('drift')
+  })
+
+  it('reports the bend as a slope drift a user can act on', () => {
+    const message = curvatureFlag(curve(beads(8, -0.09)))?.message ?? ''
+    expect(message).toMatch(/local slope runs from 1\.1\d at the low end to 0\.8\d at the high end/)
+    expect(message).toMatch(/a drift of 0\.3\d across the calibrated range/)
+  })
+
+  it('leaves a straight standard alone', () => {
+    const c = curve(beads(8, 0))
+    expect(curvatureFlag(c)).toBeUndefined()
+    expect(c.curvature).not.toBeNull()
+    expect(c.curvature?.p).toBeGreaterThan(0.05)
+  })
+
+  it('does not run below six populations, where it has no power to run on', () => {
+    for (const n of [4, 5]) {
+      const c = curve(beads(n, -0.09))
+      expect(c.curvature).toBeNull()
+      expect(curvatureFlag(c)).toBeUndefined()
+    }
+  })
+
+  it('is not tested on the shipped worked example, which has four populations', () => {
+    expect(curve(DEMO_BEADS).curvature).toBeNull()
+  })
+
+  it('is a caveat on the calibration rather than an invalidation of it', () => {
+    // A bend biases every value, but so does a slope of 1.2, which is also a
+    // warning. Withholding the figure is reserved for a curve that cannot
+    // calibrate anything at all.
+    const c = curve(beads(8, -0.09))
+    expect(curvatureFlag(c)?.level).toBe('warning')
+    const r = quantifyWithCalibration({ id: 'x', label: 'x', mfi: 20_000, controlMfi: null }, c, DEMO_OPTIONS)
+    expect(r.calibrationFlags).toHaveLength(0)
+    expect(r.netAbc).not.toBeNull()
+  })
+})

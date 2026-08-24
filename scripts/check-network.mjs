@@ -329,6 +329,11 @@ try {
   if (!/Detection antibody host species/.test(csv)) {
     uiFailures.push('antigen density: CSV export does not record the declared antibody host')
   }
+  // Absence of the curvature test is not evidence of a straight standard, so
+  // the export says which of the two it is rather than omitting the row.
+  if (!/^Curvature/m.test(csv)) {
+    uiFailures.push('antigen density: CSV export says nothing about curvature, tested or not')
+  }
 } catch (e) {
   uiFailures.push(`antigen density: CSV export failed (${String(e).slice(0, 70)})`)
 }

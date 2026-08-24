@@ -146,6 +146,19 @@ export function exportResultsCsv(payload: ExportPayload, filename: string) {
   rows.push(csvRow(['Populations used (n)', curve.fit.n]))
   rows.push(csvRow(['Degrees of freedom', curve.fit.df]))
   rows.push(csvRow(['MFI range', `${curve.mfiRange[0]} to ${curve.mfiRange[1]}`]))
+  if (curve.curvature) {
+    rows.push(csvRow(['Curvature: quadratic term', curve.curvature.quadratic]))
+    rows.push(csvRow(['Curvature: p value', curve.curvature.p]))
+    rows.push(csvRow(['Curvature: local slope, low end', curve.curvature.slopeAtLow]))
+    rows.push(csvRow(['Curvature: local slope, high end', curve.curvature.slopeAtHigh]))
+  } else {
+    rows.push(
+      csvRow([
+        'Curvature',
+        'not tested; six populations are required before a quadratic term can be estimated with any power',
+      ]),
+    )
+  }
   rows.push('')
 
   rows.push(csvRow(['CALIBRATION STANDARDS']))
