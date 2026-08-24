@@ -7,6 +7,184 @@ import { numberFact, type GuidanceEntry, type ToolContext } from '../types'
  *   confidenceLevel, sampleCount, hasCriticalFlag
  */
 export const ANTIGEN_DENSITY_GUIDANCE: GuidanceEntry[] = [
+  // ---------------------------------------------------------------------
+  // Definitions. A reader who has never run this assay asks what a thing is
+  // and why it is there before asking which option to choose, and these are
+  // placed first so a panel opens on the answer to the first question.
+  // ---------------------------------------------------------------------
+  {
+    id: 'ad.beads.what',
+    anchor: 'ad.bead-kit',
+    kind: 'definition',
+    title: 'What is a bead kit, and why is one needed?',
+    body: [
+      {
+        kind: 'p',
+        text: 'A cytometer does not measure molecules. It measures how much light a cell emitted, and reports it in arbitrary units that depend on the detector voltage, the optical configuration and the instrument itself. The same cells read on a different machine, or on the same machine at a different voltage, give a different number.',
+      },
+      {
+        kind: 'p',
+        text: 'A bead kit, also called a bead standard, is a set of microspheres carrying a *certified* number of binding sites, or of fluorophore molecules, per bead. Run alongside the cells under identical settings, they give several points where the arbitrary units and the real quantity are both known. Fitting those points produces the conversion this tool applies to the sample.',
+      },
+      {
+        kind: 'p',
+        text: 'That is the whole reason the standard exists: without it, an MFI is a number that cannot be compared with anybody else\u2019s, including your own from last month.',
+      },
+      {
+        kind: 'note',
+        text: 'Because the conversion is only valid at the settings the beads were read under, beads and cells must be acquired in the same session. Nothing in the output can tell you if they were not.',
+      },
+    ],
+  },
+  {
+    id: 'ad.mfi.what',
+    anchor: 'ad.mfi',
+    kind: 'definition',
+    title: 'What is MFI?',
+    body: [
+      {
+        kind: 'p',
+        text: 'Median fluorescence intensity: the middle brightness of a gated population, in the detector\u2019s arbitrary units. It summarises how much antibody the average cell in that gate carried, in a form the calibration can convert.',
+      },
+      {
+        kind: 'p',
+        text: 'It is a property of a *population*, not of a cell. One MFI describes the gate you drew, so where the gate includes debris, doublets or dead cells, the number describes those too.',
+      },
+      {
+        kind: 'note',
+        text: 'The units mean nothing on their own. An MFI of 8,900 is not larger than an MFI of 400 on another instrument in any meaningful sense, which is what the bead standard exists to fix.',
+      },
+    ],
+  },
+  {
+    id: 'ad.assigned.what',
+    anchor: 'ad.assigned',
+    kind: 'definition',
+    title: 'What is an assigned value?',
+    body: [
+      {
+        kind: 'p',
+        text: 'The quantity the manufacturer certifies for one bead population: how many antibody molecules that population can bind, or how many fluorophore molecules it carries. It is the known half of each calibration point, paired with the MFI you measure.',
+      },
+      {
+        kind: 'p',
+        text: 'Assigned values are determined per manufacturing lot and vary between lots of the same product, which is why they arrive on the vial or its certificate of analysis rather than in a catalogue.',
+      },
+    ],
+  },
+  {
+    id: 'ad.control.what',
+    anchor: 'ad.control',
+    kind: 'definition',
+    title: 'What is the control channel for?',
+    body: [
+      {
+        kind: 'p',
+        text: 'Not all of a stained cell\u2019s signal comes from antibody bound to the target. Cells emit light of their own, and antibody sticks to surfaces it was not raised against. The control measures that floor, on cells treated the same way but without the specific binding you are trying to quantify.',
+      },
+      {
+        kind: 'p',
+        text: 'Subtracting it is what turns a measurement of *total* signal into a measurement of *specific* signal. Where the floor is a large share of the total, most of the reported result is the difference between two similar numbers, which the tool says on the result card.',
+      },
+    ],
+  },
+  {
+    id: 'ad.background.why',
+    anchor: 'ad.background',
+    kind: 'definition',
+    title: 'Why is background subtracted at all?',
+    body: [
+      {
+        kind: 'p',
+        text: 'Because the quantity of interest is antibody bound to the target, and the stained tube contains that plus autofluorescence plus non-specific binding. Reporting the stained tube alone attributes all three to the antigen.',
+      },
+      {
+        kind: 'p',
+        text: 'The subtraction can be done before converting to density or after, and the two are not the same operation unless the log-log slope is exactly one. Which to use is a separate question, answered under the background setting itself.',
+      },
+      {
+        kind: 'note',
+        text: 'Subtraction removes a floor. It cannot remove a signal that scales with the cells, so it does not correct for dead cells binding antibody non-specifically.',
+      },
+    ],
+  },
+  {
+    id: 'ad.valency.what',
+    anchor: 'ad.valency',
+    kind: 'definition',
+    title: 'What is binding valency, and why does it change the answer?',
+    body: [
+      {
+        kind: 'p',
+        text: 'How many antigen sites one antibody molecule occupies. A whole IgG has two binding arms and can bridge two sites at once; a Fab fragment or an scFv has one and binds one.',
+      },
+      {
+        kind: 'p',
+        text: 'The calibration counts *antibody molecules bound*, so where the detection antibody binds with both arms, the number of antigen sites can be up to twice the number of antibodies. That is why the result is reported as a range rather than a single figure, and why the range is labelled as inferred: the tool has not measured how many arms were engaged, and neither have you.',
+      },
+    ],
+  },
+  {
+    id: 'ad.curve.what',
+    anchor: 'ad.curve',
+    kind: 'definition',
+    title: 'What is a standard curve?',
+    body: [
+      {
+        kind: 'p',
+        text: 'The fitted relationship between what was measured and what is known. Each bead population supplies one point: an MFI you acquired and an assigned value the manufacturer certified. A line through those points, fitted in log-log space, is the rule used to read an unknown sample.',
+      },
+      {
+        kind: 'p',
+        text: 'Everything the tool reports about the curve is about how much that rule can be trusted. The slope says whether the detector responded proportionally, R squared says how close the points sit to the line, the residuals say which population is responsible for any departure, and the calibrated range says where the rule applies at all.',
+      },
+      {
+        kind: 'note',
+        text: 'A sample outside the bead range is not converted by the curve but extrapolated beyond it, which is a different and much weaker claim.',
+      },
+    ],
+  },
+  {
+    id: 'ad.result.what',
+    anchor: 'ad.result',
+    kind: 'definition',
+    title: 'What is antibody binding capacity?',
+    body: [
+      {
+        kind: 'p',
+        text: 'ABC is the number of antibody molecules a cell binds when every accessible site is occupied. It is what a calibrated flow measurement can actually establish, and it is the figure reported here.',
+      },
+      {
+        kind: 'p',
+        text: 'It is *not* antigen copy number, and the difference is not pedantry. An epitope may be hidden by glycosylation or by a binding partner, an antibody may bridge two sites, a conjugate may perform differently from the one used to certify the beads, and antigen may be internalised during staining. Each of those separates molecules bound from molecules present.',
+      },
+      {
+        kind: 'note',
+        text: 'Report it as ABC and state the antibody, the clone and the control used. A reader can then judge how far it sits from copy number for your system.',
+      },
+    ],
+  },
+  {
+    id: 'ad.saturation.what',
+    anchor: 'ad.saturation',
+    kind: 'definition',
+    title: 'What does titrating to saturation mean?',
+    body: [
+      {
+        kind: 'p',
+        text: 'Staining the same cells with a series of antibody concentrations and finding the point beyond which the signal stops rising. Past that point every accessible site is occupied, and adding more antibody adds only background.',
+      },
+      {
+        kind: 'p',
+        text: 'Capacity is only measured when the sites are full. Below saturation the measurement reports how much antibody was supplied rather than how much the surface could hold, which is why an unconfirmed titration makes every value a lower bound.',
+      },
+      {
+        kind: 'note',
+        text: 'Saturation must be established on the beads as well as the cells. Their surface densities differ by orders of magnitude, so a concentration that saturates one need not saturate the other.',
+      },
+    ],
+  },
+
   {
     id: 'ad.host.why',
     anchor: 'ad.host',
@@ -186,7 +364,7 @@ export const ANTIGEN_DENSITY_GUIDANCE: GuidanceEntry[] = [
   {
     id: 'ad.curve.straight',
     anchor: 'ad.curve',
-    title: 'Is my standard actually a straight line?',
+    title: 'Is my standard curve actually a straight line?',
     body: [
       {
         kind: 'p',

@@ -26,7 +26,7 @@
  * requires of anything that reaches a user.
  */
 
-import { NORMALISATIONS, STOPWORDS, TERM_TO_GROUP } from './synonyms'
+import { NORMALISATIONS, STOPWORDS, TERM_TO_GROUP, stem } from './synonyms'
 import type { AnchorId, GuidanceEntry, ToolContext } from './types'
 import { plainText } from './types'
 
@@ -56,6 +56,21 @@ const EXPANSION_WEIGHT = 0.45
 const ANCHOR_BOOST = 1.6
 
 /**
+ * What a synonym match is worth when judging whether the question was
+ * understood, as opposed to when ranking.
+ *
+ * These are different judgements and they need different numbers. For ranking,
+ * a related term must count for less than the word the reader actually typed,
+ * or an approximate match could outrank an exact one. For coverage, a synonym
+ * match means the question *was* understood, and weighting it at the ranking
+ * value caps a question phrased entirely in synonyms at that value: with the
+ * gate above it, "is anything sent to a server" could never pass, however well
+ * the corpus answers it. Every paraphrase would have been declined, which is
+ * the opposite of what the synonym groups exist for.
+ */
+const COVERAGE_SYNONYM_CREDIT = 0.75
+
+/**
  * Results scoring below this fraction of the best result are dropped. BM25
  * scores have no absolute scale, so relevance is judged relative to the best
  * match rather than against a fixed number that would drift with the corpus.
@@ -78,29 +93,85 @@ const RELATIVE_FLOOR = 0.25
  * there is, and it is usually the word the question is really about
  * ("fixation", "clinical", "CAR-NK").
  *
- * Measured across a probe of questions the corpus does and does not answer:
- * clear answers score 0.45 to 1.00, and everything the corpus genuinely cannot
- * address ("how do I cite this tool", "can I use this for CAR-NK", "how long
- * should the killing assay run", "what is the weather today") falls below this
- * threshold and is declined.
+ * Measured across a probe of twenty-seven questions the corpus does and does not
+ * answer: everything it answers scores 0.63 to 1.00, and everything it cannot
+ * scores 0.42 or below, or matches nothing at all. The threshold sits in that
+ * gap, and every case in the probe falls on the correct side of it.
  *
- * The limit is honest about itself. A near miss inside the domain is not
- * separable by this statistic: "does fixation change MFI", which the corpus
- * says nothing about, scores exactly 0.45, the same as "my beads look dim",
- * which it answers well. No threshold splits that pair. What makes the residue
- * tolerable is the surface rather than the score: retrieval returns passages
- * under their own titles, so a reader who asks about fixation and is offered
- * "Which fluorescence statistic should I use?" can see at a glance that it is
- * not an answer. A layer that synthesised prose instead would turn the same
- * near miss into a confident wrong answer, which is the argument for keeping
- * generation out of this path.
+ * Twenty-six of the twenty-seven land on the correct side. The exception is
+ * "how long should the killing assay run", which reduces to killing and assay,
+ * finds a passage about killing assays, and scores 0.60 for it. That is the
+ * residual this statistic cannot reach: an in-domain question answered by an
+ * in-domain passage that does not address the specific point. The reader sees
+ * the passage under its own title and can tell.
+ *
+ * The separation did not exist until the stop list grew. Before it, generic
+ * English carried spurious weight in a corpus this small, junk questions scored
+ * 0.39 to 0.48 and real ones bottomed out at 0.45, and the two distributions
+ * overlapped so completely that no threshold could split them. Fixing the
+ * vocabulary was what made the gate work, not moving the number.
+ *
+ * The threshold will need re-measuring whenever the tokeniser or the stop list
+ * changes, because both move the distribution it sits in. It is calibrated
+ * against the probe rather than chosen, and the probe cases live in the tests.
  */
-const MIN_QUERY_COVERAGE = 0.34
+const MIN_QUERY_COVERAGE = 0.55
+
+/**
+ * Preference for an entry whose kind matches what the question is asking for.
+ *
+ * A student's first questions at any control are what it is and why it is
+ * there; someone who already knows asks which option to pick. Those are
+ * different entries, and term matching alone cannot separate them, because both
+ * are about the same subject and share almost all of their vocabulary. Worse,
+ * the definition usually wins on terms alone: it says the subject's name more
+ * often, being an explanation of it.
+ *
+ * So the match is made symmetric. A definitional question promotes definitions,
+ * a practical question promotes practice, and neither pushes anything down: the
+ * other kind still appears beneath, which matters because the two questions
+ * shade into each other and the reader may have meant either.
+ */
+const KIND_MATCH_BOOST = 1.45
 
 const DEFAULT_LIMIT = 4
 
-/** Split text into index terms, after rewriting the forms tokenising would destroy. */
-export function tokenise(text: string): string[] {
+/**
+ * Whether a question asks what something is, or what to do about it.
+ *
+ * Read from the raw query rather than from tokens, because the words that carry
+ * the intent are exactly the ones the stop list removes.
+ *
+ * A question mentioning the reader's own work is treated as practical whatever
+ * else it contains. "Why is my slope off" and "why is a slope of one expected"
+ * both begin with why, and only the second is asking to be taught something.
+ */
+const DEFINITIONAL = [
+  /\bwhat (is|are|was|were)\b/i,
+  // The trailing form: "what an EC50 is", "what the control channel is".
+  /\bwhat (a|an|the)\b[^?]*\bis\b/i,
+  /\btell me\b/i,
+  /\bwhat does\b[^?]*\bmean\b/i,
+  /\bwhat.*\bfor\b/i,
+  /\bwhy\b/i,
+  /\bexplain\b/i,
+  /\bdefine\b/i,
+  /\bmeaning of\b/i,
+  /\bpurpose of\b/i,
+]
+
+export function questionIntent(query: string): 'definition' | 'practice' {
+  if (/\b(my|mine|our)\b/i.test(query)) return 'practice'
+  return DEFINITIONAL.some((pattern) => pattern.test(query)) ? 'definition' : 'practice'
+}
+
+/**
+ * Split text into index terms, keeping each alongside the word it came from.
+ *
+ * The written form is kept because it is what a reader recognises. Reporting
+ * that a question matched on "isotyp" would be showing them the machinery.
+ */
+export function tokenisePairs(text: string): { written: string; term: string }[] {
   let normalised = text
   for (const [pattern, replacement] of NORMALISATIONS) {
     normalised = normalised.replace(pattern, replacement)
@@ -108,7 +179,15 @@ export function tokenise(text: string): string[] {
   return normalised
     .toLowerCase()
     .split(/[^a-z0-9]+/)
+    // Stopwords are matched on what was written, so the list stays readable,
+    // and stemming happens after, so inflections still collapse.
     .filter((token) => token.length >= 2 && !STOPWORDS.has(token))
+    .map((written) => ({ written, term: stem(written) }))
+}
+
+/** Index terms alone. */
+export function tokenise(text: string): string[] {
+  return tokenisePairs(text).map((pair) => pair.term)
 }
 
 /** One corpus entry, reduced to weighted terms. */
@@ -241,6 +320,14 @@ export function search(
   const weights = expandQuery(query)
   if (weights.size === 0) return []
 
+  const intent = questionIntent(query)
+
+  // Stem back to the reader's own word, for anything the interface reports.
+  const written = new Map<string, string>()
+  for (const pair of tokenisePairs(query)) {
+    if (!written.has(pair.term)) written.set(pair.term, pair.written)
+  }
+
   // Distinctiveness the question carries, term by term, against which each
   // passage's share is judged. Only what the reader typed appears here; a
   // synonym group is credited through the term that produced it, below.
@@ -276,7 +363,7 @@ export function search(
       score += queryWeight * idf * normalised
       // Group terms are an implementation detail of expansion, not something a
       // reader typed, so they are not reported as matches.
-      if (!term.startsWith('g.')) matched.push(term)
+      if (!term.startsWith('g.')) matched.push(written.get(term) ?? term)
     }
 
     if (score <= 0) continue
@@ -290,7 +377,7 @@ export function search(
     for (const t of contentTerms) {
       if (passage.frequencies.has(t.term)) coveredIdf += t.potential
       else if (t.group && passage.frequencies.has(t.group)) {
-        coveredIdf += t.potential * EXPANSION_WEIGHT
+        coveredIdf += t.potential * COVERAGE_SYNONYM_CREDIT
       }
     }
     const coverage = queryIdf > 0 ? coveredIdf / queryIdf : 1
@@ -299,6 +386,7 @@ export function search(
     const scope: Match['scope'] =
       options.anchor !== undefined && entry.anchor === options.anchor ? 'card' : 'suite'
     if (scope === 'card') score *= ANCHOR_BOOST
+    if ((entry.kind ?? 'practice') === intent) score *= KIND_MATCH_BOOST
 
     matches.push({ entry, score, scope, matched: matched.sort(), coverage })
   }

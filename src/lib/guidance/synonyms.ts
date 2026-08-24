@@ -87,6 +87,15 @@ export const NORMALISATIONS: readonly (readonly [RegExp, string])[] = [
  * domain: "not" separates "is straight" from "is not straight", and "below"
  * carries the whole meaning of "below the lowest standard".
  *
+ * The list also carries ordinary English verbs and quantifiers that are not
+ * function words. That is a consequence of corpus size rather than of taste: in
+ * twenty-odd short entries, a word appearing once scores nearly the same
+ * inverse document frequency as a genuine domain term, so "how long should the
+ * killing assay run" matched the passage on fluorescence statistics through
+ * "long" and "run" and scored as though it had found an answer. Words are added
+ * here only where they carry no meaning in this domain; "high", "low", "time",
+ * "change", "number" and "value" all stay, because each of them does.
+ *
  * Indefinite pronouns are included for a reason particular to how relevance is
  * gated. A term the corpus does not contain counts as maximally distinctive,
  * on the reasoning that the rarest words carry a question's specificity. That
@@ -100,11 +109,59 @@ export const STOPWORDS: ReadonlySet<string> = new Set([
   'do', 'does', 'everything', 'for', 'from', 'has', 'have', 'how', 'i', 'if',
   'in', 'is', 'it', 'its', 'me', 'my', 'of', 'on', 'or', 'should', 'so',
   'something', 'that', 'the', 'their', 'them', 'then', 'there', 'these',
-  'they', 'this', 'to', 'was', 'were', 'what', 'when', 'where', 'which', 'why',
-  'will', 'with', 'would', 'you', 'your',
+  'they', 'this', 'to', 'use', 'used', 'using', 'was', 'were', 'what', 'when',
+  'where', 'which', 'why', 'will', 'with', 'would', 'you', 'your',
+  // Words that say how the reader is asking rather than what about. These are
+  // read as intent from the raw question before this list is applied, so
+  // removing them here costs nothing and prevents the opposite failure: as
+  // terms the corpus never uses, they counted as the most distinctive thing in
+  // the question and pushed "can you explain what a bead kit is" below the
+  // relevance gate. "Mean" and "meaning" are deliberately absent, because in
+  // this domain a mean is a statistic.
+  'define', 'defines', 'describe', 'describes', 'explain', 'explains',
+  'purpose', 'tell', 'tells',
+  // Generic English, kept out for the corpus-size reason above.
+  'also', 'another', 'any', 'both', 'come', 'each', 'get', 'gets', 'give',
+  'gives', 'go', 'goes', 'just', 'know', 'like', 'long', 'look', 'looks',
+  'looking', 'make', 'makes', 'many', 'much', 'run', 'runs', 'same', 'say',
+  'says', 'see', 'seen', 'short', 'still', 'take', 'takes', 'thing', 'things',
+  'very', 'want', 'way', 'well',
 ])
 
-/** Group id for each surface form, built once. */
+/**
+ * Reduce a word to a form its inflections share.
+ *
+ * Without this, "why do I need beads" misses the passage that says a bead
+ * standard is *needed*, which is not a subtle failure: it is the commonest
+ * shape of student question missing the entry written to answer it.
+ *
+ * Deliberately conservative, and not Porter. The rules strip only the
+ * inflections that actually appear in questions, and a trailing "e" is removed
+ * last so that "titrate" and "titrated" land in the same place, which stripping
+ * "ed" alone would not achieve. Precision matters less than consistency here:
+ * the same function runs over the corpus, the query and the synonym groups, so
+ * an odd-looking stem still matches itself.
+ *
+ * Tokens containing a digit are left alone, since `ec50`, `r2` and `log10` are
+ * names rather than words.
+ */
+export function stem(token: string): string {
+  if (token.length <= 3 || /\d/.test(token)) return token
+
+  let word = token
+  if (word.endsWith('ies') && word.length > 4) word = `${word.slice(0, -3)}y`
+  else if (word.endsWith('sses')) word = word.slice(0, -2)
+  else if (word.endsWith('ing') && word.length > 5) word = word.slice(0, -3)
+  else if (word.endsWith('ed') && word.length > 4) word = word.slice(0, -2)
+  else if (word.endsWith('es') && word.length > 4) word = word.slice(0, -1)
+  else if (word.endsWith('s') && !word.endsWith('ss')) word = word.slice(0, -1)
+
+  if (word.endsWith('e') && word.length > 3) word = word.slice(0, -1)
+
+  return word.length >= 3 ? word : token
+}
+
+/** Group id for each surface form, built once, in stemmed form. */
 export const TERM_TO_GROUP: ReadonlyMap<string, string> = new Map(
-  SYNONYM_GROUPS.flatMap((group) => group.terms.map((term) => [term, group.id] as const)),
+  SYNONYM_GROUPS.flatMap((group) => group.terms.map((term) => [stem(term), group.id] as const)),
 )

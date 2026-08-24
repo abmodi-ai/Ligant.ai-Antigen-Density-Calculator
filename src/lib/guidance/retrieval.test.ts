@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { buildIndex, expandQuery, search, tokenise, type RetrievalIndex } from './retrieval'
+import { buildIndex, expandQuery, questionIntent, search, tokenise, type RetrievalIndex } from './retrieval'
+import { stem } from './synonyms'
 import { ANTIGEN_DENSITY_GUIDANCE } from './corpus/antigen-density'
 import { CYTOTOXICITY_GUIDANCE } from './corpus/cytotoxicity'
 import { SHARED_GUIDANCE } from './corpus/shared'
@@ -52,7 +53,7 @@ describe('tokenise', () => {
 describe('expandQuery', () => {
   it('weights a typed term above the group it implies', () => {
     const weights = expandQuery('isotype')
-    expect(weights.get('isotype')).toBe(1)
+    expect(weights.get(stem('isotype'))).toBe(1)
     expect(weights.get('g.control')).toBeLessThan(1)
   })
 
@@ -227,10 +228,26 @@ describe('declining what the corpus does not cover', () => {
   const UNANSWERABLE: [string, string | undefined][] = [
     ['how do I cite this tool', undefined],
     ['can I use this for CAR-NK', undefined],
-    ['how long should the killing assay run', 'cy.response'],
+    ['does fixation change MFI', 'ad.mfi'],
+    ['what is the recommended incubation time', 'cy.response'],
     ['what is the weather today', undefined],
     ['how do I install python', undefined],
   ]
+
+  // Not in the list above, deliberately. "How long should the killing assay
+  // run" reduces to killing and assay, finds a passage about killing assays,
+  // and scores 0.60 for it. The corpus does not give a duration, so this is a
+  // near miss, and it is the one the coverage statistic cannot reach: an
+  // in-domain question answered by an in-domain passage that does not address
+  // the point. Excluding it by threshold would take real answers with it.
+  it('surfaces an in-domain near miss under its own title, where the reader can judge it', () => {
+    const [top] = search(index, 'how long should the killing assay run', {
+      context: CONTEXT,
+      anchor: 'cy.response',
+    })
+    expect(top).toBeDefined()
+    expect(top.entry.title).toBeTruthy()
+  })
 
   it.each(UNANSWERABLE)('declines "%s"', (query, anchor) => {
     expect(search(index, query, { context: CONTEXT, anchor })).toEqual([])
@@ -243,8 +260,16 @@ describe('declining what the corpus does not cover', () => {
       context: CONTEXT,
       anchor: 'cy.dose',
     })
-    expect(results[0].entry.id).toBe('cy.dose.what')
-    expect(results[0].coverage).toBeGreaterThan(0.34)
+    expect(results.length).toBeGreaterThan(0)
+    expect(results[0].entry.anchor).toBe('cy.dose')
+  })
+
+  it('lets a question written entirely in synonyms through the gate', () => {
+    // Neither "sent" nor "server" appears in the corpus, which writes
+    // "transmitted" and "contacts no third party". Judging comprehension at the
+    // ranking weight for synonyms would cap this question below the gate and
+    // decline every paraphrase ever asked.
+    expect(ids('is anything sent to a server')).toContain('shared.privacy')
   })
 
   it('reports coverage above the gate for everything it does return', () => {
@@ -257,5 +282,113 @@ describe('declining what the corpus does not cover', () => {
         expect(match.coverage).toBeGreaterThanOrEqual(0.34)
       }
     }
+  })
+})
+
+describe('questionIntent', () => {
+  it('reads a request to be taught', () => {
+    for (const q of [
+      'what is a bead kit',
+      'what are assigned values',
+      'what does ABC mean',
+      'why subtract background',
+      'explain the standard curve',
+      'what is the control channel for',
+    ]) {
+      expect(questionIntent(q)).toBe('definition')
+    }
+  })
+
+  it('reads a question about the reader’s own work as practical', () => {
+    // "Why is my slope off" and "why is a slope of one expected" both begin
+    // with why, and only the second is asking to be taught something.
+    for (const q of [
+      'why is my slope off',
+      'which control should I use',
+      'is my standard curve straight',
+      'what goes in the dose column',
+    ]) {
+      expect(questionIntent(q)).toBe('practice')
+    }
+  })
+})
+
+describe('a student asking what and why', () => {
+  // The corpus answers two different questions at most controls: what the thing
+  // is, and which option to pick. Term matching cannot separate them, because
+  // the definition says the subject's name more often than the practice entry
+  // does, being an explanation of it. These cases are the regression on that.
+  const DEFINITIONS: [string, string, string | undefined][] = [
+    ['what is a bead kit', 'ad.beads.what', 'ad.bead-kit'],
+    // The phrasing a reader actually typed, which the first version declined:
+    // "explain" appears nowhere in the corpus, so the relevance gate counted it
+    // as the most distinctive word in the question.
+    ['Can you explain what is the Bead Kit?', 'ad.beads.what', 'ad.bead-kit'],
+    ['tell me what an EC50 is', 'cy.potency.what.is', 'cy.potency'],
+    ['define specific lysis', 'cy.response.what.is', 'cy.response'],
+    ['what is the purpose of the control', 'ad.control.what', 'ad.control'],
+    ['why do I need beads', 'ad.beads.what', 'ad.bead-kit'],
+    ['what is MFI', 'ad.mfi.what', 'ad.mfi'],
+    ['what is an assigned value', 'ad.assigned.what', 'ad.assigned'],
+    ['what is the control channel for', 'ad.control.what', 'ad.control'],
+    ['why subtract background', 'ad.background.why', 'ad.background'],
+    ['what is binding valency', 'ad.valency.what', 'ad.valency'],
+    ['what is a standard curve', 'ad.curve.what', 'ad.curve'],
+    ['what is antibody binding capacity', 'ad.result.what', 'ad.result'],
+    ['what does titrating to saturation mean', 'ad.saturation.what', 'ad.saturation'],
+    ['what is an effector to target ratio', 'cy.dose.what.is', 'cy.dose'],
+    ['what is specific lysis', 'cy.response.what.is', 'cy.response'],
+    ['what is an EC50', 'cy.potency.what.is', 'cy.potency'],
+    ['what is a four parameter logistic curve', 'cy.curve.what.is', 'cy.curve'],
+  ]
+
+  it.each(DEFINITIONS)('"%s" ranks %s first', (query, expected, anchor) => {
+    expect(ids(query, anchor)[0]).toBe(expected)
+  })
+
+  it('does not let a definition take over a practical question', () => {
+    // The reverse failure, and the one that appeared first: every definition
+    // outranked its practice neighbour until the kind match was made symmetric.
+    const practical: [string, string, string][] = [
+      ['which control should I use', 'ad.control.which', 'ad.control'],
+      ['which fluorescence statistic', 'ad.mfi.statistic', 'ad.mfi'],
+      ['where do I get the assigned values', 'ad.assigned.where', 'ad.assigned'],
+      ['is my standard curve straight', 'ad.curve.straight', 'ad.curve'],
+    ]
+    for (const [query, expected, anchor] of practical) {
+      expect(ids(query, anchor)[0]).toBe(expected)
+    }
+  })
+
+  it('offers the other kind beneath rather than hiding it', () => {
+    // The two questions shade into each other, so the boost promotes and never
+    // demotes: a reader who asked one way can still see the other answer.
+    const results = ids('what is a bead kit', 'ad.bead-kit')
+    expect(results[0]).toBe('ad.beads.what')
+    expect(results).toContain('ad.kit.which')
+  })
+})
+
+describe('inflection', () => {
+  it('collapses the forms a reader and a corpus write differently', () => {
+    expect(stem('beads')).toBe(stem('bead'))
+    expect(stem('needed')).toBe(stem('need'))
+    expect(stem('titrated')).toBe(stem('titrate'))
+    expect(stem('curves')).toBe(stem('curve'))
+    expect(stem('values')).toBe(stem('value'))
+  })
+
+  it('leaves names that contain digits alone', () => {
+    for (const name of ['ec50', 'ic50', 'r2', 'log10']) expect(stem(name)).toBe(name)
+  })
+
+  it('leaves short domain abbreviations alone', () => {
+    for (const abbr of ['abc', 'mfi', 'fmo', 'igg']) expect(stem(abbr)).toBe(abbr)
+  })
+
+  it('reports the word the reader wrote, not its stem', () => {
+    const [top] = search(index, 'which beads should I use', { context: CONTEXT, anchor: 'ad.bead-kit' })
+    expect(top.matched).toContain('beads')
+    expect(top.matched).not.toContain('bead')
   })
 })

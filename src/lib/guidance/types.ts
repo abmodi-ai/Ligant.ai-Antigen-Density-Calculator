@@ -23,10 +23,22 @@ export type Block =
   | { kind: 'list'; items: string[] }
   | { kind: 'note'; text: string }
 
+/**
+ * What kind of question an entry answers.
+ *
+ * A student arriving at a control asks what it is and why it is there; someone
+ * who already knows asks which option to pick. Those are different entries, and
+ * a question phrased one way should not be answered with the other. Marking the
+ * kind is what lets retrieval tell them apart.
+ */
+export type EntryKind = 'definition' | 'practice'
+
 export interface GuidanceEntry {
   id: string
   anchor: AnchorId
   title: string
+  /** Defaults to 'practice', which is what most existing entries are. */
+  kind?: EntryKind
   body: Block[]
   /**
    * Shown only when the current state satisfies this. Entries without a

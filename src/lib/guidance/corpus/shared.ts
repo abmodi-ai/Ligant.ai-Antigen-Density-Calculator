@@ -4,6 +4,7 @@ import type { GuidanceEntry } from '../types'
 export const SHARED_GUIDANCE: GuidanceEntry[] = [
   {
     id: 'shared.confidence',
+    kind: 'definition',
     anchor: 'shared.confidence',
     title: 'What the confidence interval covers',
     body: [
@@ -23,6 +24,7 @@ export const SHARED_GUIDANCE: GuidanceEntry[] = [
   },
   {
     id: 'shared.privacy',
+    kind: 'definition',
     anchor: 'shared.privacy',
     title: 'Where does my data go?',
     body: [
