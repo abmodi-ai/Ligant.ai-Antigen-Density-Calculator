@@ -83,7 +83,7 @@ export interface SampleResult {
   grossAbc: number | null
   /** ABC implied by the control MFI, if a control was supplied. */
   controlAbc: number | null
-  /** Background-subtracted ABC — the headline number. */
+  /** Background-subtracted ABC. This is the reported density. */
   netAbc: number | null
   lower: number | null
   upper: number | null
@@ -128,13 +128,13 @@ export function fitStandardCurve(standards: BeadStandard[]): CurveResult | { err
   if (fit.r2 < MIN_R2) {
     flags.push({
       level: 'critical',
-      message: `Standard curve R² = ${fit.r2.toFixed(4)}, below the usual acceptance threshold of ${MIN_R2}. Check bead gating and for a saturated or off-scale population.`,
+      message: `Standard curve R² = ${fit.r2.toFixed(4)}, below the conventional acceptance threshold of ${MIN_R2}. Verify bead gating and check for a saturated or off-scale population.`,
     })
   }
   if (Math.abs(fit.slope - 1) > SLOPE_TOLERANCE) {
     flags.push({
       level: 'warning',
-      message: `Log-log slope is ${fit.slope.toFixed(3)}; a well-behaved standard sits near 1.0. Values far from unity suggest detector non-linearity or a compensation problem.`,
+      message: `Log-log slope is ${fit.slope.toFixed(3)}. A well-behaved standard approximates 1.0; departures from unity indicate detector non-linearity or a compensation error.`,
     })
   }
 
@@ -186,7 +186,7 @@ export function quantifySample(
   if (sample.mfi < minMfi || sample.mfi > maxMfi) {
     flags.push({
       level: 'critical',
-      message: `Sample MFI (${formatNumber(sample.mfi)}) falls outside the bead range (${formatNumber(minMfi)}–${formatNumber(maxMfi)}). This value is extrapolated beyond the standard and is not quantitative.`,
+      message: `Sample MFI (${formatNumber(sample.mfi)}) lies outside the calibrated range (${formatNumber(minMfi)}–${formatNumber(maxMfi)}). The value is extrapolated beyond the standard and is not quantitative.`,
     })
   }
 
@@ -202,7 +202,7 @@ export function quantifySample(
   if (useMfiSubtraction && effectiveMfi <= 0) {
     flags.push({
       level: 'critical',
-      message: 'Control MFI is greater than or equal to sample MFI — no detectable specific signal.',
+      message: 'Control MFI equals or exceeds sample MFI. No specific signal is detectable.',
     })
     return base
   }
@@ -221,7 +221,7 @@ export function quantifySample(
   if (netAbc <= 0) {
     flags.push({
       level: 'critical',
-      message: 'Background exceeds sample signal after subtraction — no detectable specific binding.',
+      message: 'Background exceeds sample signal after subtraction. No specific binding is detectable.',
     })
     return { ...base, grossAbc, controlAbc, flags }
   }
@@ -241,7 +241,7 @@ export function quantifySample(
   if (netAbc < minAbc) {
     flags.push({
       level: 'warning',
-      message: `Result (${formatNumber(netAbc)}) sits below the lowest bead standard (${formatNumber(minAbc)}). Treat as an estimate near the limit of quantification.`,
+      message: `Result (${formatNumber(netAbc)}) lies below the lowest bead standard (${formatNumber(minAbc)}). Interpret as an estimate near the limit of quantification.`,
     })
   }
 
@@ -274,8 +274,8 @@ export interface DensityBand {
  *
  * These are reading aids drawn from the published density-threshold literature
  * (e.g. Majzner et al., Cancer Discovery 2020), NOT validated cutoffs. The real
- * threshold is a property of a specific construct — scFv affinity, hinge,
- * costimulatory domain — and of the effector function being asked for:
+ * threshold is a property of a specific construct (scFv affinity, hinge,
+ * costimulatory domain) and of the effector function under consideration:
  * cytotoxicity is triggered at lower density than cytokine release and
  * proliferation. Always establish the threshold for your own construct.
  */
@@ -284,7 +284,7 @@ export const DENSITY_BANDS: DensityBand[] = [
     id: 'subthreshold',
     min: 0,
     max: 100,
-    label: 'Below typical trigger',
+    label: 'Sub-threshold',
     note: 'Commonly below the activation threshold of conventional CARs; associated with antigen-low escape.',
   },
   {
@@ -292,21 +292,21 @@ export const DENSITY_BANDS: DensityBand[] = [
     min: 100,
     max: 1_000,
     label: 'Low',
-    note: 'Cytotoxicity often achievable; cytokine release and proliferation frequently limited.',
+    note: 'Cytotoxicity is frequently achievable; cytokine release and proliferation are commonly limited.',
   },
   {
     id: 'intermediate',
     min: 1_000,
     max: 10_000,
     label: 'Intermediate',
-    note: 'Robust cytotoxicity typical for most conventional constructs.',
+    note: 'Robust cytotoxicity is typical for conventional constructs.',
   },
   {
     id: 'high',
     min: 10_000,
     max: Infinity,
     label: 'High',
-    note: 'Full effector response expected. On normal tissue this density is a serious on-target off-tumour concern.',
+    note: 'Full effector response is expected. On normal tissue, this density represents a substantial on-target off-tumour risk.',
   },
 ]
 
@@ -315,7 +315,7 @@ export function bandFor(abc: number): DensityBand {
 }
 
 export function formatNumber(v: number): string {
-  if (!Number.isFinite(v)) return '—'
+  if (!Number.isFinite(v)) return 'n/a'
   if (v >= 10_000) return Math.round(v).toLocaleString('en-US')
   if (v >= 100) return v.toFixed(0)
   if (v >= 10) return v.toFixed(1)

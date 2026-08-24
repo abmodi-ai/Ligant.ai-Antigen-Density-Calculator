@@ -123,7 +123,6 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
               <td className="num">
                 <NumCell
                   value={s.mfi}
-                  placeholder="—"
                   ariaLabel={`MFI for ${s.label}`}
                   onChange={(v) => update(i, { mfi: v })}
                   onPasteGrid={(g) => pasteFrom(i, 0, g)}
@@ -132,7 +131,6 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
               <td className="num">
                 <NumCell
                   value={s.assigned}
-                  placeholder="—"
                   ariaLabel={`Assigned value for ${s.label}`}
                   onChange={(v) => update(i, { assigned: v })}
                   onPasteGrid={(g) => pasteFrom(i, 1, g)}
@@ -168,7 +166,7 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
         >
           + Add population
         </button>
-        <span className="hint">Paste a block from Excel into any MFI cell.</span>
+        <span className="hint">Paste tab or comma delimited values into any MFI cell.</span>
       </div>
     </>
   )
@@ -231,7 +229,6 @@ export function SamplesTable({ samples, showControl, onChange }: SamplesTablePro
               <td className="num">
                 <NumCell
                   value={s.mfi}
-                  placeholder="—"
                   ariaLabel={`Stained MFI for ${s.label}`}
                   onChange={(v) => update(i, { mfi: v })}
                   onPasteGrid={(g) => pasteFrom(i, 0, g)}
@@ -277,7 +274,7 @@ export function SamplesTable({ samples, showControl, onChange }: SamplesTablePro
         >
           + Add sample
         </button>
-        <span className="hint">Paste a column of MFI values from Excel.</span>
+        <span className="hint">Paste a column of MFI values.</span>
       </div>
     </>
   )

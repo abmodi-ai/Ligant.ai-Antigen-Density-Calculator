@@ -129,7 +129,7 @@ describe('quantifySample', () => {
       curve(),
       DEFAULT_OPTIONS,
     )
-    expect(high.flags.some((f) => /outside the bead range/.test(f.message))).toBe(true)
+    expect(high.flags.some((f) => /outside the calibrated range/.test(f.message))).toBe(true)
     expect(high.flags[0].level).toBe('critical')
   })
 

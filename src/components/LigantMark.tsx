@@ -1,5 +1,5 @@
 /**
- * Council · Ringed — the Ligant mark.
+ * Council · Ringed, the Ligant mark.
  *
  * Per the brand guidelines: the ring is the table, the six dots are the agents,
  * the amber centre is the human who decides. The centre is the one sanctioned
@@ -51,7 +51,7 @@ export function LigantMark({ size = 28, variant = 'tile', title }: Props) {
   )
 }
 
-/** Horizontal lockup — mark plus wordmark. The default for headers. */
+/** Horizontal lockup: mark plus wordmark. The default for headers. */
 export function LigantLockup({ size = 28 }: { size?: number }) {
   return (
     <span className="lockup">

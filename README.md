@@ -32,7 +32,7 @@ Corrections and reporting:
 - **Binding valency** brackets antigen sites per cell: a whole IgG binding
   bivalently gives ABC to 2×ABC.
 - **Confidence interval** is the interval on the fitted mean response at the
-  sample's MFI — the uncertainty in where the calibration curve sits. It
+  sample's MFI, quantifying uncertainty in the position of the calibration curve. It
   deliberately excludes measurement variability in the unknown sample, which
   would require replicates; claiming it here would overstate precision.
 
@@ -53,7 +53,7 @@ The tool refuses to be quietly wrong. It flags:
 
 Every number comes from pure functions over the user's inputs. No model, no
 network call, no language model anywhere in the compute path. Identical inputs
-produce identical outputs, always — there is a test asserting exactly that.
+produce identical outputs, always. A test asserts exactly that.
 
 The statistics core is verified against published Student's t critical values and
 against closed-form regression results.
@@ -63,7 +63,7 @@ against closed-form regression results.
 Results are labelled against order-of-magnitude density bands drawn from the
 published CAR density-threshold literature. **These are reading aids, not
 validated cutoffs.** A CAR's activation threshold is a property of the specific
-construct — scFv affinity, hinge, costimulatory domain — and of the effector
+construct (scFv affinity, hinge, costimulatory domain) and of the effector
 function in question: cytotoxicity triggers at lower density than cytokine
 release and proliferation.
 
@@ -83,7 +83,7 @@ No backend. No accounts. No data leaves the browser. State persists to
 ## Brand
 
 Implements **Ligant Brand Guidelines v1.1**. Every colour is taken from the
-published palette — nothing re-stepped, nothing invented. Inter for UI text,
+published palette, with nothing re-stepped or invented. Inter for UI text,
 IBM Plex Mono for digits, identifiers, and aligned columns. The Council · Ringed
 mark is drawn as inline SVG (ring = the table, six dots = the agents, amber
 centre = the human), so it stays crisp at favicon sizes.
@@ -101,12 +101,12 @@ Two brand rules changed the design rather than just its colours:
 ### Single theme, deliberately
 
 The app is light-only, on the brand's Off-White ground, and every colour is a
-published value — nothing re-stepped, derived, or invented. The UI therefore
+published value, with nothing re-stepped, derived, or invented. The UI therefore
 carries **no brand variance and needs no sign-off**.
 
-Measured on Off-White: navy 13.3:1, slate body 8.3:1, muted 5.5:1, teal 4.8:1 —
-all AA or better for body text. Amber is 3.05:1, so it carries icons, rules, and
-marks, never small text.
+Measured on Off-White: navy 13.3:1, slate body 8.3:1, muted 5.5:1, teal 4.8:1.
+All are AA or better for body text. Amber is 3.05:1, so it carries icons, rules,
+and marks, never small text.
 
 Backgrounds are painted explicitly rather than left transparent, so the page
 holds its own ground on any host, including a dark one.
@@ -128,7 +128,7 @@ result as an artifact. It is independent of hosting.
 repositories on the GitHub Free plan, so no workflow can enable it while the
 repository is private on a Free account.
 
-### Option A — deploy from CI (no dashboard Git connection)
+### Option A: deploy from CI (no dashboard Git connection)
 
 `deploy-cloudflare.yml` builds and uploads on every push. It needs two
 repository secrets, added under **Settings → Secrets and variables → Actions**:
@@ -142,7 +142,7 @@ The workflow creates the Pages project (`ligant-tools`) on first run and deploys
 to it thereafter. Without the secrets it skips rather than failing red, so CI
 stays green until they are set.
 
-### Option B — connect the repository in the dashboard
+### Option B: connect the repository in the dashboard
 
 1. Cloudflare dashboard → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**
 2. Authorise GitHub and pick this repository
@@ -166,7 +166,7 @@ redeploy is needed.
 `X-Frame-Options`, a `Referrer-Policy`, and cache rules: hashed assets are
 immutable for a year, while the entry document must revalidate so a deploy
 reaches returning visitors. The policy has been verified against a production
-build — the app renders, computes, and loads both typefaces with no violations.
+build. The app renders, computes, and loads both typefaces with no violations.
 
 ### Anywhere else
 
@@ -175,9 +175,9 @@ sub-path, a custom domain, or a subdirectory unchanged. Netlify and Vercel take
 the same build command and output directory.
 
 `npm run build:single` emits one self-contained HTML file that needs no server at
-all — useful for a quick host, an offline demo, or emailing to a collaborator.
+all, which suits a quick host, an offline demo, or sending to a collaborator.
 
 ## Status
 
-`v0.1.0` — first release. Research use only; not for clinical or diagnostic
+`v0.1.0`, first release. Research use only; not for clinical or diagnostic
 decision-making.

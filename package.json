@@ -10,7 +10,8 @@
     "build:single": "tsc -b && vite build --config vite.config.single.ts",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check:style": "node scripts/check-style.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

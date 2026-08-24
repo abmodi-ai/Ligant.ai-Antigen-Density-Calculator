@@ -1,18 +1,18 @@
 /**
- * Ligant Platform UI — tokens from Brand Guidelines v1.1.
+ * Ligant Platform UI. Tokens from Brand Guidelines v1.1.
  *
  * Every colour is the published value. Nothing is re-stepped, derived, or
  * invented, so the UI needs no brand variance and no sign-off.
  *
  * Single theme by choice: the brand's ground is Off-White, and the identity is
  * built on it. Backgrounds are painted explicitly rather than left transparent,
- * so the page holds its own ground on any host — including a dark one.
+ * so the page holds its own ground on any host, including a dark one.
  */
 
 :root {
   color-scheme: light;
 
-  /* Brand palette — §04 */
+  /* Brand palette, §04 */
   --brand-navy:        #1B2A4A;
   --brand-teal:        #0D7C66;
   --brand-teal-pale:   #B5D4CC;
@@ -34,17 +34,17 @@
   --surface-sunken: var(--brand-offwhite);
   --surface-inset:  var(--neutral-200);
 
-  /* Ink — ratios measured on the surfaces below */
+  /* Ink. Ratios measured on the surfaces below. */
   --text-primary:   var(--brand-navy);     /* 13.3:1 AAA */
   --text-secondary: var(--neutral-900);    /* 8.3:1  AAA */
   --text-muted:     var(--neutral-700);    /* 5.5:1  AA  */
-  --text-caption:   var(--neutral-500);    /* 3.4:1  — 18px+ or 14px bold only */
+  --text-caption:   var(--neutral-500);    /* 3.4:1, 18px+ or 14px bold only */
 
   --border:        var(--neutral-300);
   --border-strong: var(--neutral-500);
   --grid:          var(--neutral-200);
 
-  /* Data-viz roles — §04 semantics. Teal is evidence and confidence; amber is
+  /* Data-viz roles, §04 semantics. Teal is evidence and confidence; amber is
      the human decision moment. Neither ever means "good" or "bad". */
   --series-evidence:  var(--brand-teal);
   --series-decision:  var(--brand-amber);
@@ -79,7 +79,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Weight contrast is 700 against 400 — never 600 against 500 (§05). */
+/* Weight contrast is 700 against 400, never 600 against 500 (§05). */
 h1, h2, h3 { margin: 0; letter-spacing: -0.011em; }
 h1 { font-size: 25px; font-weight: 700; }
 h2 { font-size: 15px; font-weight: 600; }
@@ -419,6 +419,6 @@ details.options > summary {
 }
 details.options > summary::-webkit-details-marker { display: none; }
 details.options > summary::before { content: "+ "; color: var(--text-muted); font-family: var(--mono); }
-details.options[open] > summary::before { content: "– "; }
+details.options[open] > summary::before { content: "-  "; }
 details.options > div { padding-top: 12px; display: flex; flex-direction: column; gap: 12px; }
 

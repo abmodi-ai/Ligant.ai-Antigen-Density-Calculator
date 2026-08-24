@@ -1,7 +1,7 @@
 /**
  * Four-parameter logistic (4PL) dose-response fitting.
  *
- * Model, with X on a log10 dose axis — the same parameterisation as the
+ * Model, with X on a log10 dose axis, in the same parameterisation as the
  * "log(agonist) vs response, variable slope" fit labs run in Prism:
  *
  *   f(X) = bottom + (top - bottom) / (1 + 10^((logEC50 - X) · hill))
@@ -14,7 +14,7 @@
 import { tCritical } from './stats'
 
 export interface DosePoint {
-  /** Dose in linear units — E:T ratio, concentration, whatever the axis is. */
+  /** Dose in linear units: E:T ratio, concentration, or whatever the axis represents. */
   dose: number
   response: number
 }

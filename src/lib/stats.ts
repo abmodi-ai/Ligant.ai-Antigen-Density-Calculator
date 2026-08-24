@@ -165,8 +165,8 @@ export function linearRegression(xs: number[], ys: number[]): LinearFit {
  *
  * This is the uncertainty in *where the calibration curve sits*, which is the
  * quantity we can defend from the standard alone. It deliberately excludes
- * measurement variability in the unknown sample — that would need replicates,
- * and claiming it here would understate the true interval's honesty.
+ * measurement variability in the unknown sample, which would need replicates.
+ * Claiming it here would understate the true interval.
  */
 export function meanResponseInterval(
   fit: LinearFit,

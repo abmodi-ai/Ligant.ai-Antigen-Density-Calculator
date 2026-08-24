@@ -25,7 +25,7 @@ export const BEAD_KITS: BeadKit[] = [
     standardKind: 'abc',
     populations: ['Blank', 'Population 1', 'Population 2', 'Population 3', 'Population 4'],
     assignedLabel: 'ABC',
-    note: 'Certified antibody binding capacity (ABC). Stain the beads with the same antibody as the sample — fluorophore-independent, so no F/P correction is needed.',
+    note: 'Beads carry a certified antibody binding capacity (ABC). Stain them with the antibody used for the sample. Calibration is fluorophore-independent, so no F/P correction applies.',
   },
   {
     id: 'qsc-human',
@@ -34,7 +34,7 @@ export const BEAD_KITS: BeadKit[] = [
     standardKind: 'abc',
     populations: ['Blank', 'Population 1', 'Population 2', 'Population 3', 'Population 4'],
     assignedLabel: 'ABC',
-    note: 'Certified antibody binding capacity (ABC), for humanised or fully human detection antibodies. Stain beads with the same antibody as the sample.',
+    note: 'Beads carry a certified antibody binding capacity (ABC), for humanised or fully human detection antibodies. Stain them with the antibody used for the sample.',
   },
   {
     id: 'quantibrite-pe',
@@ -43,7 +43,7 @@ export const BEAD_KITS: BeadKit[] = [
     standardKind: 'pe-molecules',
     populations: ['Low', 'Medium low', 'Medium high', 'High'],
     assignedLabel: 'PE / bead',
-    note: 'Beads are pre-conjugated, so they report PE molecules bound. Set the F/P ratio of your conjugate to convert to antibodies bound — 1:1 conjugates need no correction.',
+    note: 'Beads are pre-conjugated and report PE molecules bound. Specify the conjugate F/P ratio to convert to antibodies bound; 1:1 conjugates require no correction.',
   },
   {
     id: 'custom',
@@ -52,7 +52,7 @@ export const BEAD_KITS: BeadKit[] = [
     standardKind: 'abc',
     populations: ['Standard 1', 'Standard 2', 'Standard 3', 'Standard 4'],
     assignedLabel: 'Assigned',
-    note: 'Any calibrator with certified values. Choose the chemistry that matches what your beads certify.',
+    note: 'Any calibrator with certified values. Select the chemistry matching the quantity the beads certify.',
   },
 ]
 

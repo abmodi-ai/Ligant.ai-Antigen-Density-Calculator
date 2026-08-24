@@ -38,9 +38,9 @@ function demoState(): PersistedState {
       { id: 'd4', label: 'Population 4', mfi: 121_000, assigned: 512_000, included: true },
     ],
     samples: [
-      { id: 'ds1', label: 'CD19 — NALM-6', mfi: 8_900, controlMfi: 240 },
-      { id: 'ds2', label: 'HER2 — SK-BR-3', mfi: 62_000, controlMfi: 310 },
-      { id: 'ds3', label: 'HER2 — primary keratinocyte', mfi: 420, controlMfi: 260 },
+      { id: 'ds1', label: 'CD19 (NALM-6)', mfi: 8_900, controlMfi: 240 },
+      { id: 'ds2', label: 'HER2 (SK-BR-3)', mfi: 62_000, controlMfi: 310 },
+      { id: 'ds3', label: 'HER2 (primary keratinocyte)', mfi: 420, controlMfi: 260 },
     ],
     options: { ...DEFAULT_OPTIONS },
   }
@@ -81,7 +81,7 @@ export default function App() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
     } catch {
-      // Storage unavailable — the app stays fully functional without it.
+      // Storage unavailable. The application remains fully functional without it.
     }
   }, [state])
 
@@ -116,9 +116,9 @@ export default function App() {
           <LigantLockup />
           <h1>Antigen Density Calculator</h1>
           <p>
-            Convert flow cytometry MFI into molecules per cell against a calibrated bead standard.
-            Every number is computed deterministically from your inputs — no model, no estimation
-            beyond the regression shown.
+            Quantifies surface antigen density from flow cytometry median fluorescence intensity by
+            calibration against certified bead standards. All values are computed deterministically
+            by least-squares regression. No model or inference is applied beyond the reported fit.
           </p>
         </div>
         <span className="eyebrow" style={{ paddingTop: 6, whiteSpace: 'nowrap' }}>
@@ -142,7 +142,7 @@ export default function App() {
                 <select id="kit" value={kit.id} onChange={(e) => changeKit(e.target.value)}>
                   {BEAD_KITS.map((k) => (
                     <option key={k.id} value={k.id}>
-                      {k.name}{k.vendor && ` — ${k.vendor}`}
+                      {k.name}{k.vendor && ` (${k.vendor})`}
                     </option>
                   ))}
                 </select>
@@ -150,7 +150,7 @@ export default function App() {
               <p className="hint" style={{ marginTop: 9 }}>{kit.note}</p>
               <p className="hint" style={{ marginTop: 7 }}>
                 <strong>Assigned values are lot-specific.</strong> Transcribe them from the vial or the
-                lot certificate of analysis — they are never hard-coded here.
+                lot certificate of analysis. No assigned values are hard-coded in this tool.
               </p>
             </div>
             <StandardsTable
@@ -190,8 +190,8 @@ export default function App() {
                     value={options.backgroundMode}
                     onChange={(e) => setOptions({ backgroundMode: e.target.value as QuantifyOptions['backgroundMode'] })}
                   >
-                    <option value="abc">Subtract in density space</option>
-                    <option value="mfi">Subtract in MFI space</option>
+                    <option value="abc">Density space</option>
+                    <option value="mfi">MFI space</option>
                     <option value="none">None</option>
                   </select>
                 </div>
@@ -238,11 +238,11 @@ export default function App() {
 
               <p className="hint">
                 {options.backgroundMode === 'abc' &&
-                  'Sample and control MFI are each converted to a density, then subtracted. Preferred when the log-log slope differs from 1.'}
+                  'Sample and control MFI are converted to densities independently, then subtracted. Preferred where the log-log slope departs from unity.'}
                 {options.backgroundMode === 'mfi' &&
-                  'Control MFI is subtracted before conversion. Equivalent to density-space subtraction only when the log-log slope is exactly 1.'}
+                  'Control MFI is subtracted prior to conversion. Equivalent to density-space subtraction only where the log-log slope is exactly unity.'}
                 {options.backgroundMode === 'none' &&
-                  'No background correction. The reported density includes non-specific binding and autofluorescence.'}
+                  'No background correction applied. The reported density includes non-specific binding and autofluorescence.'}
               </p>
 
               <div className="button-row">
@@ -331,11 +331,11 @@ export default function App() {
 
       <p className="disclaimer">
         <strong>Research use only. Not for clinical or diagnostic decision-making.</strong>{' '}
-        Results depend entirely on the calibration standard you supply and on the assumption that
-        the beads and cells were acquired with identical cytometer settings. Antibody-binding
-        capacity is not the same quantity as antigen copy number: epitope accessibility, binding
-        valency, conjugate performance, and antigen internalisation all sit between them. All
-        calculations run locally in your browser — nothing is uploaded.
+        Results depend on the calibration standard supplied and on the assumption that beads and
+        cells were acquired under identical cytometer settings. Antibody binding capacity is not
+        equivalent to antigen copy number: epitope accessibility, binding valency, conjugate
+        performance, and antigen internalisation all intervene between the two quantities. All
+        computation is performed locally in the browser; no data is transmitted.
       </p>
 
       <div className="colophon">

@@ -22,8 +22,8 @@ function download(filename: string, mime: string, content: string) {
  * Serialise the live chart to a standalone SVG.
  *
  * CSS custom properties are resolved to literal colours so the file renders
- * identically in Illustrator, Inkscape, and a manuscript pipeline — vector, not
- * a raster screenshot.
+ * identically in Illustrator, Inkscape, and a manuscript pipeline as vector
+ * output rather than a raster screenshot.
  */
 export function exportChartSvg(svgId: string, filename: string) {
   const source = document.getElementById(svgId) as SVGSVGElement | null

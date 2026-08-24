@@ -30,7 +30,7 @@ export function FlagList({ flags }: { flags: Flag[] }) {
         <div key={i} className="flag" role={f.level === 'critical' ? 'alert' : undefined}>
           <FlagIcon />
           <span>
-            <strong>{f.level === 'critical' ? 'Check this: ' : 'Note: '}</strong>
+            <strong>{f.level === 'critical' ? 'Caution: ' : 'Note: '}</strong>
             {f.message}
           </span>
         </div>
@@ -48,7 +48,7 @@ export function Results({ entries, valency }: Props) {
   const quantified = entries.filter((e) => e.result.netAbc !== null)
 
   if (entries.length === 0) {
-    return <div className="empty">Add a sample MFI to see its antigen density.</div>
+    return <div className="empty">Enter a sample MFI to compute antigen density.</div>
   }
 
   return (
@@ -68,7 +68,7 @@ export function Results({ entries, valency }: Props) {
             </div>
 
             {result.netAbc === null ? (
-              <p className="hint">Not quantifiable — see below.</p>
+              <p className="hint">Not quantifiable. See flags below.</p>
             ) : (
               <>
                 <div className="hero">
@@ -77,7 +77,7 @@ export function Results({ entries, valency }: Props) {
                 </div>
                 <div className="ci">
                   95% CI {formatNumber(result.lower as number)} – {formatNumber(result.upper as number)}
-                  <span className="hint"> (standard-curve fit)</span>
+                  <span className="hint"> (from standard curve fit)</span>
                 </div>
 
                 <dl className="detail-grid">
@@ -92,15 +92,15 @@ export function Results({ entries, valency }: Props) {
                   </dd>
                   {result.controlAbc !== null && (
                     <>
-                      <dt>Gross</dt>
+                      <dt>Gross density</dt>
                       <dd>{formatNumber(result.grossAbc as number)}</dd>
-                      <dt>Background</dt>
+                      <dt>Background density</dt>
                       <dd>{formatNumber(result.controlAbc)}</dd>
                     </>
                   )}
                   {band && (
                     <>
-                      <dt>Reading</dt>
+                      <dt>Interpretation</dt>
                       <dd className="prose-dd">{band.note}</dd>
                     </>
                   )}
@@ -115,14 +115,15 @@ export function Results({ entries, valency }: Props) {
 
       {quantified.length > 0 && (
         <details className="options" style={{ marginTop: 14 }}>
-          <summary>How to read the density bands</summary>
+          <summary>Interpretation of density bands</summary>
           <div>
             <p className="hint">
               These are order-of-magnitude reading aids drawn from the published density-threshold
               literature, <strong>not validated cutoffs</strong>. A CAR's real activation threshold is a
-              property of the specific construct — scFv affinity, hinge, costimulatory domain — and of the
-              effector function in question: cytotoxicity is triggered at lower antigen density than
-              cytokine release and proliferation. Establish the threshold for your own construct.
+              property of the specific construct (scFv affinity, hinge, costimulatory domain) and of
+              the effector function under consideration. Cytotoxicity is triggered at lower antigen
+              density than cytokine release or proliferation. Determine the threshold empirically for
+              the construct in use.
             </p>
             <table style={{ marginTop: 4 }}>
               <tbody>
