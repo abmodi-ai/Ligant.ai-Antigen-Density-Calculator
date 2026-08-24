@@ -1,6 +1,7 @@
 import {
   DENSITY_BANDS,
   bandFor,
+  calibrationValid,
   confidenceLabel,
   formatNumber,
   type Flag,
@@ -78,7 +79,11 @@ export function Results({ entries, valency, confidenceLevel, saturationConfirmed
         </p>
       )}
       {entries.map(({ sample, result }) => {
-        const band = result.netAbc !== null ? bandFor(result.netAbc) : null
+        // A band and an interpretation are verdicts. An invalid calibration
+        // cannot support one, so neither is shown, and the reason is stated
+        // above the figure rather than beside a chart in another panel.
+        const valid = calibrationValid(result)
+        const band = result.netAbc !== null && valid ? bandFor(result.netAbc) : null
         return (
           <div className="result-card" key={sample.id}>
             <div className="result-name">
@@ -90,6 +95,8 @@ export function Results({ entries, valency, confidenceLevel, saturationConfirmed
                 </span>
               )}
             </div>
+
+            <FlagList flags={result.calibrationFlags} />
 
             {result.netAbc === null ? (
               <>

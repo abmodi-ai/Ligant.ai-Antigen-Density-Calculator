@@ -174,7 +174,7 @@ export function exportResultsCsv(payload: ExportPayload, filename: string) {
       'Sample', 'Sample MFI', 'Control MFI', 'Gross ABC', 'Background ABC', 'Net ABC',
       'CI lower', 'CI upper', 'Inferred antigen sites low', 'Inferred antigen sites high',
       'flag_status', 'within_calibrated_range', 'control_within_calibrated_range',
-      'background_pct_of_gross', 'mode_divergence_pct', 'flag_detail',
+      'background_pct_of_gross', 'mode_divergence_pct', 'calibration_valid', 'flag_detail',
     ]),
   )
   for (const { sample, result } of samples) {
@@ -184,12 +184,13 @@ export function exportResultsCsv(payload: ExportPayload, filename: string) {
         sample.label, sample.mfi, sample.controlMfi,
         result.grossAbc, result.controlAbc, result.netAbc,
         result.lower, result.upper, result.sitesLow, result.sitesHigh,
-        resultStatus(result.flags),
+        resultStatus([...result.calibrationFlags, ...result.flags]),
         yesNo(result.sampleInRange),
         yesNo(result.controlInRange),
         result.backgroundFraction === null ? '' : result.backgroundFraction * 100,
         result.modeDivergence === null ? '' : result.modeDivergence * 100,
-        result.flags.map((f) => f.message).join(' | '),
+        result.calibrationFlags.length === 0 ? 'yes' : 'no',
+        [...result.calibrationFlags, ...result.flags].map((f) => f.message).join(' | '),
       ]),
     )
   }

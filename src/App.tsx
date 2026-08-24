@@ -4,13 +4,14 @@ import {
   DEFAULT_OPTIONS,
   captureCompatibilityFlags,
   fitStandardCurve,
-  quantifySample,
+  quantifyWithCalibration,
   type BeadStandard,
   type CurveResult,
   type HostSpecies,
   type QuantifyOptions,
   type Sample,
 } from './lib/quantify'
+import { restoreOptions } from './lib/persist'
 import { exportChartSvg, exportResultsCsv } from './lib/export'
 import { formatR2 } from './lib/format'
 import { StandardCurve } from './components/StandardCurve'
@@ -74,8 +75,17 @@ function loadState(): PersistedState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
-      const parsed = JSON.parse(raw) as PersistedState
-      if (parsed.standards?.length && parsed.options) return parsed
+      const parsed = JSON.parse(raw) as Partial<PersistedState>
+      if (parsed.standards?.length && parsed.options) {
+        return {
+          kitId: typeof parsed.kitId === 'string' ? parsed.kitId : BEAD_KITS[0].id,
+          standards: parsed.standards,
+          samples: parsed.samples ?? [],
+          // Settings written before an option existed have no key for it, so
+          // they are merged over the defaults rather than used as they stand.
+          options: restoreOptions(parsed.options, DEFAULT_OPTIONS),
+        }
+      }
     }
   } catch {
     // Private browsing, blocked site data, or a corrupt payload: fall through.
@@ -102,20 +112,27 @@ export default function App() {
   const curveResult = useMemo(() => fitStandardCurve(standards), [standards])
   const curve: CurveResult | null = 'error' in curveResult ? null : curveResult
 
+  // A capture mismatch invalidates the whole calibration rather than any one
+  // sample, so it sits with the curve. It also travels to every result, because
+  // the results panel is a separate panel and a reader who scrolls to their
+  // number would otherwise never pass the alarm.
+  const captureFlags = useMemo(
+    () => captureCompatibilityFlags(kit.captureHost, options.antibodyHost),
+    [kit, options.antibodyHost],
+  )
+
+  const curveFlags = useMemo(
+    () => [...captureFlags, ...(curve?.flags ?? [])],
+    [captureFlags, curve],
+  )
+
   const entries = useMemo(() => {
     if (!curve) return []
-    return samples.map((sample) => ({ sample, result: quantifySample(sample, curve, options) }))
-  }, [samples, curve, options])
-
-  // A capture mismatch invalidates the whole calibration rather than any one
-  // sample, so it sits with the curve.
-  const curveFlags = useMemo(
-    () => [
-      ...captureCompatibilityFlags(kit.captureHost, options.antibodyHost),
-      ...(curve?.flags ?? []),
-    ],
-    [kit, options.antibodyHost, curve],
-  )
+    return samples.map((sample) => ({
+      sample,
+      result: quantifyWithCalibration(sample, curve, options, captureFlags),
+    }))
+  }, [samples, curve, options, captureFlags])
 
   const guidanceContext: ToolContext = useMemo(
     () => ({

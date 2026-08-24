@@ -139,6 +139,16 @@ export interface SampleResult {
   sitesLow: number | null
   sitesHigh: number | null
   flags: Flag[]
+  /**
+   * Calibration-level conditions that invalidate this value.
+   *
+   * A curve that cannot calibrate anything invalidates every sample derived
+   * from it, so these travel with each result rather than staying beside the
+   * chart. Kept separate from the sample's own flags so the interface can put
+   * them above the figure, where they are read before it, and so the export can
+   * mark the row without the reader having to correlate two panels.
+   */
+  calibrationFlags: Flag[]
 }
 
 /** log-log slope far from unity indicates detector or staining non-linearity. */
@@ -332,6 +342,7 @@ export function quantifySample(
     sitesLow: null,
     sitesHigh: null,
     flags,
+    calibrationFlags: [],
   }
 
   if (sample.mfi === null || !(sample.mfi > 0)) return base
@@ -500,13 +511,38 @@ export function quantifySample(
 }
 
 /**
+ * A sample result carrying the calibration conditions that invalidate it.
+ *
+ * The curve panel and the results panel are separate, and a reader who scrolls
+ * to their number never passes the alarm sitting above the chart. Attaching the
+ * invalidating conditions to the result is what makes that impossible, in the
+ * interface and in the export alike.
+ */
+export function quantifyWithCalibration(
+  sample: Sample,
+  curve: CurveResult,
+  options: QuantifyOptions,
+  extraCalibrationFlags: readonly Flag[] = [],
+): SampleResult {
+  const invalidating = [...extraCalibrationFlags, ...curve.flags].filter(
+    (f) => f.level === 'critical',
+  )
+  return { ...quantifySample(sample, curve, options), calibrationFlags: invalidating }
+}
+
+/** Whether the calibration behind a result can support any figure at all. */
+export function calibrationValid(result: SampleResult): boolean {
+  return result.calibrationFlags.length === 0
+}
+
+/**
  * Overall reportability of a result, derived from its flags.
  *
  * Exported so a CSV row can carry a machine-readable status rather than only
  * prose a reader has to parse: a flag that survives only on screen stops doing
  * its work at exactly the moment the value enters a notebook or a figure.
  */
-export function resultStatus(flags: Flag[]): 'ok' | 'caution' | 'do_not_report' {
+export function resultStatus(flags: readonly Flag[]): 'ok' | 'caution' | 'do_not_report' {
   if (flags.some((f) => f.level === 'critical')) return 'do_not_report'
   if (flags.length > 0) return 'caution'
   return 'ok'

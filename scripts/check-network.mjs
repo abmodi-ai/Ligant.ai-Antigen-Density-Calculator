@@ -333,6 +333,121 @@ try {
   uiFailures.push(`antigen density: CSV export failed (${String(e).slice(0, 70)})`)
 }
 
+// ---------------------------------------------------------------------------
+// A returning user, whose stored settings predate the options added since.
+//
+// Restoring that payload directly left a new key undefined. The select bound to
+// it rendered uncontrolled and reported its first option, so the interface
+// showed a valid choice while the guard received nothing and accused the user of
+// a mismatch against "undefined". It reproduced only from stored state, which is
+// why nothing constructed from defaults ever saw it.
+// ---------------------------------------------------------------------------
+await page.evaluate(() => {
+  localStorage.setItem(
+    'adc.state.v1',
+    JSON.stringify({
+      kitId: 'qsc-mouse',
+      standards: [
+        { id: 'd0', label: 'Blank', mfi: 210, assigned: null, included: false },
+        { id: 'd1', label: 'Population 1', mfi: 2050, assigned: 8300, included: true },
+        { id: 'd2', label: 'Population 2', mfi: 12900, assigned: 51000, included: true },
+        { id: 'd3', label: 'Population 3', mfi: 39500, assigned: 175000, included: true },
+        { id: 'd4', label: 'Population 4', mfi: 121000, assigned: 512000, included: true },
+      ],
+      samples: [{ id: 's1', label: 'CD19 (NALM-6)', mfi: 8900, controlMfi: 240 }],
+      // Exactly the option set the released version wrote: no antibodyHost,
+      // no saturationConfirmed.
+      options: {
+        standardKind: 'abc',
+        fpRatio: 1,
+        backgroundMode: 'abc',
+        valency: 'bivalent',
+        confidenceLevel: 0.95,
+      },
+    }),
+  )
+})
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(700)
+
+const returning = await page.evaluate(() => ({
+  text: document.body.innerText,
+  host: document.querySelector('#host')?.value ?? null,
+  criticals: document.querySelectorAll('[role="alert"]').length,
+  value: document.querySelector('.result-card .hero .value')?.innerText ?? '',
+}))
+if (/undefined/i.test(returning.text)) {
+  uiFailures.push('antigen density: restored state renders the word "undefined" to the user')
+}
+if (returning.criticals > 0) {
+  uiFailures.push(
+    `antigen density: restored state raised ${returning.criticals} critical flag(s) on settings the user never changed`,
+  )
+}
+if (returning.host !== 'unstated') {
+  uiFailures.push(`antigen density: restored host select reads "${returning.host}", expected unstated`)
+}
+if (!returning.value.startsWith('35,63')) {
+  uiFailures.push(`antigen density: restored state computed "${returning.value}", expected 35,636`)
+}
+
+// ---------------------------------------------------------------------------
+// An invalidated calibration must reach the figures it invalidates. The curve
+// and the results are separate panels, and a reader who scrolls to their number
+// would otherwise never pass the alarm.
+// ---------------------------------------------------------------------------
+await page.evaluate(() => localStorage.clear())
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(600)
+await page.selectOption('#host', 'rat')
+await page.waitForTimeout(600)
+
+const invalidated = await page.evaluate(() => {
+  const cards = [...document.querySelectorAll('.result-card')]
+  return {
+    count: cards.length,
+    withoutAlarm: cards.filter((c) => !/cannot calibrate this stain/i.test(c.innerText)).length,
+    withBand: cards.filter((c) => c.querySelector('.band-chip')).length,
+    withVerdict: cards.filter((c) => /Full effector response is expected/i.test(c.innerText)).length,
+  }
+})
+if (invalidated.count === 0) uiFailures.push('antigen density: no result cards under a host mismatch')
+if (invalidated.withoutAlarm > 0) {
+  uiFailures.push(
+    `antigen density: ${invalidated.withoutAlarm} card(s) render a figure without the calibration alarm that invalidates it`,
+  )
+}
+if (invalidated.withBand > 0) {
+  uiFailures.push(`antigen density: ${invalidated.withBand} card(s) show a density band on an invalid calibration`)
+}
+if (invalidated.withVerdict > 0) {
+  uiFailures.push(
+    `antigen density: ${invalidated.withVerdict} card(s) interpret a figure the calibration cannot support`,
+  )
+}
+
+try {
+  const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: 8000 }),
+    page.getByRole('button', { name: 'Export CSV' }).click(),
+  ])
+  const csv = await readFile(await download.path(), 'utf8')
+  if (!csv.includes('calibration_valid')) {
+    uiFailures.push('antigen density: CSV export has no calibration_valid column')
+  }
+  const sampleRows = csv.split('\n').filter((r) => /^CD19|^HER2/.test(r))
+  for (const row of sampleRows) {
+    if (!row.includes('do_not_report')) {
+      uiFailures.push('antigen density: an invalidated calibration exported a row not marked do_not_report')
+      break
+    }
+  }
+} catch (e) {
+  uiFailures.push(`antigen density: CSV export under a mismatch failed (${String(e).slice(0, 70)})`)
+}
+
+await page.evaluate(() => localStorage.clear())
+
 const fontsApplied = await page.evaluate(async () => {
   await document.fonts.ready
   return {
@@ -377,4 +492,6 @@ console.log('disclosure and a main landmark; every guidance panel is fully on sc
 console.log('exported SVG parses; nothing is clipped at 360px; an extreme input cannot')
 console.log('explode the chart; the reported unit is ABC rather than an unqualified molecule')
 console.log('count; every result discloses background as a share of gross while only a')
-console.log('material one is flagged; and the CSV export carries a machine-readable status.')
+console.log('material one is flagged; settings persisted by an earlier release restore without')
+console.log('raising a flag the user did not earn; an invalidated calibration reaches every')
+console.log('figure it invalidates; and the CSV export carries a machine-readable status.')

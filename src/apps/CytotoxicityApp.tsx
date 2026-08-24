@@ -9,6 +9,7 @@ import {
   type DoseMatrix,
 } from '../lib/cytotox'
 import { confidenceLabel } from '../lib/quantify'
+import { restoreOptions } from '../lib/persist'
 import { formatR2 } from '../lib/format'
 import { CytotoxTables } from '../components/CytotoxTables'
 import { DoseResponseCurve } from '../components/DoseResponseCurve'
@@ -60,8 +61,15 @@ function loadState(): Persisted {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
-      const parsed = JSON.parse(raw) as Persisted
-      if (parsed.matrix?.doses?.length && parsed.options) return parsed
+      const parsed = JSON.parse(raw) as Partial<Persisted>
+      if (parsed.matrix?.doses?.length && parsed.options) {
+        return {
+          matrix: parsed.matrix,
+          // Same merge as the other tool, for the same reason: an option added
+          // after this state was written has no key here.
+          options: restoreOptions(parsed.options, DEFAULT_CYTOTOX_OPTIONS),
+        }
+      }
     }
   } catch {
     // Private browsing, blocked site data, or a corrupt payload.

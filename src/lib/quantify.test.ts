@@ -2,9 +2,11 @@ import { describe, it, expect } from 'vitest'
 import {
   DEFAULT_OPTIONS,
   bandFor,
+  calibrationValid,
   captureCompatibilityFlags,
   confidenceLabel,
   fitStandardCurve,
+  quantifyWithCalibration,
   resultStatus,
   formatNumber,
   quantifySample,
@@ -457,5 +459,57 @@ describe('resultStatus', () => {
 
   it('maps no flags to ok', () => {
     expect(resultStatus([])).toBe('ok')
+  })
+})
+
+describe('calibration flags reaching the result', () => {
+  const c = curve(DEMO_BEADS)
+  const mismatch = captureCompatibilityFlags('mouse', 'rat')
+
+  it('attaches an invalidating calibration to every sample derived from it', () => {
+    const r = quantifyWithCalibration(DEMO_SAMPLES.cd19, c, DEMO_OPTIONS, mismatch)
+    expect(r.calibrationFlags).toHaveLength(1)
+    expect(calibrationValid(r)).toBe(false)
+    // The value is still computed, so the user can see what their settings did.
+    expect(r.netAbc).toBeCloseTo(35_636, 0)
+  })
+
+  it('leaves a sound calibration unmarked', () => {
+    const r = quantifyWithCalibration(DEMO_SAMPLES.cd19, c, DEMO_OPTIONS, [])
+    expect(r.calibrationFlags).toHaveLength(0)
+    expect(calibrationValid(r)).toBe(true)
+  })
+
+  it('carries a critical from the curve itself, not only a declared mismatch', () => {
+    const transposed: BeadStandard[] = [
+      { id: 'a', label: 'Low', mfi: 1_000, assigned: 100_000, included: true },
+      { id: 'b', label: 'Mid', mfi: 10_000, assigned: 10_000, included: true },
+      { id: 'c', label: 'High', mfi: 50_000, assigned: 500_000, included: true },
+    ]
+    const r = quantifyWithCalibration(
+      { id: 'x', label: 'x', mfi: 5_000, controlMfi: null },
+      curve(transposed),
+      DEMO_OPTIONS,
+    )
+    expect(r.calibrationFlags.some((f) => f.message.includes('not increasing with MFI'))).toBe(true)
+  })
+
+  it('does not treat a calibration warning as invalidating', () => {
+    // Three populations warn about one degree of freedom. That is a caveat on
+    // the interval, not a reason to withhold the figure.
+    const r = quantifyWithCalibration(
+      { id: 'x', label: 'x', mfi: 5_000, controlMfi: null },
+      curve(EXACT_BEADS.slice(0, 3)),
+      DEMO_OPTIONS,
+    )
+    expect(r.calibrationFlags).toHaveLength(0)
+    expect(calibrationValid(r)).toBe(true)
+  })
+
+  it('reports do_not_report once the calibration flags are counted', () => {
+    const r = quantifyWithCalibration(DEMO_SAMPLES.cd19, c, DEMO_OPTIONS, mismatch)
+    // The sample's own flags are clean; only the calibration condemns it.
+    expect(resultStatus(r.flags)).toBe('ok')
+    expect(resultStatus([...r.calibrationFlags, ...r.flags])).toBe('do_not_report')
   })
 })

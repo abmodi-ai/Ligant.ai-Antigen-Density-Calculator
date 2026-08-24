@@ -1,0 +1,107 @@
+import { describe, it, expect } from 'vitest'
+import { restoreOptions } from './persist'
+import { DEFAULT_OPTIONS, captureCompatibilityFlags, type QuantifyOptions } from './quantify'
+import { DEFAULT_CYTOTOX_OPTIONS } from './cytotox'
+
+/**
+ * Settings exactly as the released version wrote them, before the antibody host
+ * and saturation options existed. This is the shape every returning user has in
+ * storage, and the shape no test constructed until this one.
+ */
+const V0_ANTIGEN_OPTIONS = {
+  standardKind: 'abc',
+  fpRatio: 1,
+  backgroundMode: 'abc',
+  valency: 'bivalent',
+  confidenceLevel: 0.95,
+}
+
+describe('restoreOptions', () => {
+  it('backfills an option that did not exist when the state was written', () => {
+    const restored = restoreOptions(V0_ANTIGEN_OPTIONS, DEFAULT_OPTIONS)
+    expect(restored.antibodyHost).toBe('unstated')
+    expect(restored.saturationConfirmed).toBe(false)
+  })
+
+  it('keeps every value the stored payload does carry', () => {
+    const restored = restoreOptions(
+      { ...V0_ANTIGEN_OPTIONS, backgroundMode: 'mfi', confidenceLevel: 0.99 },
+      DEFAULT_OPTIONS,
+    )
+    expect(restored.backgroundMode).toBe('mfi')
+    expect(restored.confidenceLevel).toBe(0.99)
+  })
+
+  it('does not leave a backfilled key undefined, which is what broke the guards', () => {
+    const restored = restoreOptions(V0_ANTIGEN_OPTIONS, DEFAULT_OPTIONS) as unknown as Record<string, unknown>
+    for (const key of Object.keys(DEFAULT_OPTIONS)) {
+      expect(restored[key]).toBeDefined()
+    }
+  })
+
+  it('discards a stored value of the wrong type', () => {
+    const restored = restoreOptions(
+      { ...V0_ANTIGEN_OPTIONS, confidenceLevel: 'ninety five' },
+      DEFAULT_OPTIONS,
+    )
+    expect(restored.confidenceLevel).toBe(DEFAULT_OPTIONS.confidenceLevel)
+  })
+
+  it('discards null, which JSON can carry where undefined cannot', () => {
+    const restored = restoreOptions({ ...V0_ANTIGEN_OPTIONS, valency: null }, DEFAULT_OPTIONS)
+    expect(restored.valency).toBe(DEFAULT_OPTIONS.valency)
+  })
+
+  it('discards a non-finite number rather than letting it reach a computation', () => {
+    const restored = restoreOptions({ fpRatio: Number.NaN }, DEFAULT_OPTIONS)
+    expect(restored.fpRatio).toBe(DEFAULT_OPTIONS.fpRatio)
+  })
+
+  it('drops a key the defaults do not declare', () => {
+    const restored = restoreOptions(
+      { ...V0_ANTIGEN_OPTIONS, retiredSetting: 'x' },
+      DEFAULT_OPTIONS,
+    ) as unknown as Record<string, unknown>
+    expect(restored.retiredSetting).toBeUndefined()
+  })
+
+  it('falls back entirely on a payload that is not an object', () => {
+    for (const junk of [null, undefined, 'x', 7, [1, 2]]) {
+      expect(restoreOptions(junk, DEFAULT_OPTIONS)).toEqual(DEFAULT_OPTIONS)
+    }
+  })
+
+  it('serves the cytotoxicity tool, which has the same exposure', () => {
+    const v0 = { doseLabel: 'E:T ratio', responseLabel: 'Specific lysis (%)' }
+    const restored = restoreOptions(v0, DEFAULT_CYTOTOX_OPTIONS)
+    expect(restored.doseLabel).toBe('E:T ratio')
+    expect(restored.responseIsPercent).toBe(DEFAULT_CYTOTOX_OPTIONS.responseIsPercent)
+    expect(restored.confidenceLevel).toBe(DEFAULT_CYTOTOX_OPTIONS.confidenceLevel)
+  })
+})
+
+describe('the defect this module exists to prevent', () => {
+  // Restoring the released payload directly left antibodyHost undefined. The
+  // select rendered uncontrolled and reported its first option, so the
+  // interface displayed "Not stated" while the guard received nothing, fell
+  // past every early return, and accused the user of a mismatch against
+  // "undefined". Nothing was wrong with their data.
+  it('accuses a returning user of nothing', () => {
+    const naive = V0_ANTIGEN_OPTIONS as unknown as QuantifyOptions
+    expect(captureCompatibilityFlags('mouse', naive.antibodyHost)).toHaveLength(1)
+
+    const restored = restoreOptions(V0_ANTIGEN_OPTIONS, DEFAULT_OPTIONS)
+    expect(captureCompatibilityFlags('mouse', restored.antibodyHost)).toHaveLength(0)
+  })
+
+  it('never puts undefined in front of a user', () => {
+    const naive = V0_ANTIGEN_OPTIONS as unknown as QuantifyOptions
+    const [flag] = captureCompatibilityFlags('mouse', naive.antibodyHost)
+    expect(flag.message).toContain('undefined')
+
+    const restored = restoreOptions(V0_ANTIGEN_OPTIONS, DEFAULT_OPTIONS)
+    for (const f of captureCompatibilityFlags('mouse', restored.antibodyHost)) {
+      expect(f.message).not.toContain('undefined')
+    }
+  })
+})
