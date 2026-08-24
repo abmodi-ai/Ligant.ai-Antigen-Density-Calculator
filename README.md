@@ -49,6 +49,23 @@ The tool refuses to be quietly wrong. It flags:
 - results below the lowest standard
 - background at or above sample signal
 
+## Privacy
+
+Nothing you enter is transmitted, and the page contacts no third party. Not "we
+do not sell your data" but "nothing outside this origin is contacted at all":
+
+- Typefaces are self-hosted (about 104 kB, Latin subsets), not loaded from a
+  font network, so no third party sees a visitor.
+- No analytics script.
+- The content security policy allows connections to this origin only.
+
+This is checked, not asserted. `npm run check:privacy` fails the build on any
+external origin in the policy, the entry document, or the bundle, and on any
+network primitive in the source. `npm run check:network` then serves the
+production build with that policy applied as a real header, drives a full user
+session in a browser, and fails if a single request leaves the origin. Both run
+in CI.
+
 ## Determinism
 
 Every number comes from pure functions over the user's inputs. No model, no

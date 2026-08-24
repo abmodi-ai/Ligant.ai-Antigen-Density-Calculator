@@ -40,6 +40,33 @@ invented. Roles are fixed:
 - Density and other magnitude scales are achromatic. A reading carries no
   verdict.
 
+## Privacy
+
+Privacy is the product, not a feature. Four invariants, all enforced by tests
+rather than by policy:
+
+1. **No user data leaves the browser.** No telemetry, no error reporting, no
+   analytics, no model API.
+2. **No third-party origin.** Every byte is served from our own origin.
+   Typefaces are self-hosted, never loaded from a font network.
+3. **Local storage is disclosed and erasable.** The user can see exactly which
+   keys are written and clear them.
+4. **The content security policy permits `'self'` only.** The single relaxation
+   ever permitted is `'wasm-unsafe-eval'` in `script-src`, for on-device
+   inference, which grants no network capability.
+
+`npm run check:privacy` fails the build on an external origin in the CSP, an
+external URL in `index.html` or the bundle, or a network primitive in `src/`.
+`npm run check:network` then proves it at runtime: it serves the production
+build with the real CSP applied, drives a full session in a browser, and fails
+on any request to another origin. String analysis is the early gate; the runtime
+assertion is the guarantee.
+
+Model weights, when on-device inference is added, are served from our own origin
+so no outside party ever observes a user. Weights must be Apache-2.0 or MIT. Not
+Gemma: its terms restrict health-related professional content and reserve remote
+enforcement.
+
 ## Determinism
 
 No language model output ever reaches a computed value. All numbers come from
@@ -49,8 +76,11 @@ identical inputs produces identical results.
 ## Commands
 
 ```sh
+npm run verify     # everything below, in order
 npm test           # unit tests
 npm run check:style
+npm run check:privacy   # static: no external origin anywhere
+npm run check:network   # runtime: nothing leaves the origin
 npm run build      # static site to dist/
 npm run build:single
 ```

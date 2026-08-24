@@ -2,14 +2,16 @@
 
 /*
   X-Content-Type-Options: nosniff
-  Referrer-Policy: strict-origin-when-cross-origin
+  Referrer-Policy: no-referrer
   X-Frame-Options: DENY
-  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=()
-  # Everything is bundled and served from this origin. The two font hosts are
-  # the only external origins; static.cloudflareinsights.com is listed so
-  # Cloudflare Web Analytics works the moment it is switched on in the
-  # dashboard, without a redeploy.
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=(), interest-cohort=()
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
+  # No third-party origin appears anywhere in this policy. Typefaces are
+  # self-hosted, there is no analytics script, and connect-src is 'self', so the
+  # page cannot transmit anything anywhere even if a future change tried to.
+  # scripts/check-privacy.mjs fails the build if any external origin is added.
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
 
 # Asset filenames carry a content hash, so they can be cached indefinitely.
 /assets/*

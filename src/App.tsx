@@ -252,7 +252,17 @@ export default function App() {
             </div>
           </section>
 
-          <Method />
+          <Method
+            storageKeys={[STORAGE_KEY]}
+            onClearStorage={() => {
+              try {
+                localStorage.removeItem(STORAGE_KEY)
+              } catch {
+                // Nothing was persisted, so there is nothing to remove.
+              }
+              setState(emptyState(kit))
+            }}
+          />
         </div>
 
         {/* ---------------- outputs ---------------- */}
@@ -339,7 +349,8 @@ export default function App() {
         cells were acquired under identical cytometer settings. Antibody binding capacity is not
         equivalent to antigen copy number: epitope accessibility, binding valency, conjugate
         performance, and antigen internalisation all intervene between the two quantities. All
-        computation is performed locally in the browser; no data is transmitted.
+        computation is performed locally in this browser. Nothing you enter is transmitted, and the
+        page contacts no third party.
       </p>
 
       <div className="colophon">

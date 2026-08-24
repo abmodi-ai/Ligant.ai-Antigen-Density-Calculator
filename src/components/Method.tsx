@@ -1,4 +1,10 @@
-export function Method() {
+interface Props {
+  /** Storage keys this tool writes, listed to the user verbatim. */
+  storageKeys: string[]
+  onClearStorage: () => void
+}
+
+export function Method({ storageKeys, onClearStorage }: Props) {
   return (
     <section className="panel">
       <div className="panel-head">
@@ -42,12 +48,31 @@ export function Method() {
           </li>
         </ul>
 
-        <h3>Data handling</h3>
+        <h3>Privacy</h3>
         <p>
-          All computation is performed locally in the browser. No data is transmitted, no account is
-          required, and entries persist only in this browser's local storage so that a page reload
-          does not discard work in progress.
+          All computation is performed locally in this browser. Nothing you enter is transmitted,
+          and the page contacts <strong>no third party at all</strong>: typefaces are served from
+          this site rather than a font network, and there is no analytics script.
         </p>
+        <p>
+          This is enforced rather than promised. The content security policy permits connections to
+          this origin only, and the build fails if any external origin is introduced or if a full
+          session in a real browser produces a single request that leaves it.
+        </p>
+        <p>
+          Stored in this browser, and nowhere else:
+        </p>
+        <ul>
+          {storageKeys.map((key) => (
+            <li key={key}>
+              <code>{key}</code> holds the calibration standards, samples, and analysis settings
+              currently on screen, so that a page reload does not discard work in progress.
+            </li>
+          ))}
+        </ul>
+        <div className="button-row" style={{ marginTop: 12 }}>
+          <button onClick={onClearStorage}>Clear stored data</button>
+        </div>
       </div>
     </section>
   )
