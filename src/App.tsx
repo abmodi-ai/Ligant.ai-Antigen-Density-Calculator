@@ -320,7 +320,11 @@ export default function App() {
             </div>
             <div className="panel-body">
               {curve ? (
-                <Results entries={entries} valency={options.valency} />
+                <Results
+                  entries={entries}
+                  valency={options.valency}
+                  confidenceLevel={options.confidenceLevel}
+                />
               ) : (
                 <div className="empty">Fit a standard curve first.</div>
               )}

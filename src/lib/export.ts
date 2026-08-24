@@ -1,4 +1,4 @@
-import { formatNumber, type BeadStandard, type CurveResult, type QuantifyOptions, type Sample, type SampleResult } from './quantify'
+import { confidenceLabel, formatNumber, type BeadStandard, type CurveResult, type QuantifyOptions, type Sample, type SampleResult } from './quantify'
 
 const CSS_VARS = [
   'surface', 'surface-sunken', 'surface-inset', 'text-primary', 'text-secondary',
@@ -138,7 +138,8 @@ export function exportResultsCsv(payload: ExportPayload, filename: string) {
 }
 
 /** Human-readable one-line summary, for pasting into a lab notebook. */
-export function summaryLine(label: string, r: SampleResult): string {
+export function summaryLine(label: string, r: SampleResult, confidenceLevel: number): string {
   if (r.netAbc === null) return `${label}: not quantifiable`
-  return `${label}: ${formatNumber(r.netAbc)} molecules/cell (95% CI ${formatNumber(r.lower ?? 0)}–${formatNumber(r.upper ?? 0)})`
+  const interval = `${confidenceLabel(confidenceLevel)} ${formatNumber(r.lower ?? 0)}–${formatNumber(r.upper ?? 0)}`
+  return `${label}: ${formatNumber(r.netAbc)} molecules/cell (${interval})`
 }

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   DEFAULT_OPTIONS,
   bandFor,
+  confidenceLabel,
   fitStandardCurve,
   quantifySample,
   type BeadStandard,
@@ -196,5 +197,19 @@ describe('bandFor', () => {
     [1_000_000, 'high'],
   ])('%i molecules/cell falls in the %s band', (abc, id) => {
     expect(bandFor(abc).id).toBe(id)
+  })
+})
+
+describe('confidenceLabel', () => {
+  it.each([
+    [0.9, '90% CI'],
+    [0.95, '95% CI'],
+    [0.99, '99% CI'],
+  ])('renders %f as %s', (level, expected) => {
+    expect(confidenceLabel(level)).toBe(expected)
+  })
+
+  it('keeps a fractional level readable', () => {
+    expect(confidenceLabel(0.975)).toBe('97.5% CI')
   })
 })

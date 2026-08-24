@@ -314,6 +314,18 @@ export function bandFor(abc: number): DensityBand {
   return DENSITY_BANDS.find((b) => abc >= b.min && abc < b.max) ?? DENSITY_BANDS[0]
 }
 
+/**
+ * Label for a reported interval, e.g. "95% CI".
+ *
+ * The confidence level is user-selectable, so the label must be derived from it
+ * rather than written out at each call site.
+ */
+export function confidenceLabel(level: number): string {
+  const percent = level * 100
+  const rounded = Number.isInteger(percent) ? String(percent) : percent.toFixed(1)
+  return `${rounded}% CI`
+}
+
 export function formatNumber(v: number): string {
   if (!Number.isFinite(v)) return 'n/a'
   if (v >= 10_000) return Math.round(v).toLocaleString('en-US')

@@ -1,4 +1,12 @@
-import { DENSITY_BANDS, bandFor, formatNumber, type Flag, type Sample, type SampleResult } from '../lib/quantify'
+import {
+  DENSITY_BANDS,
+  bandFor,
+  confidenceLabel,
+  formatNumber,
+  type Flag,
+  type Sample,
+  type SampleResult,
+} from '../lib/quantify'
 
 /**
  * Density is a magnitude, not a verdict. The ramp is deliberately achromatic so
@@ -42,9 +50,10 @@ export function FlagList({ flags }: { flags: Flag[] }) {
 interface Props {
   entries: { sample: Sample; result: SampleResult }[]
   valency: 'monovalent' | 'bivalent'
+  confidenceLevel: number
 }
 
-export function Results({ entries, valency }: Props) {
+export function Results({ entries, valency, confidenceLevel }: Props) {
   const quantified = entries.filter((e) => e.result.netAbc !== null)
 
   if (entries.length === 0) {
@@ -76,7 +85,8 @@ export function Results({ entries, valency }: Props) {
                   <span className="unit">molecules / cell</span>
                 </div>
                 <div className="ci">
-                  95% CI {formatNumber(result.lower as number)} – {formatNumber(result.upper as number)}
+                  {confidenceLabel(confidenceLevel)} {formatNumber(result.lower as number)} –{' '}
+                  {formatNumber(result.upper as number)}
                   <span className="hint"> (from standard curve fit)</span>
                 </div>
 
