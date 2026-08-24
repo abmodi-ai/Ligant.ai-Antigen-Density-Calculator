@@ -74,8 +74,10 @@ export function Results({ entries, valency, confidenceLevel, saturationConfirmed
     <div>
       {!saturationConfirmed && quantified.length > 0 && (
         <p className="hint" style={{ marginBottom: 10 }}>
-          Saturating stain is not confirmed, so every value below is a lower bound. Sub-saturating
-          antibody undercounts, and it does so in one direction only.
+          <strong>Stain titration: not declared.</strong> Every value below is therefore reported as
+          a lower bound, since sub-saturating antibody undercounts and does so in one direction
+          only. Record it under Analysis settings once the antibody has been titrated to saturation
+          on the beads and on the cells.
         </p>
       )}
       {entries.map(({ sample, result }) => {

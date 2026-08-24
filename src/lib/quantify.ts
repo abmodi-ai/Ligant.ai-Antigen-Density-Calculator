@@ -97,6 +97,17 @@ export interface CurveResult {
  * a population can sit 5% off the line while the summary statistic still reads
  * 0.9995. The per-population residual is what identifies which vial entry to
  * check, so it is computed here rather than left to the reader.
+ *
+ * Deliberately no runs test on the residual signs, though the tool does allow
+ * enough populations to make one arithmetically possible. A runs test detects
+ * too FEW runs, and the exact null distribution gives it almost no power at the
+ * sizes a bead kit supplies: the textbook curvature signature, one positive
+ * residual at each end and negatives between, scores p = 0.40 at six
+ * populations and p = 0.29 at eight. It does not reach 0.05 until ten. A check
+ * that cannot fire on the data it will see reads as coverage without being any,
+ * which is worse than its absence. If curvature is worth detecting later, the
+ * test is the significance of a quadratic term, which uses residual magnitude
+ * rather than discarding it for sign.
  */
 export interface CurveResidual {
   label: string
