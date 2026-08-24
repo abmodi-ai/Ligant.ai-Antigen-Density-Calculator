@@ -8,10 +8,12 @@ enters leaves their machine. Two tools ship today:
 - **Cytotoxicity curve fitter** fits a four parameter logistic to dose response
   data and reports potency with a confidence interval.
 
-Scope is cell therapy: CAR-T, CAR-NK and TCR-T. The dose axis in the curve fitter
-is free text, so it fits any sigmoidal dose response rather than only a killing
-assay, but no tool here is specific to vector or gene transfer work. The suite is
-not described as covering gene therapy.
+Scope is cell therapy, and deliberately only cell therapy: CAR-T, CAR-NK, TCR-T,
+TIL and other adoptive cell products. Gene therapy is out of scope, as is
+anything that is not a cell product. Each tool is designed for the modality
+rather than merely usable within it, meaning its defaults, units, controls and
+quality checks are the ones these assays actually use. `CLAUDE.md` records the
+rule and what it rules out.
 
 ## Method: antigen density
 

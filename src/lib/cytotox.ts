@@ -28,7 +28,7 @@ export interface Series {
 }
 
 export interface CytotoxOptions {
-  /** Label for the dose axis, e.g. "E:T ratio" or "Concentration (nM)". */
+  /** Label for the dose axis, e.g. "E:T ratio" or "CAR+ cells per well". */
   doseLabel: string
   /** Label for the response axis, e.g. "Specific lysis (%)". */
   responseLabel: string

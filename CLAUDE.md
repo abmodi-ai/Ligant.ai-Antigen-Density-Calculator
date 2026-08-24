@@ -1,5 +1,34 @@
 # Project conventions
 
+## Scope
+
+Every tool in the suite is a **cell therapy** tool: CAR-T, CAR-NK, TCR-T, TIL and
+other adoptive cell products. Gene therapy is out of scope, and so is anything
+that is not a cell product: soluble antibodies, T cell engagers, antibody drug
+conjugates, small molecules. A tool that would sit equally well in another
+modality does not belong here.
+
+Designed for the modality, not merely usable within it. Concretely:
+
+- Defaults, units and controls are the ones the modality actually uses. A dose
+  axis defaults to an effector to target ratio, never a molar concentration.
+- Quality checks encode the failure modes of this modality's assays rather than
+  generic curve-fitting hygiene.
+- Worked examples use real cell therapy targets and constructs.
+- Examples in documentation, comments and guidance name cell therapy quantities.
+  An antibody concentration or a vector genome dose is the wrong example even
+  where the arithmetic would accept it.
+
+This rules out tools that were otherwise attractive, including vector titre from
+qPCR, whose regression and inverse prediction the antigen calibration core would
+have supplied almost directly. Reusable maths is not a reason to widen the
+modality.
+
+The rule is deliberately not machine checked. Gene transfer vocabulary is not a
+reliable signal, because a CAR-T process legitimately discusses lentiviral
+transduction and multiplicity of infection. Scope is a review judgement at design
+time, not a keyword gate.
+
 ## Writing
 
 **Never use an em dash.** Not in UI copy, code comments, commit messages,

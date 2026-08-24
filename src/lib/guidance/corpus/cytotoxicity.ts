@@ -13,7 +13,7 @@ export const CYTOTOXICITY_GUIDANCE: GuidanceEntry[] = [
     body: [
       {
         kind: 'p',
-        text: 'Whatever quantity you varied: an effector to target ratio, an antibody concentration, a number of effector cells. Name it in the dose axis field so the plot and the export carry the right label.',
+        text: 'Whatever quantity you varied: an effector to target ratio, a number of effector cells, a number of CAR positive cells. Name it in the dose axis field so the plot and the export carry the right label.',
       },
       {
         kind: 'list',
