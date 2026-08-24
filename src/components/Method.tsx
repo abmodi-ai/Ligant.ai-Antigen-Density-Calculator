@@ -1,3 +1,5 @@
+import { GuidancePin } from './guidance/GuidancePin'
+
 interface Props {
   /** Storage keys this tool writes, listed to the user verbatim. */
   storageKeys: string[]
@@ -48,7 +50,7 @@ export function Method({ storageKeys, onClearStorage }: Props) {
           </li>
         </ul>
 
-        <h3>Privacy</h3>
+        <h3>Privacy<GuidancePin anchor="shared.privacy" /></h3>
         <p>
           All computation is performed locally in this browser. Nothing you enter is transmitted,
           and the page contacts <strong>no third party at all</strong>: typefaces are served from

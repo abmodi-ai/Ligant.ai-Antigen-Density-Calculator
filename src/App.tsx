@@ -17,6 +17,13 @@ import { StandardsTable, SamplesTable } from './components/Tables'
 import { Method } from './components/Method'
 import { LigantMark } from './components/LigantMark'
 import { Masthead } from './components/shared/Masthead'
+import { GuidanceProvider } from './components/guidance/GuidanceProvider'
+import { GuidancePin } from './components/guidance/GuidancePin'
+import { ANTIGEN_DENSITY_GUIDANCE } from './lib/guidance/corpus/antigen-density'
+import { SHARED_GUIDANCE } from './lib/guidance/corpus/shared'
+import type { ToolContext } from './lib/guidance/types'
+
+const CORPUS = [...ANTIGEN_DENSITY_GUIDANCE, ...SHARED_GUIDANCE]
 
 const APP_VERSION = 'v0.1.0'
 const STORAGE_KEY = 'adc.state.v1'
@@ -75,6 +82,8 @@ function loadState(): PersistedState {
 
 export default function App() {
   const [state, setState] = useState<PersistedState>(loadState)
+  // Clearing wipes transcribed data in one click, so it stays reversible.
+  const [undoState, setUndoState] = useState<PersistedState | null>(null)
 
   const kit = BEAD_KITS.find((k) => k.id === state.kitId) ?? BEAD_KITS[0]
   const { standards, samples, options } = state
@@ -95,6 +104,26 @@ export default function App() {
     return samples.map((sample) => ({ sample, result: quantifySample(sample, curve, options) }))
   }, [samples, curve, options])
 
+  const guidanceContext: ToolContext = useMemo(
+    () => ({
+      tool: 'antigen-density',
+      facts: {
+        slope: curve?.fit.slope ?? null,
+        intercept: curve?.fit.intercept ?? null,
+        r2: curve?.fit.r2 ?? null,
+        beadCount: curve?.fit.n ?? 0,
+        standardKind: options.standardKind,
+        backgroundMode: options.backgroundMode,
+        valency: options.valency,
+        confidenceLevel: options.confidenceLevel,
+        sampleCount: entries.length,
+        hasCriticalFlag: entries.some((e) => e.result.flags.some((f) => f.level === 'critical')),
+      },
+      flags: [...(curve?.flags ?? []), ...entries.flatMap((e) => e.result.flags)],
+    }),
+    [curve, options, entries],
+  )
+
   const setOptions = (patch: Partial<QuantifyOptions>) =>
     setState((s) => ({ ...s, options: { ...s.options, ...patch } }))
 
@@ -112,6 +141,7 @@ export default function App() {
   const isPe = options.standardKind === 'pe-molecules'
 
   return (
+    <GuidanceProvider corpus={CORPUS} context={guidanceContext}>
     <div className="app">
       <Masthead current="antigen-density" title="Antigen Density Calculator">
         Quantifies surface antigen density from flow cytometry median fluorescence intensity by
@@ -131,7 +161,7 @@ export default function App() {
             </div>
             <div className="panel-body" style={{ paddingBottom: 12 }}>
               <div className="field">
-                <label htmlFor="kit">Bead kit</label>
+                <label htmlFor="kit">Bead kit<GuidancePin anchor="ad.bead-kit" /></label>
                 <select id="kit" value={kit.id} onChange={(e) => changeKit(e.target.value)}>
                   {BEAD_KITS.map((k) => (
                     <option key={k.id} value={k.id}>
@@ -177,7 +207,7 @@ export default function App() {
             <div className="panel-body stack" style={{ gap: 14 }}>
               <div className="field-row">
                 <div className="field">
-                  <label htmlFor="bg">Background subtraction</label>
+                  <label htmlFor="bg">Background subtraction<GuidancePin anchor="ad.background" /></label>
                   <select
                     id="bg"
                     value={options.backgroundMode}
@@ -189,7 +219,7 @@ export default function App() {
                   </select>
                 </div>
                 <div className="field">
-                  <label htmlFor="valency">Detection antibody</label>
+                  <label htmlFor="valency">Detection antibody<GuidancePin anchor="ad.valency" /></label>
                   <select
                     id="valency"
                     value={options.valency}
@@ -216,7 +246,7 @@ export default function App() {
                   </div>
                 )}
                 <div className="field">
-                  <label htmlFor="conf">Confidence level</label>
+                  <label htmlFor="conf">Confidence level<GuidancePin anchor="shared.confidence" /></label>
                   <select
                     id="conf"
                     value={options.confidenceLevel}
@@ -239,9 +269,39 @@ export default function App() {
               </p>
 
               <div className="button-row">
-                <button onClick={() => setState(demoState())}>Load worked example</button>
-                <button onClick={() => setState(emptyState(kit))}>Clear all</button>
+                <button
+                  onClick={() => {
+                    setUndoState(null)
+                    setState(demoState())
+                  }}
+                >
+                  Load worked example
+                </button>
+                <button
+                  onClick={() => {
+                    setUndoState(state)
+                    setState(emptyState(kit))
+                  }}
+                >
+                  Clear all
+                </button>
+                {undoState && (
+                  <button
+                    className="primary"
+                    onClick={() => {
+                      setState(undoState)
+                      setUndoState(null)
+                    }}
+                  >
+                    Undo clear
+                  </button>
+                )}
               </div>
+              <p className="hint">
+                The worked example is a Quantum Simply Cellular run with three samples. The
+                keratinocyte sample is deliberately under-range, so you can see what the tool does
+                with a measurement that should not be reported.
+              </p>
             </div>
           </section>
 
@@ -262,7 +322,7 @@ export default function App() {
         <div className="rail">
           <section className="panel">
             <div className="panel-head">
-              <div className="titles"><h2>Standard curve</h2></div>
+              <div className="titles"><h2>Standard curve</h2><GuidancePin anchor="ad.curve" /></div>
               {curve && (
                 <button onClick={() => exportChartSvg('standard-curve-svg', 'standard-curve.svg')}>
                   Export SVG
@@ -298,7 +358,7 @@ export default function App() {
 
           <section className="panel">
             <div className="panel-head">
-              <div className="titles"><h2>Antigen density</h2></div>
+              <div className="titles"><h2>Antigen density</h2><GuidancePin anchor="ad.result" /></div>
               {curve && entries.length > 0 && (
                 <button
                   className="primary"
@@ -351,5 +411,6 @@ export default function App() {
         <span>Ligant · Antigen Density Calculator {APP_VERSION}</span>
       </div>
     </div>
+    </GuidanceProvider>
   )
 }

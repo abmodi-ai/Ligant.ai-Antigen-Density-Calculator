@@ -124,13 +124,17 @@ export function fitStandardCurve(standards: BeadStandard[]): CurveResult | { err
   if (fit.r2 < MIN_R2) {
     flags.push({
       level: 'critical',
-      message: `Standard curve R² = ${fit.r2.toFixed(4)}, below the conventional acceptance threshold of ${MIN_R2}. Verify bead gating and check for a saturated or off-scale population.`,
+      message: `Standard curve R² = ${fit.r2.toFixed(4)}, below the conventional acceptance threshold of ${MIN_R2}.`,
+      remedy:
+        'Check that each bead population is gated on the correct peak and that none are transposed, then look for a saturated or off-scale population.',
     })
   }
   if (Math.abs(fit.slope - 1) > SLOPE_TOLERANCE) {
     flags.push({
       level: 'warning',
-      message: `Log-log slope is ${fit.slope.toFixed(3)}. A well-behaved standard approximates 1.0; departures from unity indicate detector non-linearity or a compensation error.`,
+      message: `Log-log slope is ${fit.slope.toFixed(3)}. A well-behaved standard approximates 1.0.`,
+      remedy:
+        'Departures from unity indicate detector non-linearity or a compensation error. Lower the detector voltage if the brightest population is saturating, and confirm compensation was applied to beads and cells alike.',
     })
   }
 
@@ -182,7 +186,9 @@ export function quantifySample(
   if (sample.mfi < minMfi || sample.mfi > maxMfi) {
     flags.push({
       level: 'critical',
-      message: `Sample MFI (${formatNumber(sample.mfi)}) lies outside the calibrated range (${formatNumber(minMfi)}–${formatNumber(maxMfi)}). The value is extrapolated beyond the standard and is not quantitative.`,
+      message: `Sample MFI (${formatNumber(sample.mfi)}) lies outside the calibrated range (${formatNumber(minMfi)}–${formatNumber(maxMfi)}).`,
+      remedy:
+        'The value is extrapolated beyond the standard and is not quantitative. Add a bead population that brackets this signal, or restain at a dilution that brings the sample inside the range. Do not report this figure.',
     })
   }
 
@@ -199,6 +205,8 @@ export function quantifySample(
     flags.push({
       level: 'critical',
       message: 'Control MFI equals or exceeds sample MFI. No specific signal is detectable.',
+      remedy:
+        'Confirm the correct control was used, and that the stained and control tubes were not transposed. A genuinely negative result is a valid finding.',
     })
     return base
   }
@@ -218,6 +226,8 @@ export function quantifySample(
     flags.push({
       level: 'critical',
       message: 'Background exceeds sample signal after subtraction. No specific binding is detectable.',
+      remedy:
+        'Check the control choice, and consider whether an FMO rather than an isotype is appropriate for this panel.',
     })
     return { ...base, grossAbc, controlAbc, flags }
   }
@@ -237,7 +247,9 @@ export function quantifySample(
   if (netAbc < minAbc) {
     flags.push({
       level: 'warning',
-      message: `Result (${formatNumber(netAbc)}) lies below the lowest bead standard (${formatNumber(minAbc)}). Interpret as an estimate near the limit of quantification.`,
+      message: `Result (${formatNumber(netAbc)}) lies below the lowest bead standard (${formatNumber(minAbc)}).`,
+      remedy:
+        'Treat it as an estimate near the limit of quantification rather than a measurement, and report it with that caveat.',
     })
   }
 

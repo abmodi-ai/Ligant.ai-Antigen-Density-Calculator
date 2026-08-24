@@ -40,6 +40,7 @@ export function FlagList({ flags }: { flags: Flag[] }) {
           <span>
             <strong>{f.level === 'critical' ? 'Caution: ' : 'Note: '}</strong>
             {f.message}
+            {f.remedy && <span className="flag-remedy">{f.remedy}</span>}
           </span>
         </div>
       ))}

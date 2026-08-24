@@ -1,5 +1,6 @@
 import type { BeadStandard, Sample } from '../lib/quantify'
 import { NumericCell as NumCell, parseNum } from './shared/NumericCell'
+import { GuidancePin } from './guidance/GuidancePin'
 
 export { parseNum, parseClipboardGrid } from './shared/NumericCell'
 
@@ -46,8 +47,8 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
               <span className="visually-hidden">Include in fit</span>
             </th>
             <th>Population</th>
-            <th className="num">MFI</th>
-            <th className="num">{assignedLabel}</th>
+            <th className="num">MFI<GuidancePin anchor="ad.mfi" /></th>
+            <th className="num">{assignedLabel}<GuidancePin anchor="ad.assigned" /></th>
             <th className="shrink" />
           </tr>
         </thead>
@@ -160,8 +161,8 @@ export function SamplesTable({ samples, showControl, onChange }: SamplesTablePro
         <thead>
           <tr>
             <th>Sample</th>
-            <th className="num">Stained MFI</th>
-            {showControl && <th className="num">Control MFI</th>}
+            <th className="num">Stained MFI<GuidancePin anchor="ad.mfi" /></th>
+            {showControl && <th className="num">Control MFI<GuidancePin anchor="ad.control" /></th>}
             <th className="shrink" />
           </tr>
         </thead>

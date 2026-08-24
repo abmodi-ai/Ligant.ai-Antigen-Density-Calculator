@@ -1,5 +1,6 @@
 import type { DoseMatrix } from '../lib/cytotox'
 import { NumericCell, parseNum } from './shared/NumericCell'
+import { GuidancePin } from './guidance/GuidancePin'
 
 interface Props {
   matrix: DoseMatrix
@@ -60,9 +61,10 @@ export function CytotoxTables({ matrix, doseLabel, onChange }: Props) {
       <table>
         <thead>
           <tr>
-            <th className="num">{doseLabel}</th>
+            <th className="num">{doseLabel}<GuidancePin anchor="cy.dose" /></th>
             {matrix.seriesNames.map((name, c) => (
               <th key={c} style={{ textTransform: 'none', letterSpacing: 0, padding: '6px 6px' }}>
+                {c === 0 && <GuidancePin anchor="cy.response" />}
                 <input
                   type="text"
                   value={name}

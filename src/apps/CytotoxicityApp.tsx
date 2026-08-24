@@ -14,6 +14,13 @@ import { CytotoxTables } from '../components/CytotoxTables'
 import { DoseResponseCurve } from '../components/DoseResponseCurve'
 import { FlagList } from '../components/Results'
 import { Masthead } from '../components/shared/Masthead'
+import { GuidanceProvider } from '../components/guidance/GuidanceProvider'
+import { GuidancePin } from '../components/guidance/GuidancePin'
+import { CYTOTOXICITY_GUIDANCE } from '../lib/guidance/corpus/cytotoxicity'
+import { SHARED_GUIDANCE } from '../lib/guidance/corpus/shared'
+import type { ToolContext } from '../lib/guidance/types'
+
+const CORPUS = [...CYTOTOXICITY_GUIDANCE, ...SHARED_GUIDANCE]
 import { LigantMark } from '../components/LigantMark'
 import { exportChartSvg } from '../lib/export'
 
@@ -62,6 +69,8 @@ function loadState(): Persisted {
 
 export default function CytotoxicityApp() {
   const [state, setState] = useState<Persisted>(loadState)
+  // Clearing wipes transcribed data in one click, so it stays reversible.
+  const [undoState, setUndoState] = useState<Persisted | null>(null)
   const { matrix, options } = state
 
   useEffect(() => {
@@ -77,10 +86,30 @@ export default function CytotoxicityApp() {
     [matrix, options],
   )
 
+  const guidanceContext: ToolContext = useMemo(() => {
+    const fits = analyses.map((a) => a.fit).filter((f) => f !== null)
+    const allFlags = analyses.flatMap((a) => a.flags)
+    return {
+      tool: 'cytotoxicity',
+      facts: {
+        seriesCount: analyses.length,
+        pointCount: fits.length > 0 ? Math.max(...fits.map((f) => f!.n)) : 0,
+        r2Worst: fits.length > 0 ? Math.min(...fits.map((f) => f!.r2)) : null,
+        hillWorst: fits.length > 0 ? Math.max(...fits.map((f) => Math.abs(f!.params.hill))) : null,
+        responseIsPercent: options.responseIsPercent,
+        confidenceLevel: options.confidenceLevel,
+        hasCriticalFlag: allFlags.some((f) => f.level === 'critical'),
+        plateauUnreached: allFlags.some((f) => /plateau is not reached/.test(f.message)),
+      },
+      flags: allFlags,
+    }
+  }, [analyses, options])
+
   const setOptions = (patch: Partial<CytotoxOptions>) =>
     setState((s) => ({ ...s, options: { ...s.options, ...patch } }))
 
   return (
+    <GuidanceProvider corpus={CORPUS} context={guidanceContext}>
     <div className="app">
       <Masthead current="cytotoxicity" title="Cytotoxicity Curve Fitter">
         Fits a four parameter logistic to dose response data and reports potency with a confidence
@@ -95,6 +124,7 @@ export default function CytotoxicityApp() {
               <div className="titles">
                 <span className="step">1</span>
                 <h2>Dose response data</h2>
+                <GuidancePin anchor="cy.dose" />
               </div>
             </div>
             <CytotoxTables
@@ -135,7 +165,7 @@ export default function CytotoxicityApp() {
 
               <div className="field-row">
                 <div className="field">
-                  <label htmlFor="pct">Response scale</label>
+                  <label htmlFor="pct">Response scale<GuidancePin anchor="cy.scale" /></label>
                   <select
                     id="pct"
                     value={options.responseIsPercent ? 'percent' : 'other'}
@@ -146,7 +176,7 @@ export default function CytotoxicityApp() {
                   </select>
                 </div>
                 <div className="field">
-                  <label htmlFor="conf">Confidence level</label>
+                  <label htmlFor="conf">Confidence level<GuidancePin anchor="shared.confidence" /></label>
                   <select
                     id="conf"
                     value={options.confidenceLevel}
@@ -165,15 +195,39 @@ export default function CytotoxicityApp() {
               </p>
 
               <div className="button-row">
-                <button onClick={() => setState(demoState())}>Load worked example</button>
                 <button
-                  onClick={() =>
+                  onClick={() => {
+                    setUndoState(null)
+                    setState(demoState())
+                  }}
+                >
+                  Load worked example
+                </button>
+                <button
+                  onClick={() => {
+                    setUndoState(state)
                     setState({ matrix: emptyMatrix(), options: { ...DEFAULT_CYTOTOX_OPTIONS } })
-                  }
+                  }}
                 >
                   Clear all
                 </button>
+                {undoState && (
+                  <button
+                    className="primary"
+                    onClick={() => {
+                      setState(undoState)
+                      setUndoState(null)
+                    }}
+                  >
+                    Undo clear
+                  </button>
+                )}
               </div>
+              <p className="hint">
+                The worked example compares two constructs with real scatter. The low affinity
+                construct is deliberately under-dosed, so its response never plateaus and its
+                potency is flagged as model-dependent.
+              </p>
             </div>
           </section>
         </div>
@@ -181,7 +235,7 @@ export default function CytotoxicityApp() {
         <div className="rail">
           <section className="panel">
             <div className="panel-head">
-              <div className="titles"><h2>Fitted curves</h2></div>
+              <div className="titles"><h2>Fitted curves</h2><GuidancePin anchor="cy.curve" /></div>
               <button onClick={() => exportChartSvg('dose-response-svg', 'dose-response.svg')}>
                 Export SVG
               </button>
@@ -191,7 +245,7 @@ export default function CytotoxicityApp() {
 
           <section className="panel">
             <div className="panel-head">
-              <div className="titles"><h2>Potency</h2></div>
+              <div className="titles"><h2>Potency</h2><GuidancePin anchor="cy.potency" /></div>
             </div>
             <div className="panel-body">
               {analyses.length === 0 && <div className="empty">Add a construct to fit a curve.</div>}
@@ -251,5 +305,6 @@ export default function CytotoxicityApp() {
         <span>Ligant · Cytotoxicity Curve Fitter {APP_VERSION}</span>
       </div>
     </div>
+    </GuidanceProvider>
   )
 }

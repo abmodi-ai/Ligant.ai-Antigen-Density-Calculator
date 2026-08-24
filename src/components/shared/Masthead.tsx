@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { LigantLockup } from '../LigantMark'
+import { GuidanceToggle } from '../guidance/GuidanceToggle'
 
 /**
  * The suite. Absolute paths, since the site is served from a domain root.
@@ -26,7 +27,7 @@ export function Masthead({ current, title, children }: Props) {
         <p>{children}</p>
       </div>
       <nav className="tool-nav" aria-label="Bench tools">
-        <span className="eyebrow">Bench tools</span>
+        <GuidanceToggle />
         <ul>
           {TOOLS.map((tool) => (
             <li key={tool.id}>

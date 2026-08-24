@@ -449,3 +449,134 @@ details.options > div { padding-top: 12px; display: flex; flex-direction: column
   .masthead { flex-direction: column; gap: 16px; }
   .tool-nav { align-items: flex-start; }
 }
+
+/* ---------- guidance ---------- */
+
+.guidance-toggle { display: inline-flex; align-items: center; gap: 9px; }
+.guidance-offer { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+
+.guidance-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  padding: 4px 11px 4px 6px;
+}
+.guidance-switch.on { color: var(--brand-teal); border-color: var(--brand-teal); }
+.guidance-switch-track {
+  width: 26px; height: 15px;
+  border-radius: 999px;
+  background: var(--neutral-300);
+  position: relative;
+  transition: background 120ms ease;
+  flex-shrink: 0;
+}
+.guidance-switch.on .guidance-switch-track { background: var(--brand-teal); }
+.guidance-switch-thumb {
+  position: absolute; top: 2px; left: 2px;
+  width: 11px; height: 11px;
+  border-radius: 50%;
+  background: var(--surface);
+  transition: transform 120ms ease;
+}
+.guidance-switch.on .guidance-switch-thumb { transform: translateX(11px); }
+
+.guidance-pin { position: relative; display: inline-flex; vertical-align: middle; margin-left: 5px; }
+.guidance-pin-button {
+  width: 16px; height: 16px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--brand-teal);
+  background: transparent;
+  color: var(--brand-teal);
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.guidance-pin-button:hover { background: var(--brand-teal); color: #fff; }
+.guidance-pin-button[aria-expanded='true'] { background: var(--brand-teal); color: #fff; }
+
+.guidance-panel {
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 0;
+  z-index: 40;
+  display: block;
+  width: max-content;
+  max-width: min(360px, calc(100vw - 40px));
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-left: 2px solid var(--brand-teal);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 22px rgba(27, 42, 74, 0.11);
+  text-align: left;
+  text-transform: none;
+  letter-spacing: 0;
+  white-space: normal;
+  font-weight: 400;
+}
+.guidance-panel.align-right { left: auto; right: 0; }
+
+.guidance-entry + .guidance-entry {
+  display: block;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--grid);
+}
+.guidance-panel h4 {
+  margin: 0 0 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.005em;
+}
+.guidance-panel p {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  margin: 0;
+}
+.guidance-panel p + p, .guidance-panel ul + p { margin-top: 8px; }
+.guidance-panel ul {
+  margin: 8px 0 0;
+  padding-left: 17px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.guidance-panel li { font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); }
+.guidance-panel strong { color: var(--text-primary); font-weight: 700; }
+.guidance-panel .guidance-note {
+  margin-top: 9px;
+  padding: 8px 10px;
+  background: var(--surface-sunken);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+}
+
+/* A pin sits inside uppercase table headers, so it must not inherit their case. */
+th .guidance-pin-button { text-transform: none; }
+
+@media (max-width: 620px) {
+  .guidance-panel { max-width: calc(100vw - 32px); }
+}
+
+/* A flag states what is wrong; the remedy states what to do about it. */
+.flag-remedy {
+  display: block;
+  margin-top: 5px;
+  color: var(--text-secondary);
+}
