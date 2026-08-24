@@ -29,6 +29,13 @@ const ORIGIN = `http://localhost:${PORT}`
 // resolve the chromium it manages. CI installs that browser itself.
 const CHROME = process.env.CHROME_PATH
 
+/** The configured origin, from the single module that defines it. */
+const SITE_URL = (readFileSync('src/lib/site.ts', 'utf8').match(/SITE_URL\s*=\s*['"]([^'"]+)['"]/) ?? [])[1]
+if (!SITE_URL) {
+  console.error('Could not read SITE_URL from src/lib/site.ts.')
+  process.exit(1)
+}
+
 const csp = readFileSync('public/_headers', 'utf8')
   .split('\n')
   .find((l) => l.trim().startsWith('Content-Security-Policy:'))
@@ -134,6 +141,29 @@ for (const [name, path] of [['antigen density', '/'], ['cytotoxicity', '/cytotox
   if (after > 80) {
     uiFailures.push(`${name}: chart drew ${after} lines after an extreme input (was ${before})`)
   }
+
+  // Social and canonical metadata. A relative og:image yields a preview card
+  // with no image on every platform that renders one, which is invisible until
+  // somebody shares the link.
+  const meta = await page.evaluate(() => ({
+    canonical: document.querySelector('link[rel="canonical"]')?.getAttribute('href') ?? null,
+    ogUrl: document.querySelector('meta[property="og:url"]')?.getAttribute('content') ?? null,
+    ogImage: document.querySelector('meta[property="og:image"]')?.getAttribute('content') ?? null,
+    twitterImage: document.querySelector('meta[name="twitter:image"]')?.getAttribute('content') ?? null,
+    title: document.title,
+  }))
+  if (!meta.canonical) uiFailures.push(`${name}: no canonical link`)
+  if (!meta.ogUrl) uiFailures.push(`${name}: no og:url`)
+  for (const [label, value] of [['og:image', meta.ogImage], ['twitter:image', meta.twitterImage]]) {
+    if (!value) uiFailures.push(`${name}: no ${label}`)
+    else if (!/^https?:\/\//.test(value)) uiFailures.push(`${name}: ${label} is relative (${value})`)
+  }
+  for (const [label, value] of [['canonical', meta.canonical], ['og:url', meta.ogUrl], ['og:image', meta.ogImage]]) {
+    if (value && !value.startsWith(SITE_URL)) {
+      uiFailures.push(`${name}: ${label} does not use the configured origin (${value})`)
+    }
+  }
+  if (!meta.title) uiFailures.push(`${name}: no document title`)
 
   // The exported figure must be a file a parser will actually open. Resolving
   // custom properties into already-serialised markup once produced
@@ -255,7 +285,8 @@ if (uiFailures.length > 0) {
 }
 
 if (failed) process.exit(1)
-console.log('Runtime checks passed: no request left the origin; both pages carry the privacy')
+console.log('Runtime checks passed: no request left the origin; social and canonical')
+console.log('metadata is absolute and on the configured origin; both pages carry the privacy')
 console.log('disclosure and a main landmark; every guidance panel is fully on screen; the')
 console.log('exported SVG parses; nothing is clipped at 360px; and an extreme input cannot')
 console.log('explode the chart.')

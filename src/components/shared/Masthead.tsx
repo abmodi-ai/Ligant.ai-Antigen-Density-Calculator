@@ -1,16 +1,7 @@
 import type { ReactNode } from 'react'
 import { LigantLockup } from '../LigantMark'
 import { GuidanceToggle } from '../guidance/GuidanceToggle'
-
-/**
- * The suite. Absolute paths, since the site is served from a domain root.
- */
-export const TOOLS = [
-  { id: 'antigen-density', name: 'Antigen density', href: '/' },
-  { id: 'cytotoxicity', name: 'Cytotoxicity', href: '/cytotoxicity/' },
-] as const
-
-export type ToolId = (typeof TOOLS)[number]['id']
+import { TOOLS, type ToolId } from '../../lib/site'
 
 interface Props {
   current: ToolId
@@ -34,7 +25,7 @@ export function Masthead({ current, title, children }: Props) {
               {tool.id === current ? (
                 <span aria-current="page">{tool.name}</span>
               ) : (
-                <a href={tool.href}>{tool.name}</a>
+                <a href={tool.path}>{tool.name}</a>
               )}
             </li>
           ))}

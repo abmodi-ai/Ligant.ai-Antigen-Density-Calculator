@@ -19,6 +19,22 @@ import { extname, join } from 'node:path'
 const failures = []
 const fail = (rule, detail) => failures.push(`  [${rule}] ${detail}`)
 
+/**
+ * The site's own origin, read from the single place that defines it. Canonical
+ * links and social metadata carry absolute URLs by necessity, and our own
+ * origin is not a third party. Extracted textually because this script is plain
+ * Node and cannot import TypeScript.
+ */
+const SITE_URL = (() => {
+  const source = readFileSync('src/lib/site.ts', 'utf8')
+  const match = source.match(/SITE_URL\s*=\s*['"]([^'"]+)['"]/)
+  if (!match) {
+    fail('config', 'could not read SITE_URL from src/lib/site.ts')
+    return null
+  }
+  return match[1]
+})()
+
 // CSP tokens that are keywords or schemes rather than remote origins.
 const CSP_SAFE = new Set([
   "'self'", "'none'", "'unsafe-inline'", "'wasm-unsafe-eval'", "'strict-dynamic'",
@@ -41,6 +57,7 @@ const INERT_URLS = [
   'http://www.w3.org/1999/xlink',
   'http://www.w3.org/XML/1998/namespace',
   'http://www.w3.org/1998/Math/MathML',
+  'http://www.sitemaps.org/schemas/sitemap/',
   'https://reactjs.org/docs/error-decoder.html',
 ]
 
@@ -76,8 +93,14 @@ if (!existsSync(headersPath)) {
 
 if (existsSync('index.html')) {
   const html = readFileSync('index.html', 'utf8')
-  for (const m of html.matchAll(/<(link|script|img|iframe)\b[^>]*?(?:href|src)=["']([^"']+)["']/gi)) {
-    if (/^(https?:)?\/\//.test(m[2])) fail('html', `<${m[1]}> loads external ${m[2]}`)
+  for (const m of html.matchAll(/<(link|script|img|iframe)\b([^>]*?)(?:href|src)=["']([^"']+)["']/gi)) {
+    const [, tag, attrs, url] = m
+    if (!/^(https?:)?\/\//.test(url)) continue
+    // A canonical or alternate link is metadata. It declares an address, it
+    // does not fetch anything.
+    if (tag.toLowerCase() === 'link' && /rel=["'](canonical|alternate)["']/i.test(attrs)) continue
+    if (SITE_URL && url.startsWith(SITE_URL)) continue
+    fail('html', `<${tag}> loads external ${url}`)
   }
 }
 
@@ -107,13 +130,23 @@ if (existsSync('src')) {
 // ---- 4. Built bundle ------------------------------------------------------
 
 if (existsSync('dist')) {
-  for (const file of walk('dist').concat(
-    readdirSync('dist').filter((f) => f.endsWith('.html')).map((f) => join('dist', f)),
-  )) {
+  // Every text asset at any depth. Scanning only the top level once meant a
+  // nested page could carry a third-party URL without the check noticing.
+  const textAssets = (dir, out = []) => {
+    for (const entry of readdirSync(dir)) {
+      const path = join(dir, entry)
+      if (statSync(path).isDirectory()) textAssets(path, out)
+      else if (['.html', '.js', '.css', '.txt', '.xml', '.json'].includes(extname(path))) out.push(path)
+    }
+    return out
+  }
+  for (const file of textAssets('dist')) {
     const text = readFileSync(file, 'utf8')
     for (const m of text.matchAll(/https?:\/\/[^\s"'`)\\]+/g)) {
       const url = m[0].replace(/[.,;]+$/, '')
       if (INERT_URLS.some((inert) => url.startsWith(inert))) continue
+      // Our own origin, in canonical links, social metadata and the sitemap.
+      if (SITE_URL && url.startsWith(SITE_URL)) continue
       fail('bundle', `${file} embeds ${url.slice(0, 80)}`)
     }
   }

@@ -170,10 +170,15 @@ not both, or the two will fight over the same project.
 
 ### After either option
 
-**Custom domain**: Pages project → **Custom domains** → add e.g.
-`tools.ligant.ai`. Cloudflare issues the certificate automatically when the
-domain is on the same account. This also keeps the repository name out of the
-public URL.
+**Custom domain**: the site is served from `benchtools.ligant.ai`. Pages project
+→ **Custom domains** → **Set up a custom domain**. Cloudflare adds the DNS
+record and issues the certificate itself when the zone is on the same account.
+
+The origin and the tool list are defined once in `src/lib/site.ts`. The tool
+switcher, the canonical links, the social metadata, `robots.txt` and
+`sitemap.xml` are all derived from it, the last two generated at build time, so
+adding a tool cannot leave the sitemap behind and moving the site is a one line
+change.
 
 **Web Analytics** (optional): switch on for the project. It is cookieless and
 collects no personal data; `public/_headers` already allows its script, so no
