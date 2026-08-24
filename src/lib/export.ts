@@ -1,10 +1,38 @@
 import { confidenceLabel, formatNumber, type BeadStandard, type CurveResult, type QuantifyOptions, type Sample, type SampleResult } from './quantify'
 
-const CSS_VARS = [
-  'surface', 'surface-sunken', 'surface-inset', 'text-primary', 'text-secondary',
-  'text-muted', 'grid', 'border', 'border-strong', 'series-evidence',
-  'series-decision', 'band-fill', 'brand-teal-pale', 'mono', 'font',
-]
+const VAR_REFERENCE = /var\(--([a-z0-9-]+)\)/gi
+
+/**
+ * Replace every `var(--name)` in an attribute value with its resolved form.
+ *
+ * Pure so it can be tested directly. Values are substituted into the DOM before
+ * serialisation, never into serialised markup: `--mono` resolves to a font stack
+ * containing double quotes, and injecting that into an already-serialised
+ * `font-family="..."` closes the attribute and produces a file no XML parser
+ * will open.
+ */
+export function substituteCssVars(value: string, resolved: ReadonlyMap<string, string>): string {
+  return value.replace(VAR_REFERENCE, (whole, name: string) => resolved.get(name) ?? whole)
+}
+
+/** Every custom property actually referenced by this subtree. */
+function collectVarNames(el: Element, into: Set<string> = new Set()): Set<string> {
+  for (const attr of Array.from(el.attributes)) {
+    for (const match of attr.value.matchAll(VAR_REFERENCE)) into.add(match[1])
+  }
+  for (const child of Array.from(el.children)) collectVarNames(child, into)
+  return into
+}
+
+/** Rewrite attributes in place, letting the serialiser handle escaping. */
+function resolveAttributes(el: Element, resolved: ReadonlyMap<string, string>) {
+  for (const attr of Array.from(el.attributes)) {
+    if (attr.value.includes('var(--')) {
+      el.setAttribute(attr.name, substituteCssVars(attr.value, resolved))
+    }
+  }
+  for (const child of Array.from(el.children)) resolveAttributes(child, resolved)
+}
 
 function download(filename: string, mime: string, content: string) {
   const blob = new Blob([content], { type: `${mime};charset=utf-8` })
@@ -21,24 +49,32 @@ function download(filename: string, mime: string, content: string) {
 /**
  * Serialise the live chart to a standalone SVG.
  *
- * CSS custom properties are resolved to literal colours so the file renders
+ * Custom properties are resolved to literal values so the file renders
  * identically in Illustrator, Inkscape, and a manuscript pipeline as vector
- * output rather than a raster screenshot.
+ * output rather than a raster screenshot. The names are discovered from the
+ * markup rather than listed here, so a token added to a chart cannot ship as an
+ * unresolved `var(--x)` because someone forgot to register it.
  */
 export function exportChartSvg(svgId: string, filename: string) {
   const source = document.getElementById(svgId) as SVGSVGElement | null
   if (!source) return
 
-  const resolved = new Map<string, string>()
-  const rootStyle = getComputedStyle(document.documentElement)
-  for (const name of CSS_VARS) {
-    resolved.set(`var(--${name})`, rootStyle.getPropertyValue(`--${name}`).trim() || '#000')
-  }
-
   const clone = source.cloneNode(true) as SVGSVGElement
   clone.removeAttribute('id')
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
-  clone.setAttribute('font-family', 'system-ui, -apple-system, "Segoe UI", sans-serif')
+
+  const rootStyle = getComputedStyle(document.documentElement)
+  const resolved = new Map<string, string>()
+  // `font` and `surface` are applied through the stylesheet rather than through
+  // an attribute, so they are resolved explicitly rather than discovered.
+  for (const name of [...collectVarNames(clone), 'font', 'surface']) {
+    resolved.set(name, rootStyle.getPropertyValue(`--${name}`).trim() || '#000')
+  }
+  resolveAttributes(clone, resolved)
+
+  // The chart inherits its face from the stylesheet, which does not travel with
+  // the file, so the root carries it explicitly.
+  clone.setAttribute('font-family', resolved.get('font') || 'system-ui, sans-serif')
 
   // Opaque background so the figure is legible on any page.
   const viewBox = (source.getAttribute('viewBox') ?? '0 0 580 392').split(/\s+/).map(Number)
@@ -47,12 +83,10 @@ export function exportChartSvg(svgId: string, filename: string) {
   bg.setAttribute('y', String(viewBox[1]))
   bg.setAttribute('width', String(viewBox[2]))
   bg.setAttribute('height', String(viewBox[3]))
-  bg.setAttribute('fill', resolved.get('var(--surface)') ?? '#ffffff')
+  bg.setAttribute('fill', resolved.get('surface') || '#ffffff')
   clone.insertBefore(bg, clone.firstChild)
 
-  let markup = new XMLSerializer().serializeToString(clone)
-  for (const [token, value] of resolved) markup = markup.split(token).join(value)
-
+  const markup = new XMLSerializer().serializeToString(clone)
   download(filename, 'image/svg+xml', `<?xml version="1.0" encoding="UTF-8"?>\n${markup}`)
 }
 

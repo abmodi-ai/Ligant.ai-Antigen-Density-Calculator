@@ -69,7 +69,7 @@ const browser = await chromium.launch({
   ...(CHROME ? { executablePath: CHROME } : {}),
   args: ['--no-sandbox'],
 })
-const page = await browser.newPage({ viewport: { width: 1280, height: 900 } })
+const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, acceptDownloads: true })
 
 const foreign = []
 const cspViolations = []
@@ -133,6 +133,34 @@ for (const [name, path] of [['antigen density', '/'], ['cytotoxicity', '/cytotox
   const after = await page.evaluate(() => document.querySelectorAll('svg.chart line').length)
   if (after > 80) {
     uiFailures.push(`${name}: chart drew ${after} lines after an extreme input (was ${before})`)
+  }
+
+  // The exported figure must be a file a parser will actually open. Resolving
+  // custom properties into already-serialised markup once produced
+  // font-family=""IBM Plex Mono", ...", which closes the attribute and yields a
+  // file every XML parser rejects.
+  try {
+    const [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: 8000 }),
+      page.getByRole('button', { name: 'Export SVG' }).click(),
+    ])
+    const svg = await readFile(await download.path(), 'utf8')
+    const parse = await page.evaluate((markup) => {
+      const doc = new DOMParser().parseFromString(markup, 'image/svg+xml')
+      const error = doc.querySelector('parsererror')
+      return {
+        error: error ? error.textContent.slice(0, 140) : null,
+        texts: doc.querySelectorAll('text').length,
+        paths: doc.querySelectorAll('path').length,
+        unresolved: /var\(--/.test(markup),
+      }
+    }, svg)
+    if (parse.error) uiFailures.push(`${name}: exported SVG is not well formed: ${parse.error}`)
+    if (parse.unresolved) uiFailures.push(`${name}: exported SVG still contains an unresolved var()`)
+    if (parse.texts === 0) uiFailures.push(`${name}: exported SVG has no text elements`)
+    if (parse.paths === 0) uiFailures.push(`${name}: exported SVG has no drawn paths`)
+  } catch (e) {
+    uiFailures.push(`${name}: SVG export failed (${String(e).slice(0, 70)})`)
   }
 
   // Narrowest common handset width.
