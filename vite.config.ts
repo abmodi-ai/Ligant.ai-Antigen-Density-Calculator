@@ -9,7 +9,7 @@ import { SITE_URL, TOOLS } from './src/lib/site'
  * `robots.txt` and `sitemap.xml` used to be static files in `public/` with the
  * origin written into them by hand, which meant a new tool silently went
  * missing from the sitemap. They are generated from the tool registry instead,
- * and the HTML entry points carry a `%SITE_URL%` placeholder rather than a
+ * and the HTML entry points carry a `__SITE_URL__` placeholder rather than a
  * literal domain, so moving the site is a one line change.
  */
 function siteMetadata(): Plugin {
@@ -31,7 +31,7 @@ function siteMetadata(): Plugin {
         type: 'asset',
         fileName: 'robots.txt',
         source: [
-          '# Ligant Bench Tools. Free tools for cell and gene therapy research.',
+          '# Ligant Bench Tools. Free tools for cell therapy research.',
           'User-agent: *',
           'Allow: /',
           '',

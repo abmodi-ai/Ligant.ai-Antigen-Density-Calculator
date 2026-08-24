@@ -1,9 +1,9 @@
 {
-  "name": "antigen-density-calculator",
+  "name": "ligant-bench-tools",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Flow cytometry MFI to molecules-per-cell (ABC) calculator for CAR-T antigen density quantification",
+  "description": "Deterministic, privacy-preserving browser tools for cell therapy research: antigen density quantification and dose response curve fitting",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

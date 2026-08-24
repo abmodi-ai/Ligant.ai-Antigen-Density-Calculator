@@ -1,15 +1,24 @@
-# Antigen Density Calculator
+# Ligant Bench Tools
 
-Converts flow cytometry MFI into **molecules per cell** against a calibrated bead
-standard. First tool in a planned suite for CAR-T target selection and
-characterisation.
+Free, deterministic browser tools for cell therapy research. Nothing a user
+enters leaves their machine. Two tools ship today:
+
+- **Antigen density calculator** converts flow cytometry MFI into molecules per
+  cell against a calibrated bead standard.
+- **Cytotoxicity curve fitter** fits a four parameter logistic to dose response
+  data and reports potency with a confidence interval.
+
+Scope is cell therapy: CAR-T, CAR-NK and TCR-T. The dose axis in the curve fitter
+is free text, so it fits any sigmoidal dose response rather than only a killing
+assay, but no tool here is specific to vector or gene transfer work. The suite is
+not described as covering gene therapy.
+
+## Method: antigen density
 
 The number a CAR actually responds to is surface antigen density, not relative
 fluorescence. Labs convert MFI to molecules per cell in ad-hoc spreadsheets, which
 is tedious and easy to get wrong. This does it correctly, shows its working, and
 refuses to report a number it cannot defend.
-
-## Method
 
 Bead standards are fitted by ordinary least squares in log10–log10 space:
 
@@ -48,6 +57,27 @@ The tool refuses to be quietly wrong. It flags:
 - log-log slope more than 0.15 from unity (detector or compensation problem)
 - results below the lowest standard
 - background at or above sample signal
+
+## Method: cytotoxicity curve fitting
+
+A four parameter logistic is fitted by Levenberg-Marquardt on a log dose axis,
+with an analytic Jacobian. The fit is collapsed onto the canonical branch, so a
+positive Hill slope always means the high dose plateau is `top` and a curve that
+falls with dose is reported as an IC50 rather than an EC50. The potency interval
+is symmetric in log dose and therefore asymmetric in dose, which is how a
+sigmoidal fit actually behaves.
+
+The recurring failure in a killing assay is a curve fitted through data that
+never plateaus: it converges, R² looks respectable, and the reported potency is
+an extrapolation. That case is flagged, along with a potency outside the tested
+dose range, an unreached lower plateau, implausible plateaus on a percentage
+scale, a Hill slope steeper than the points can support, and four parameters
+resting on fewer than six dose levels. Every flag carries a remedy.
+
+Series are distinguished by marker shape, dash pattern and a direct label, never
+by hue. The brand defines no categorical palette and cannot supply one: navy
+against slate measures ΔE 14.1 for normal vision, below the legibility floor.
+Shape encoding also survives greyscale printing, which a journal figure has to.
 
 ## Privacy
 
@@ -89,7 +119,7 @@ release and proliferation.
 ```sh
 npm install
 npm run dev            # local dev server
-npm test               # 35 tests over the math core
+npm test               # unit tests over the maths cores
 npm run build          # static site -> dist/
 npm run build:single   # one self-contained HTML file -> dist-single/
 ```
@@ -180,9 +210,11 @@ switcher, the canonical links, the social metadata, `robots.txt` and
 adding a tool cannot leave the sitemap behind and moving the site is a one line
 change.
 
-**Web Analytics** (optional): switch on for the project. It is cookieless and
-collects no personal data; `public/_headers` already allows its script, so no
-redeploy is needed.
+**Web Analytics**: deliberately not enabled. The script is served from a
+third-party origin, which the Content-Security-Policy in `public/_headers` does
+not permit and which `npm run check:privacy` fails the build on. Zero
+third-party origins is a stated invariant of the product, so there is no visitor
+measurement of any kind.
 
 `public/_headers` also sets a strict Content-Security-Policy, `nosniff`,
 `X-Frame-Options`, a `Referrer-Policy`, and cache rules: hashed assets are
