@@ -48,13 +48,21 @@ export function FlagList({ flags }: { flags: Flag[] }) {
   )
 }
 
+/** Background as a share of gross, the diagnostic that decides how much the
+ *  extrapolated control matters. Shown on every card, not only when flagged. */
+function backgroundShare(fraction: number): string {
+  return `${(fraction * 100).toFixed(fraction < 0.1 ? 1 : 0)}% of gross`
+}
+
 interface Props {
   entries: { sample: Sample; result: SampleResult }[]
   valency: 'monovalent' | 'bivalent'
   confidenceLevel: number
+  /** Whether the user attested the stain was titrated to saturation. */
+  saturationConfirmed: boolean
 }
 
-export function Results({ entries, valency, confidenceLevel }: Props) {
+export function Results({ entries, valency, confidenceLevel, saturationConfirmed }: Props) {
   const quantified = entries.filter((e) => e.result.netAbc !== null)
 
   if (entries.length === 0) {
@@ -63,6 +71,12 @@ export function Results({ entries, valency, confidenceLevel }: Props) {
 
   return (
     <div>
+      {!saturationConfirmed && quantified.length > 0 && (
+        <p className="hint" style={{ marginBottom: 10 }}>
+          Saturating stain is not confirmed, so every value below is a lower bound. Sub-saturating
+          antibody undercounts, and it does so in one direction only.
+        </p>
+      )}
       {entries.map(({ sample, result }) => {
         const band = result.netAbc !== null ? bandFor(result.netAbc) : null
         return (
@@ -78,13 +92,25 @@ export function Results({ entries, valency, confidenceLevel }: Props) {
             </div>
 
             {result.netAbc === null ? (
-              <p className="hint">Not quantifiable. See flags below.</p>
+              <>
+                <div className="hero">
+                  <span className="value below-detection">Below detection</span>
+                </div>
+                <p className="hint">
+                  Signal is not distinguishable from background under this staining condition. No
+                  density is reported, because the arithmetic would produce one that the measurement
+                  does not support.
+                </p>
+              </>
             ) : (
               <>
                 <div className="hero">
                   <span className="value">{formatNumber(result.netAbc)}</span>
-                  <span className="unit">molecules / cell</span>
+                  <span className="unit">ABC</span>
                 </div>
+                <p className="hint" style={{ marginTop: -2 }}>
+                  Antibody binding capacity: antibody molecules bound per cell.
+                </p>
                 <div className="ci">
                   {confidenceLabel(confidenceLevel)} {formatNumber(result.lower as number)} –{' '}
                   {formatNumber(result.upper as number)}
@@ -92,13 +118,15 @@ export function Results({ entries, valency, confidenceLevel }: Props) {
                 </div>
 
                 <dl className="detail-grid">
-                  <dt>Antigen sites</dt>
+                  <dt>Inferred antigen sites</dt>
                   <dd>
                     {valency === 'bivalent'
                       ? `${formatNumber(result.sitesLow as number)} – ${formatNumber(result.sitesHigh as number)}`
                       : formatNumber(result.sitesLow as number)}
                     <span className="hint" style={{ fontFamily: 'var(--font)' }}>
-                      {valency === 'bivalent' ? ' (bivalent IgG binding)' : ' (1:1 binding)'}
+                      {valency === 'bivalent'
+                        ? ' derived from ABC assuming bivalent IgG binding; not measured'
+                        : ' derived from ABC assuming 1:1 binding; not measured'}
                     </span>
                   </dd>
                   {result.controlAbc !== null && (
@@ -106,7 +134,17 @@ export function Results({ entries, valency, confidenceLevel }: Props) {
                       <dt>Gross density</dt>
                       <dd>{formatNumber(result.grossAbc as number)}</dd>
                       <dt>Background density</dt>
-                      <dd>{formatNumber(result.controlAbc)}</dd>
+                      <dd>
+                        {formatNumber(result.controlAbc)}
+                        {result.backgroundFraction !== null && (
+                          <span className="hint" style={{ fontFamily: 'var(--font)' }}>
+                            {' ('}
+                            {backgroundShare(result.backgroundFraction)}
+                            {result.controlInRange === false && ', extrapolated below the standard'}
+                            {')'}
+                          </span>
+                        )}
+                      </dd>
                     </>
                   )}
                   {band && (

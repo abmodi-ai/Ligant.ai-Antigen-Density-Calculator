@@ -1,5 +1,5 @@
 /**
- * Antigen density quantification: flow-cytometry MFI -> molecules per cell.
+ * Antigen density quantification: flow-cytometry MFI -> antibody binding capacity.
  *
  * Two calibration chemistries are supported, and they differ in what the bead
  * standard actually certifies:
@@ -23,6 +23,8 @@ import type { Flag, FlagLevel } from './flags'
 export type { Flag, FlagLevel }
 
 export type StandardKind = 'abc' | 'pe-molecules'
+/** Host species of the detection antibody, as declared by the user. */
+export type HostSpecies = 'unstated' | 'mouse' | 'human' | 'rat' | 'rabbit' | 'other'
 export type BackgroundMode = 'abc' | 'mfi' | 'none'
 export type Valency = 'monovalent' | 'bivalent'
 
@@ -51,6 +53,18 @@ export interface QuantifyOptions {
   backgroundMode: BackgroundMode
   /** Binding mode of the detection antibody, used for the antigen-site range. */
   valency: Valency
+  /**
+   * Declared host species of the detection antibody. Capture beads bind one
+   * host's immunoglobulin, so a mismatch invalidates the calibration. This is a
+   * declaration rather than a measurement: nothing in the numbers reveals it.
+   */
+  antibodyHost: HostSpecies
+  /**
+   * Whether the user attests the detection antibody was titrated to saturation
+   * on beads and on cells. Sub-saturating stain undercounts, and it does so in
+   * one direction, so an unconfirmed titration makes every ABC a lower bound.
+   */
+  saturationConfirmed: boolean
   confidenceLevel: number
 }
 
@@ -59,6 +73,8 @@ export const DEFAULT_OPTIONS: QuantifyOptions = {
   fpRatio: 1,
   backgroundMode: 'abc',
   valency: 'bivalent',
+  antibodyHost: 'unstated',
+  saturationConfirmed: false,
   confidenceLevel: 0.95,
 }
 
@@ -69,18 +85,54 @@ export interface CurveResult {
   logAssigned: number[]
   mfiRange: [number, number]
   assignedRange: [number, number]
+  /** Per-population departure from the fitted line. */
+  residuals: CurveResidual[]
   flags: Flag[]
+}
+
+/**
+ * How far one bead population sits from the fitted line.
+ *
+ * R squared over four points conceals a single mis-transcribed assigned value:
+ * a population can sit 5% off the line while the summary statistic still reads
+ * 0.9995. The per-population residual is what identifies which vial entry to
+ * check, so it is computed here rather than left to the reader.
+ */
+export interface CurveResidual {
+  label: string
+  /** Residual in log10 space, the space the fit is performed in. */
+  logResidual: number
+  /** The same departure as a percentage of the fitted value, which reads faster. */
+  percent: number
 }
 
 export interface SampleResult {
   id: string
   label: string
-  /** ABC implied by the sample MFI, before background subtraction. */
+  /** ABC implied by the raw sample MFI, before any background subtraction. */
   grossAbc: number | null
   /** ABC implied by the control MFI, if a control was supplied. */
   controlAbc: number | null
   /** Background-subtracted ABC. This is the reported density. */
   netAbc: number | null
+  /**
+   * Background density as a fraction of gross density.
+   *
+   * The single most useful diagnostic on a result card. The control is almost
+   * always dimmer than the dimmest bead, so its conversion is almost always an
+   * extrapolation; what decides whether that matters is how much of the gross
+   * signal it accounts for.
+   */
+  backgroundFraction: number | null
+  /** Whether the sample MFI falls inside the calibrated bead range. */
+  sampleInRange: boolean | null
+  /** Whether the control MFI falls inside it. Null when no control was given. */
+  controlInRange: boolean | null
+  /**
+   * Relative difference between density-space and MFI-space subtraction for
+   * this sample. How much the choice of mode actually matters here.
+   */
+  modeDivergence: number | null
   lower: number | null
   upper: number | null
   /** Lower and upper bound on antigen sites per cell, given binding valency. */
@@ -121,6 +173,35 @@ export function fitStandardCurve(standards: BeadStandard[]): CurveResult | { err
   }
 
   const flags: Flag[] = []
+
+  // Four parameters of confidence come from two degrees of freedom at n = 4.
+  // At n = 3 there is one, and the interval is barely determined by the data.
+  if (usable.length === 3) {
+    flags.push({
+      level: 'warning',
+      message:
+        'The fit rests on three populations, leaving one degree of freedom. The confidence band is weakly determined and an error in any single population is unidentifiable.',
+      remedy:
+        'Include a fourth bead population wherever the kit provides one. Three is the minimum that permits a fit, not a sufficient number for a quantitative one.',
+    })
+  }
+
+  // Assigned value must rise with intensity. A set that does not is a
+  // transcription or row-order error, and it produces a confident wrong answer
+  // rather than an obvious failure.
+  const byMfi = usable
+    .map((s2) => ({ label: s2.label, mfi: s2.mfi as number, assigned: s2.assigned as number }))
+    .sort((a, b) => a.mfi - b.mfi)
+  const inversion = byMfi.findIndex((p2, i) => i > 0 && p2.assigned <= byMfi[i - 1].assigned)
+  if (inversion > 0) {
+    flags.push({
+      level: 'critical',
+      message: `Assigned values are not increasing with MFI: ${byMfi[inversion - 1].label} (${formatNumber(byMfi[inversion - 1].assigned)}) is at or above ${byMfi[inversion].label} (${formatNumber(byMfi[inversion].assigned)}) despite lower fluorescence.`,
+      remedy:
+        'A brighter population must carry a higher assigned value. This almost always means two rows were transposed or a value was transcribed against the wrong population. Check the entries against the certificate of analysis before reading any result.',
+    })
+  }
+
   if (fit.r2 < MIN_R2) {
     flags.push({
       level: 'critical',
@@ -141,14 +222,64 @@ export function fitStandardCurve(standards: BeadStandard[]): CurveResult | { err
   const mfis = usable.map((s) => s.mfi as number)
   const assigned = usable.map((s) => s.assigned as number)
 
+  const residuals: CurveResidual[] = usable.map((s2, i) => {
+    const logResidual = logAssigned[i] - (fit.slope * logMfi[i] + fit.intercept)
+    return {
+      label: s2.label,
+      logResidual,
+      percent: (10 ** logResidual - 1) * 100,
+    }
+  })
+
   return {
     fit,
     logMfi,
     logAssigned,
     mfiRange: [Math.min(...mfis), Math.max(...mfis)],
     assignedRange: [Math.min(...assigned), Math.max(...assigned)],
+    residuals,
     flags,
   }
+}
+
+/**
+ * Whether the declared detection antibody can be captured by the selected beads.
+ *
+ * This is the one invalidating condition that is invisible in the numbers, and
+ * the reason it is invisible is not that a mismatched stain gives no signal. It
+ * is that anti-immunoglobulin capture reagents cross-react across related
+ * hosts to an uncertified degree, so the beads still produce an ordered,
+ * well-fitting series while binding a fraction of what their certificate
+ * assumes. The curve looks healthy and every value derived from it is wrong.
+ *
+ * Both sides are declarations rather than measurements, so this compares what
+ * the user selected against what the user typed. That is worth doing anyway:
+ * the mistake it catches is one nothing else in the tool can see.
+ */
+export function captureCompatibilityFlags(
+  kitHost: HostSpecies | null,
+  declared: HostSpecies,
+): Flag[] {
+  if (kitHost === null || declared === 'unstated') return []
+  if (declared === 'other') {
+    return [
+      {
+        level: 'warning',
+        message: `The selected beads capture ${kitHost} immunoglobulin. The detection antibody host is recorded as other.`,
+        remedy:
+          'Confirm from the antibody datasheet that these beads capture this host. If they do not, the calibration does not apply, however well the curve fits.',
+      },
+    ]
+  }
+  if (declared === kitHost) return []
+  return [
+    {
+      level: 'critical',
+      message: `The selected beads capture ${kitHost} immunoglobulin, but the detection antibody is declared as ${declared}. These beads cannot calibrate this stain.`,
+      remedy:
+        'Capture reagents cross-react across related hosts to an uncertified degree, so the curve can fit well while the beads bind a fraction of the antibody their assigned values assume. Select a kit whose capture species matches the detection antibody. Do not report values from this calibration.',
+    },
+  ]
 }
 
 /** Convert one MFI to ABC using the fitted curve. Returns null for non-positive MFI. */
@@ -160,6 +291,25 @@ function mfiToAbc(mfi: number, curve: CurveResult, options: QuantifyOptions): nu
   // to antibodies bound requires the conjugate's F/P ratio.
   return options.standardKind === 'pe-molecules' ? value / options.fpRatio : value
 }
+
+/**
+ * Fraction of gross density above which the background is doing enough of the
+ * work that its own reliability decides the result's. A convention, not a
+ * standard: it is set where a reader would want to be told rather than at any
+ * published threshold.
+ */
+const MATERIAL_BACKGROUND = 0.25
+
+/**
+ * Above this fraction the specific signal is what is left over after almost all
+ * of the gross has been subtracted away, and the reported value rests entirely
+ * on the difference between two numbers of similar size. Reported as below
+ * detection rather than as a small measurement.
+ */
+const DETECTION_FLOOR = 0.9
+
+/** Relative difference between subtraction modes worth telling the user about. */
+const MODE_DIVERGENCE = 0.1
 
 export function quantifySample(
   sample: Sample,
@@ -173,6 +323,10 @@ export function quantifySample(
     grossAbc: null,
     controlAbc: null,
     netAbc: null,
+    backgroundFraction: null,
+    sampleInRange: null,
+    controlInRange: null,
+    modeDivergence: null,
     lower: null,
     upper: null,
     sitesLow: null,
@@ -183,7 +337,15 @@ export function quantifySample(
   if (sample.mfi === null || !(sample.mfi > 0)) return base
 
   const [minMfi, maxMfi] = curve.mfiRange
-  if (sample.mfi < minMfi || sample.mfi > maxMfi) {
+  const controlMfi = sample.controlMfi
+  const hasControl = controlMfi !== null && controlMfi > 0 && options.backgroundMode !== 'none'
+
+  const sampleInRange = sample.mfi >= minMfi && sample.mfi <= maxMfi
+  const controlInRange = hasControl
+    ? (controlMfi as number) >= minMfi && (controlMfi as number) <= maxMfi
+    : null
+
+  if (!sampleInRange) {
     flags.push({
       level: 'critical',
       message: `Sample MFI (${formatNumber(sample.mfi)}) lies outside the calibrated range (${formatNumber(minMfi)}–${formatNumber(maxMfi)}).`,
@@ -192,44 +354,104 @@ export function quantifySample(
     })
   }
 
-  const useMfiSubtraction =
-    options.backgroundMode === 'mfi' && sample.controlMfi !== null && sample.controlMfi > 0
-
-  // In 'mfi' mode the background is removed before conversion; in 'abc' mode
-  // both channels are converted first and the densities subtracted.
-  const effectiveMfi = useMfiSubtraction
-    ? sample.mfi - (sample.controlMfi as number)
-    : sample.mfi
-
-  if (useMfiSubtraction && effectiveMfi <= 0) {
-    flags.push({
-      level: 'critical',
-      message: 'Control MFI equals or exceeds sample MFI. No specific signal is detectable.',
-      remedy:
-        'Confirm the correct control was used, and that the stained and control tubes were not transposed. A genuinely negative result is a valid finding.',
-    })
-    return base
-  }
-
-  const grossAbc = mfiToAbc(effectiveMfi, curve, options)
-  const controlAbc =
-    options.backgroundMode === 'abc' && sample.controlMfi !== null && sample.controlMfi > 0
-      ? mfiToAbc(sample.controlMfi, curve, options)
-      : null
-
+  // Densities implied by the raw channels, computed the same way whichever
+  // subtraction mode is selected. They feed the reported value in density mode
+  // and diagnose it in every mode, which is why they are not conditional.
+  const grossAbc = mfiToAbc(sample.mfi, curve, options)
+  const controlAbc = hasControl ? mfiToAbc(controlMfi as number, curve, options) : null
   if (grossAbc === null) return base
 
-  let netAbc = grossAbc
-  if (controlAbc !== null) netAbc = grossAbc - controlAbc
+  const backgroundFraction =
+    controlAbc !== null && grossAbc > 0 ? controlAbc / grossAbc : null
 
-  if (netAbc <= 0) {
+  const measured: SampleResult = {
+    ...base,
+    grossAbc,
+    controlAbc,
+    backgroundFraction,
+    sampleInRange,
+    controlInRange,
+  }
+
+  const useMfiSubtraction = options.backgroundMode === 'mfi' && hasControl
+  const effectiveMfi = useMfiSubtraction ? sample.mfi - (controlMfi as number) : sample.mfi
+
+  let netAbc: number | null
+  if (useMfiSubtraction) {
+    netAbc = effectiveMfi > 0 ? mfiToAbc(effectiveMfi, curve, options) : null
+  } else if (options.backgroundMode === 'abc' && controlAbc !== null) {
+    netAbc = grossAbc - controlAbc
+  } else {
+    netAbc = grossAbc
+  }
+
+  if (netAbc === null || netAbc <= 0) {
     flags.push({
       level: 'critical',
-      message: 'Background exceeds sample signal after subtraction. No specific binding is detectable.',
+      message: useMfiSubtraction
+        ? 'Control MFI equals or exceeds sample MFI. No specific signal is detectable.'
+        : 'Background density equals or exceeds sample density. No specific binding is detectable.',
       remedy:
-        'Check the control choice, and consider whether an FMO rather than an isotype is appropriate for this panel.',
+        'Confirm the correct control was used and that the stained and control tubes were not transposed. A genuinely negative result is a valid finding and should be reported as below detection rather than as a density.',
     })
-    return { ...base, grossAbc, controlAbc, flags }
+    return { ...measured, flags }
+  }
+
+  // A net that survives subtraction can still be the small difference between
+  // two much larger numbers, which is not a measurement of anything.
+  if (backgroundFraction !== null && backgroundFraction >= DETECTION_FLOOR) {
+    flags.push({
+      level: 'critical',
+      message: `Background accounts for ${(backgroundFraction * 100).toFixed(1)}% of gross density. The sample is not meaningfully above its control.`,
+      remedy:
+        'Report this as below detection under these staining conditions. Improving it means raising specific signal rather than refining the arithmetic: check the antibody concentration, the fluorophore brightness, and whether the target is expressed on this population at all.',
+    })
+    return { ...measured, flags }
+  }
+
+  // The control is almost always dimmer than the dimmest bead, so extrapolating
+  // it is the normal case rather than the exceptional one. What decides whether
+  // that matters is how much of the gross signal it accounts for, so the flag
+  // is on the combination rather than on the extrapolation alone.
+  if (backgroundFraction !== null && backgroundFraction >= MATERIAL_BACKGROUND) {
+    if (controlInRange === false) {
+      flags.push({
+        level: 'critical',
+        message: `Background is ${(backgroundFraction * 100).toFixed(1)}% of gross density, and the control MFI (${formatNumber(controlMfi as number)}) lies below the calibrated range (${formatNumber(minMfi)}–${formatNumber(maxMfi)}).`,
+        remedy:
+          'Most of this result is an extrapolated quantity subtracted from a measured one. Add a bead population dim enough to bracket the control, or acquire the control under conditions that bring it into range. Do not report this figure.',
+      })
+    } else {
+      flags.push({
+        level: 'warning',
+        message: `Background accounts for ${(backgroundFraction * 100).toFixed(1)}% of gross density.`,
+        remedy:
+          'The reported value is a small difference between larger numbers, so it carries the uncertainty of both. Consider whether an FMO rather than an isotype is the appropriate control for this panel.',
+      })
+    }
+  }
+
+  // How much the choice of subtraction mode actually matters for this sample.
+  // Where the two modes agree the choice is immaterial; where they diverge, the
+  // divergence is itself information about the dataset.
+  let modeDivergence: number | null = null
+  if (hasControl && controlAbc !== null) {
+    const densityNet = grossAbc - controlAbc
+    const mfiNet =
+      sample.mfi - (controlMfi as number) > 0
+        ? mfiToAbc(sample.mfi - (controlMfi as number), curve, options)
+        : null
+    if (densityNet > 0 && mfiNet !== null && mfiNet > 0) {
+      modeDivergence = Math.abs(densityNet - mfiNet) / Math.max(densityNet, mfiNet)
+      if (modeDivergence > MODE_DIVERGENCE) {
+        flags.push({
+          level: 'warning',
+          message: `Density-space and MFI-space subtraction differ by ${(modeDivergence * 100).toFixed(0)}% for this sample (${formatNumber(densityNet)} against ${formatNumber(mfiNet)}).`,
+          remedy:
+            'The two modes agree only where the log-log slope is near unity and the background is small. Neither is a correction of the other, so state which mode was used when reporting this value.',
+        })
+      }
+    }
   }
 
   // Curve-fit uncertainty is symmetric in log10 space, so it applies as a
@@ -266,16 +488,28 @@ export function quantifySample(
   const sitesHigh = options.valency === 'bivalent' ? netAbc * 2 : netAbc
 
   return {
-    ...base,
-    grossAbc,
-    controlAbc,
+    ...measured,
     netAbc,
+    modeDivergence,
     lower: netAbc / factor,
     upper: netAbc * factor,
     sitesLow,
     sitesHigh,
     flags,
   }
+}
+
+/**
+ * Overall reportability of a result, derived from its flags.
+ *
+ * Exported so a CSV row can carry a machine-readable status rather than only
+ * prose a reader has to parse: a flag that survives only on screen stops doing
+ * its work at exactly the moment the value enters a notebook or a figure.
+ */
+export function resultStatus(flags: Flag[]): 'ok' | 'caution' | 'do_not_report' {
+  if (flags.some((f) => f.level === 'critical')) return 'do_not_report'
+  if (flags.length > 0) return 'caution'
+  return 'ok'
 }
 
 export interface DensityBand {

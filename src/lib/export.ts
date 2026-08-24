@@ -1,4 +1,4 @@
-import { confidenceLabel, formatNumber, type BeadStandard, type CurveResult, type QuantifyOptions, type Sample, type SampleResult } from './quantify'
+import { confidenceLabel, formatNumber, resultStatus, type BeadStandard, type CurveResult, type QuantifyOptions, type Sample, type SampleResult } from './quantify'
 
 const VAR_REFERENCE = /var\(--([a-z0-9-]+)\)/gi
 
@@ -133,6 +133,8 @@ export function exportResultsCsv(payload: ExportPayload, filename: string) {
   rows.push(csvRow(['Fluorophore:protein ratio', options.standardKind === 'pe-molecules' ? options.fpRatio : 'n/a']))
   rows.push(csvRow(['Background subtraction', options.backgroundMode]))
   rows.push(csvRow(['Detection antibody valency', options.valency]))
+  rows.push(csvRow(['Detection antibody host species', options.antibodyHost]))
+  rows.push(csvRow(['Titrated to saturation', options.saturationConfirmed ? 'yes' : 'no']))
   rows.push(csvRow(['Confidence level', options.confidenceLevel]))
   rows.push('')
 
@@ -147,30 +149,63 @@ export function exportResultsCsv(payload: ExportPayload, filename: string) {
   rows.push('')
 
   rows.push(csvRow(['CALIBRATION STANDARDS']))
-  rows.push(csvRow(['Population', 'MFI', payload.assignedLabel, 'Included in fit']))
+  rows.push(
+    csvRow(['Population', 'MFI', payload.assignedLabel, 'Included in fit', 'Residual (log10)', 'Residual (%)']),
+  )
+  const residualByLabel = new Map(curve.residuals.map((r) => [r.label, r]))
   for (const s of standards) {
-    rows.push(csvRow([s.label, s.mfi, s.assigned, s.included ? 'yes' : 'no']))
+    const r = residualByLabel.get(s.label)
+    rows.push(
+      csvRow([
+        s.label,
+        s.mfi,
+        s.assigned,
+        s.included ? 'yes' : 'no',
+        r ? r.logResidual : null,
+        r ? r.percent : null,
+      ]),
+    )
   }
   rows.push('')
 
   rows.push(csvRow(['SAMPLES']))
   rows.push(
     csvRow([
-      'Sample', 'Sample MFI', 'Control MFI', 'Gross molecules/cell', 'Background molecules/cell',
-      'Net molecules/cell', 'CI lower', 'CI upper', 'Antigen sites low', 'Antigen sites high', 'Flags',
+      'Sample', 'Sample MFI', 'Control MFI', 'Gross ABC', 'Background ABC', 'Net ABC',
+      'CI lower', 'CI upper', 'Inferred antigen sites low', 'Inferred antigen sites high',
+      'flag_status', 'within_calibrated_range', 'control_within_calibrated_range',
+      'background_pct_of_gross', 'mode_divergence_pct', 'flag_detail',
     ]),
   )
   for (const { sample, result } of samples) {
+    const yesNo = (v: boolean | null) => (v === null ? '' : v ? 'yes' : 'no')
     rows.push(
       csvRow([
         sample.label, sample.mfi, sample.controlMfi,
         result.grossAbc, result.controlAbc, result.netAbc,
         result.lower, result.upper, result.sitesLow, result.sitesHigh,
+        resultStatus(result.flags),
+        yesNo(result.sampleInRange),
+        yesNo(result.controlInRange),
+        result.backgroundFraction === null ? '' : result.backgroundFraction * 100,
+        result.modeDivergence === null ? '' : result.modeDivergence * 100,
         result.flags.map((f) => f.message).join(' | '),
       ]),
     )
   }
   rows.push('')
+  if (!options.saturationConfirmed) {
+    rows.push(
+      csvRow([
+        'Stain was not confirmed titrated to saturation. Every ABC in this file is a lower bound: sub-saturating antibody undercounts.',
+      ]),
+    )
+  }
+  rows.push(
+    csvRow([
+      'A row marked do_not_report carries its computed value so the export stays reproducible. The value is not reportable.',
+    ]),
+  )
   rows.push(csvRow(['Research use only. Not for clinical or diagnostic decision-making.']))
 
   download(filename, 'text/csv', rows.join('\n'))
@@ -178,9 +213,9 @@ export function exportResultsCsv(payload: ExportPayload, filename: string) {
 
 /** Human-readable one-line summary, for pasting into a lab notebook. */
 export function summaryLine(label: string, r: SampleResult, confidenceLevel: number): string {
-  if (r.netAbc === null) return `${label}: not quantifiable`
+  if (r.netAbc === null) return `${label}: below detection`
   const interval = `${confidenceLabel(confidenceLevel)} ${formatNumber(r.lower ?? 0)}–${formatNumber(r.upper ?? 0)}`
-  return `${label}: ${formatNumber(r.netAbc)} molecules/cell (${interval})`
+  return `${label}: ${formatNumber(r.netAbc)} ABC (${interval})`
 }
 
 // ---------------------------------------------------------------------------

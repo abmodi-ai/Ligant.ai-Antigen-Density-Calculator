@@ -247,6 +247,92 @@ for (const [name, path] of [['antigen density', '/'], ['cytotoxicity', '/cytotox
 await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' })
 await page.waitForTimeout(600)
 
+// ---------------------------------------------------------------------------
+// Antigen density disclosure, on a pristine worked example.
+//
+// The loop above fills an extreme value and persists it, so the state is
+// cleared first: these assertions are about what the demo says, and the demo is
+// what a first-time visitor sees.
+// ---------------------------------------------------------------------------
+await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' })
+await page.evaluate(() => localStorage.clear())
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(700)
+
+const disclosure = await page.evaluate(() => {
+  const text = document.body.innerText
+  const cards = [...document.querySelectorAll('.result-card')].map((c) => c.innerText)
+  return {
+    // ABC is not antigen copy number, and the tool said so in its method panel
+    // while leading with the opposite claim in its largest type.
+    unqualifiedClaim: /molecules\s*(\/|per)\s*cell/i.test(text.replace(/antibody molecules bound per cell/gi, '')),
+    metaDescription: document.querySelector('meta[name="description"]')?.getAttribute('content') ?? '',
+    headlineUnits: [...document.querySelectorAll('.result-card .hero .unit')].map((u) => u.innerText),
+    cards,
+  }
+})
+
+if (disclosure.unqualifiedClaim) {
+  uiFailures.push('antigen density: an unqualified "molecules per cell" claim is rendered')
+}
+if (/molecules\s*(\/|per)\s*cell/i.test(disclosure.metaDescription)) {
+  uiFailures.push('antigen density: meta description still claims molecules per cell')
+}
+for (const unit of disclosure.headlineUnits) {
+  if (unit.trim() !== 'ABC') uiFailures.push(`antigen density: headline unit is "${unit}", not ABC`)
+}
+if (disclosure.cards.length !== 3) {
+  uiFailures.push(`antigen density: worked example rendered ${disclosure.cards.length} cards, expected 3`)
+}
+
+// Background as a share of gross is the diagnostic that decides whether an
+// extrapolated control matters, so it appears on every card carrying a control,
+// flagged or not.
+for (const [i, card] of disclosure.cards.entries()) {
+  if (!/% of gross/.test(card)) {
+    uiFailures.push(`antigen density: card ${i + 1} does not report background as a share of gross`)
+  }
+}
+
+// The demo's discrimination: 61.4% of gross on an extrapolated control is
+// escalated; 2.5% on an equally extrapolated control stays quiet. A flag that
+// fires on every card teaches nobody anything.
+const keratinocyte = disclosure.cards.find((c) => /keratinocyte/i.test(c)) ?? ''
+const cd19 = disclosure.cards.find((c) => /CD19/i.test(c)) ?? ''
+if (!/of gross density/.test(keratinocyte)) {
+  uiFailures.push('antigen density: the dominant-background sample is not flagged')
+}
+if (/of gross density/.test(cd19)) {
+  uiFailures.push('antigen density: an immaterial background was flagged, which trains users to ignore flags')
+}
+
+// Per-population residuals, which R squared alone conceals.
+const residuals = await page.evaluate(
+  () => document.querySelectorAll('.residual-strip b').length,
+)
+if (residuals !== 4) uiFailures.push(`antigen density: ${residuals} residuals shown, expected 4`)
+
+// A flag that survives only on screen stops working when the value enters a
+// notebook, so the export carries a machine-readable status too.
+try {
+  const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: 8000 }),
+    page.getByRole('button', { name: 'Export CSV' }).click(),
+  ])
+  const csv = await readFile(await download.path(), 'utf8')
+  for (const column of ['flag_status', 'background_pct_of_gross', 'control_within_calibrated_range']) {
+    if (!csv.includes(column)) uiFailures.push(`antigen density: CSV export has no ${column} column`)
+  }
+  if (!csv.includes('do_not_report')) {
+    uiFailures.push('antigen density: CSV export marks nothing do_not_report, though the demo contains such a row')
+  }
+  if (!/Detection antibody host species/.test(csv)) {
+    uiFailures.push('antigen density: CSV export does not record the declared antibody host')
+  }
+} catch (e) {
+  uiFailures.push(`antigen density: CSV export failed (${String(e).slice(0, 70)})`)
+}
+
 const fontsApplied = await page.evaluate(async () => {
   await document.fonts.ready
   return {
@@ -288,5 +374,7 @@ if (failed) process.exit(1)
 console.log('Runtime checks passed: no request left the origin; social and canonical')
 console.log('metadata is absolute and on the configured origin; both pages carry the privacy')
 console.log('disclosure and a main landmark; every guidance panel is fully on screen; the')
-console.log('exported SVG parses; nothing is clipped at 360px; and an extreme input cannot')
-console.log('explode the chart.')
+console.log('exported SVG parses; nothing is clipped at 360px; an extreme input cannot')
+console.log('explode the chart; the reported unit is ABC rather than an unqualified molecule')
+console.log('count; every result discloses background as a share of gross while only a')
+console.log('material one is flagged; and the CSV export carries a machine-readable status.')

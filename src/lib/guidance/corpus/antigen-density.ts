@@ -8,6 +8,55 @@ import { numberFact, type GuidanceEntry, type ToolContext } from '../types'
  */
 export const ANTIGEN_DENSITY_GUIDANCE: GuidanceEntry[] = [
   {
+    id: 'ad.host.why',
+    anchor: 'ad.host',
+    title: 'Why does the antibody host species matter?',
+    body: [
+      {
+        kind: 'p',
+        text: 'Capture beads work by binding one host\u2019s immunoglobulin. Quantum Simply Cellular anti-Mouse beads capture mouse IgG; the anti-Human kit captures human and humanised IgG. Their assigned values are certified for that pairing.',
+      },
+      {
+        kind: 'p',
+        text: 'The reason this is worth declaring is not that a mismatched stain gives no signal. Anti-immunoglobulin reagents cross-react across related hosts to an *uncertified* degree, so mismatched beads can still produce an ordered, well-fitting series while binding a fraction of the antibody their certificate assumes. The curve looks healthy and every value derived from it is wrong.',
+      },
+      {
+        kind: 'note',
+        text: 'This is a declaration, not a measurement. Nothing in the numbers reveals a host mismatch, which is why the tool has to ask.',
+      },
+      {
+        kind: 'list',
+        items: [
+          'Pre-conjugated standards such as QuantiBRITE PE carry no capture antibody, so they impose no constraint on the host and the check does not apply.',
+          'The related error no selector can catch is staining beads and cells with different lots or different concentrations of the same antibody. Use one preparation for both.',
+        ],
+      },
+    ],
+  },
+  {
+    id: 'ad.saturation.why',
+    anchor: 'ad.saturation',
+    title: 'Was the stain titrated to saturation?',
+    body: [
+      {
+        kind: 'p',
+        text: 'Antibody binding capacity is the number of antibody molecules the surface can bind, which is only measured when every available site is occupied. Sub-saturating antibody is the commonest way this measurement goes wrong at the bench.',
+      },
+      {
+        kind: 'p',
+        text: 'It fails in one direction. An under-titrated stain *undercounts*, so a result obtained without confirmed saturation is a lower bound rather than an estimate that might fall either side.',
+      },
+      {
+        kind: 'list',
+        items: [
+          'Titrate on the cells and on the beads. Saturating on one does not establish saturation on the other, since the surface densities differ by orders of magnitude.',
+          'A titration curve that has plateaued is the evidence. Using the vendor\u2019s recommended volume is not.',
+          'Leaving this unconfirmed does not block anything. The tool reports the values and states that they are lower bounds, in the interface and in the export.',
+        ],
+      },
+    ],
+  },
+  {
     id: 'ad.kit.which',
     anchor: 'ad.bead-kit',
     title: 'Which kit do I have?',
@@ -97,14 +146,18 @@ export const ANTIGEN_DENSITY_GUIDANCE: GuidanceEntry[] = [
     body: [
       {
         kind: 'p',
-        text: 'The calibration is a power law, so subtracting before and after converting are not the same operation unless the log-log slope is exactly one.',
+        text: 'The calibration is a power law, so subtracting before and after converting are not the same operation unless the log-log slope is exactly one. Both modes are defensible and neither is a correction of the other.',
       },
       {
         kind: 'list',
         items: [
-          'Density space converts the sample and the control separately, then subtracts. This is the safer default and is what to use when the slope departs from unity.',
-          'MFI space subtracts first, then converts once. It matches older published protocols and agrees with density space only at a slope of exactly one.',
+          'Density space converts the stained and control channels separately, then subtracts. Preferred where the log-log slope departs from unity, since the mapping from MFI to ABC is then non-proportional and subtracting first distorts it.',
+          'MFI space subtracts first, then converts once. This reflects the physical fact that autofluorescence and non-specific binding add in fluorescence units, because photons add. That is a real argument, not merely an older convention.',
         ],
+      },
+      {
+        kind: 'p',
+        text: 'The two agree closely where the slope is near unity and the background is small, and diverge where it is not. Where they differ by more than about a tenth for a given sample, the tool says so on the result card: that divergence is itself information about how much the choice matters for your data. Whichever you use, *state which mode* when reporting the value.',
       },
     ],
   },

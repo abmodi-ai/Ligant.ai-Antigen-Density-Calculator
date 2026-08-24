@@ -3,8 +3,8 @@
 Free, deterministic browser tools for cell therapy research. Nothing a user
 enters leaves their machine. Two tools ship today:
 
-- **Antigen density calculator** converts flow cytometry MFI into molecules per
-  cell against a calibrated bead standard.
+- **Antigen density calculator** converts flow cytometry MFI into antibody
+  binding capacity (ABC) against a calibrated bead standard.
 - **Cytotoxicity curve fitter** fits a four parameter logistic to dose response
   data and reports potency with a confidence interval.
 
@@ -18,9 +18,14 @@ rule and what it rules out.
 ## Method: antigen density
 
 The number a CAR actually responds to is surface antigen density, not relative
-fluorescence. Labs convert MFI to molecules per cell in ad-hoc spreadsheets, which
-is tedious and easy to get wrong. This does it correctly, shows its working, and
-refuses to report a number it cannot defend.
+fluorescence. Labs convert MFI to antibody binding capacity in ad-hoc
+spreadsheets, which is tedious and easy to get wrong. This does it correctly,
+shows its working, and refuses to report a number it cannot defend.
+
+The reported quantity is ABC, the number of antibody molecules bound per cell.
+That is not the same as antigen copy number, so the tool never labels it as
+such: antigen sites are shown separately as a range inferred from binding
+valency, and marked as inferred.
 
 Bead standards are fitted by ordinary least squares in log10–log10 space:
 
@@ -57,8 +62,14 @@ The tool refuses to be quietly wrong. It flags:
 - sample MFI outside the bead range (extrapolated, not quantitative)
 - R² below 0.98
 - log-log slope more than 0.15 from unity (detector or compensation problem)
+- assigned values not increasing with MFI (transposed rows)
+- a fit resting on three populations, leaving one degree of freedom
+- background at or above sample signal, reported as below detection
+- background a material fraction of gross, escalated when the control MFI is
+  itself extrapolated below the standard
+- density-space and MFI-space subtraction diverging by more than a tenth
+- a declared antibody host the selected capture beads cannot bind
 - results below the lowest standard
-- background at or above sample signal
 
 ## Method: cytotoxicity curve fitting
 

@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest'
 import {
   DEFAULT_OPTIONS,
   bandFor,
+  captureCompatibilityFlags,
   confidenceLabel,
   fitStandardCurve,
+  resultStatus,
   formatNumber,
   quantifySample,
   type BeadStandard,
@@ -196,7 +198,7 @@ describe('bandFor', () => {
     [9_999, 'intermediate'],
     [10_000, 'high'],
     [1_000_000, 'high'],
-  ])('%i molecules/cell falls in the %s band', (abc, id) => {
+  ])('%i ABC falls in the %s band', (abc, id) => {
     expect(bandFor(abc).id).toBe(id)
   })
 })
@@ -252,5 +254,208 @@ describe('plausibility ceiling', () => {
     )
     expect(r.flags.some((f) => /physically plausible/.test(f.message))).toBe(true)
     expect(r.flags.every((f) => f.remedy)).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// The shipped worked example, which is also the regression fixture. None of the
+// disclosure work below is permitted to move a computed value.
+// ---------------------------------------------------------------------------
+
+const DEMO_BEADS: BeadStandard[] = [
+  { id: 'd0', label: 'Blank', mfi: 210, assigned: null, included: false },
+  { id: 'd1', label: 'Population 1', mfi: 2_050, assigned: 8_300, included: true },
+  { id: 'd2', label: 'Population 2', mfi: 12_900, assigned: 51_000, included: true },
+  { id: 'd3', label: 'Population 3', mfi: 39_500, assigned: 175_000, included: true },
+  { id: 'd4', label: 'Population 4', mfi: 121_000, assigned: 512_000, included: true },
+]
+
+const DEMO_OPTIONS: QuantifyOptions = {
+  ...DEFAULT_OPTIONS,
+  antibodyHost: 'mouse',
+  saturationConfirmed: true,
+}
+
+const DEMO_SAMPLES = {
+  cd19: { id: 's1', label: 'CD19 (NALM-6)', mfi: 8_900, controlMfi: 240 },
+  her2: { id: 's2', label: 'HER2 (SK-BR-3)', mfi: 62_000, controlMfi: 310 },
+  keratinocyte: { id: 's3', label: 'HER2 (primary keratinocyte)', mfi: 420, controlMfi: 260 },
+}
+
+describe('worked example regression', () => {
+  const c = curve(DEMO_BEADS)
+
+  it('reproduces the published fit', () => {
+    expect(c.fit.slope).toBeCloseTo(1.017382, 6)
+    expect(c.fit.intercept).toBeCloseTo(0.544992, 6)
+    expect(c.fit.r2).toBeCloseTo(0.999485, 6)
+    expect(c.fit.n).toBe(4)
+  })
+
+  it('reproduces every reported density', () => {
+    const abc = (s: typeof DEMO_SAMPLES.cd19) =>
+      Math.round(quantifySample(s, c, DEMO_OPTIONS).netAbc as number)
+    expect(abc(DEMO_SAMPLES.cd19)).toBe(35_636)
+    expect(abc(DEMO_SAMPLES.her2)).toBe(262_241)
+    expect(abc(DEMO_SAMPLES.keratinocyte)).toBe(632)
+  })
+})
+
+describe('background as a fraction of gross', () => {
+  const c = curve(DEMO_BEADS)
+
+  it('is reported on every sample, flagged or not', () => {
+    const cd19 = quantifySample(DEMO_SAMPLES.cd19, c, DEMO_OPTIONS)
+    const kera = quantifySample(DEMO_SAMPLES.keratinocyte, c, DEMO_OPTIONS)
+    expect(cd19.backgroundFraction).toBeCloseTo(0.0253, 3)
+    expect(kera.backgroundFraction).toBeCloseTo(0.614, 3)
+  })
+
+  it('records that the control is extrapolated even where it does not matter', () => {
+    // Unstained cells are dimmer than the dimmest bead in essentially every
+    // real run, so this is the normal case rather than the exceptional one.
+    for (const s of Object.values(DEMO_SAMPLES)) {
+      expect(quantifySample(s, c, DEMO_OPTIONS).controlInRange).toBe(false)
+    }
+  })
+
+  it('flags only where the extrapolated background is material', () => {
+    const cd19 = quantifySample(DEMO_SAMPLES.cd19, c, DEMO_OPTIONS)
+    const kera = quantifySample(DEMO_SAMPLES.keratinocyte, c, DEMO_OPTIONS)
+    const mentionsBackground = (r: typeof cd19) =>
+      r.flags.some((f) => f.message.includes('of gross density'))
+    // 2.5% of gross, extrapolated but immaterial: silent.
+    expect(mentionsBackground(cd19)).toBe(false)
+    // 61.4% of gross and extrapolated: the escalated flag.
+    expect(mentionsBackground(kera)).toBe(true)
+    expect(kera.flags.some((f) => f.level === 'critical')).toBe(true)
+  })
+
+  it('warns without escalating when a material background is inside the range', () => {
+    // Control at 3,000 is inside the calibrated bracket, so the arithmetic is
+    // sound even though the background dominates.
+    const r = quantifySample({ id: 'x', label: 'x', mfi: 5_000, controlMfi: 3_000 }, c, DEMO_OPTIONS)
+    const flag = r.flags.find((f) => f.message.includes('of gross density'))
+    expect(flag?.level).toBe('warning')
+  })
+})
+
+describe('below detection', () => {
+  const c = curve(DEMO_BEADS)
+
+  it('reports a control at or above the sample as below detection, never as a number', () => {
+    const r = quantifySample({ id: 'x', label: 'x', mfi: 250, controlMfi: 260 }, c, DEMO_OPTIONS)
+    expect(r.netAbc).toBeNull()
+    expect(r.flags.some((f) => f.level === 'critical')).toBe(true)
+    // The diagnostic quantities survive so the user can see why.
+    expect(r.grossAbc).toBeGreaterThan(0)
+    expect(r.controlAbc).toBeGreaterThan(0)
+  })
+
+  it('suppresses a net that is only the residue of a dominant background', () => {
+    // Positive, but 95% of gross is background: not a measurement of anything.
+    const r = quantifySample({ id: 'x', label: 'x', mfi: 5_200, controlMfi: 5_000 }, c, DEMO_OPTIONS)
+    expect(r.backgroundFraction).toBeGreaterThan(0.9)
+    expect(r.netAbc).toBeNull()
+  })
+
+  it('does not suppress the deliberately under-range demo sample', () => {
+    expect(quantifySample(DEMO_SAMPLES.keratinocyte, c, DEMO_OPTIONS).netAbc).not.toBeNull()
+  })
+})
+
+describe('subtraction mode divergence', () => {
+  const c = curve(DEMO_BEADS)
+
+  it('is computed wherever a control is supplied', () => {
+    expect(quantifySample(DEMO_SAMPLES.cd19, c, DEMO_OPTIONS).modeDivergence).not.toBeNull()
+  })
+
+  it('is null with no control to subtract', () => {
+    const r = quantifySample({ id: 'x', label: 'x', mfi: 8_900, controlMfi: null }, c, DEMO_OPTIONS)
+    expect(r.modeDivergence).toBeNull()
+  })
+
+  it('stays quiet where the slope is near unity and the background is small', () => {
+    const r = quantifySample(DEMO_SAMPLES.cd19, c, DEMO_OPTIONS)
+    expect(r.flags.some((f) => f.message.includes('differ by'))).toBe(false)
+  })
+})
+
+describe('curve diagnostics', () => {
+  it('reports a residual per population, summing to zero as least squares requires', () => {
+    const c = curve(DEMO_BEADS)
+    expect(c.residuals).toHaveLength(4)
+    expect(c.residuals.map((r) => r.label)).toEqual([
+      'Population 1', 'Population 2', 'Population 3', 'Population 4',
+    ])
+    expect(c.residuals.reduce((a, r) => a + r.logResidual, 0)).toBeCloseTo(0, 12)
+    // The point R squared alone conceals: 5% off the line at R squared 0.9995.
+    expect(Math.max(...c.residuals.map((r) => Math.abs(r.percent)))).toBeGreaterThan(4)
+  })
+
+  it('warns that three populations leave one degree of freedom', () => {
+    const c = curve(EXACT_BEADS.slice(0, 3))
+    expect(c.flags.some((f) => f.message.includes('one degree of freedom'))).toBe(true)
+  })
+
+  it('does not warn at four', () => {
+    expect(curve().flags.some((f) => f.message.includes('degree of freedom'))).toBe(false)
+  })
+
+  it('refuses a standard set whose assigned values do not rise with MFI', () => {
+    const transposed: BeadStandard[] = [
+      { id: 'a', label: 'Low', mfi: 1_000, assigned: 100_000, included: true },
+      { id: 'b', label: 'Mid', mfi: 10_000, assigned: 10_000, included: true },
+      { id: 'c', label: 'High', mfi: 50_000, assigned: 500_000, included: true },
+    ]
+    const c = curve(transposed)
+    const flag = c.flags.find((f) => f.message.includes('not increasing with MFI'))
+    expect(flag?.level).toBe('critical')
+  })
+
+  it('accepts a monotonic set silently', () => {
+    expect(curve().flags.some((f) => f.message.includes('not increasing'))).toBe(false)
+  })
+})
+
+describe('captureCompatibilityFlags', () => {
+  it('rejects a detection antibody the beads cannot capture', () => {
+    const flags = captureCompatibilityFlags('mouse', 'rat')
+    expect(flags).toHaveLength(1)
+    expect(flags[0].level).toBe('critical')
+    expect(flags[0].message).toContain('mouse')
+    expect(flags[0].message).toContain('rat')
+  })
+
+  it('passes a matching host', () => {
+    expect(captureCompatibilityFlags('mouse', 'mouse')).toHaveLength(0)
+  })
+
+  it('says nothing when the host is not stated', () => {
+    expect(captureCompatibilityFlags('mouse', 'unstated')).toHaveLength(0)
+  })
+
+  it('does not apply to a pre-conjugated standard, which captures nothing', () => {
+    expect(captureCompatibilityFlags(null, 'rat')).toHaveLength(0)
+  })
+
+  it('asks the user to check when the host is recorded as other', () => {
+    const flags = captureCompatibilityFlags('human', 'other')
+    expect(flags[0].level).toBe('warning')
+  })
+})
+
+describe('resultStatus', () => {
+  it('maps a critical flag to do_not_report', () => {
+    expect(resultStatus([{ level: 'critical', message: 'x' }])).toBe('do_not_report')
+  })
+
+  it('maps a warning to caution', () => {
+    expect(resultStatus([{ level: 'warning', message: 'x' }])).toBe('caution')
+  })
+
+  it('maps no flags to ok', () => {
+    expect(resultStatus([])).toBe('ok')
   })
 })

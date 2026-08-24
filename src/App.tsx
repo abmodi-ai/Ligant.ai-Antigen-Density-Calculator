@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { BEAD_KITS, standardsForKit, type BeadKit } from './lib/kits'
 import {
   DEFAULT_OPTIONS,
+  captureCompatibilityFlags,
   fitStandardCurve,
   quantifySample,
   type BeadStandard,
   type CurveResult,
+  type HostSpecies,
   type QuantifyOptions,
   type Sample,
 } from './lib/quantify'
@@ -52,7 +54,7 @@ function demoState(): PersistedState {
       { id: 'ds2', label: 'HER2 (SK-BR-3)', mfi: 62_000, controlMfi: 310 },
       { id: 'ds3', label: 'HER2 (primary keratinocyte)', mfi: 420, controlMfi: 260 },
     ],
-    options: { ...DEFAULT_OPTIONS },
+    options: { ...DEFAULT_OPTIONS, antibodyHost: 'mouse', saturationConfirmed: true },
   }
 }
 
@@ -105,6 +107,16 @@ export default function App() {
     return samples.map((sample) => ({ sample, result: quantifySample(sample, curve, options) }))
   }, [samples, curve, options])
 
+  // A capture mismatch invalidates the whole calibration rather than any one
+  // sample, so it sits with the curve.
+  const curveFlags = useMemo(
+    () => [
+      ...captureCompatibilityFlags(kit.captureHost, options.antibodyHost),
+      ...(curve?.flags ?? []),
+    ],
+    [kit, options.antibodyHost, curve],
+  )
+
   const guidanceContext: ToolContext = useMemo(
     () => ({
       tool: 'antigen-density',
@@ -120,9 +132,9 @@ export default function App() {
         sampleCount: entries.length,
         hasCriticalFlag: entries.some((e) => e.result.flags.some((f) => f.level === 'critical')),
       },
-      flags: [...(curve?.flags ?? []), ...entries.flatMap((e) => e.result.flags)],
+      flags: [...curveFlags, ...entries.flatMap((e) => e.result.flags)],
     }),
-    [curve, options, entries],
+    [curve, curveFlags, options, entries],
   )
 
   const setOptions = (patch: Partial<QuantifyOptions>) =>
@@ -193,6 +205,13 @@ export default function App() {
                 <h2>Samples</h2>
               </div>
             </div>
+            <div className="panel-body" style={{ paddingBottom: 0 }}>
+              <p className="hint">
+                Take each MFI from a viability-gated, singlet-gated live population. Dead and dying
+                cells bind antibody non-specifically and inflate the stained and control channels
+                alike, which subtraction does not remove.
+              </p>
+            </div>
             <SamplesTable
               samples={samples}
               showControl={options.backgroundMode !== 'none'}
@@ -235,6 +254,39 @@ export default function App() {
               </div>
 
               <div className="field-row">
+                <div className="field">
+                  <label htmlFor="host">
+                    Antibody host species<GuidancePin anchor="ad.host" />
+                  </label>
+                  <select
+                    id="host"
+                    value={options.antibodyHost}
+                    onChange={(e) => setOptions({ antibodyHost: e.target.value as HostSpecies })}
+                  >
+                    <option value="unstated">Not stated</option>
+                    <option value="mouse">Mouse</option>
+                    <option value="rat">Rat</option>
+                    <option value="human">Human or humanised</option>
+                    <option value="rabbit">Rabbit</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="sat">
+                    Stain titration<GuidancePin anchor="ad.saturation" />
+                  </label>
+                  <select
+                    id="sat"
+                    value={options.saturationConfirmed ? 'yes' : 'no'}
+                    onChange={(e) => setOptions({ saturationConfirmed: e.target.value === 'yes' })}
+                  >
+                    <option value="no">Not confirmed</option>
+                    <option value="yes">Titrated to saturation</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="field-row">
                 {isPe && (
                   <div className="field">
                     <label htmlFor="fp">Fluorophore:protein ratio</label>
@@ -264,11 +316,13 @@ export default function App() {
 
               <p className="hint">
                 {options.backgroundMode === 'abc' &&
-                  'Sample and control MFI are converted to densities independently, then subtracted. Preferred where the log-log slope departs from unity.'}
+                  'Stained and control MFI are converted to densities independently, then subtracted. Preferred where the log-log slope departs from unity, since the MFI to ABC mapping is then non-proportional.'}
                 {options.backgroundMode === 'mfi' &&
-                  'Control MFI is subtracted prior to conversion. Equivalent to density-space subtraction only where the log-log slope is exactly unity.'}
+                  'Control MFI is subtracted before conversion, which reflects the physical fact that autofluorescence and non-specific binding add in fluorescence units. Neither mode is a correction of the other.'}
                 {options.backgroundMode === 'none' &&
                   'No background correction applied. The reported density includes non-specific binding and autofluorescence.'}
+                {options.backgroundMode !== 'none' &&
+                  ' The two agree closely where the slope is near unity and the background is small, and diverge where it is not. Report which mode was used.'}
               </p>
 
               <div className="button-row">
@@ -337,7 +391,7 @@ export default function App() {
                 <StandardCurve
                   curve={curve}
                   samples={entries}
-                  assignedLabel={isPe ? 'PE molecules per bead' : 'Molecules per cell'}
+                  assignedLabel={isPe ? 'PE molecules per bead' : 'ABC (antibody binding capacity)'}
                   confidenceLevel={options.confidenceLevel}
                 />
                 <div className="fit-stats">
@@ -346,9 +400,21 @@ export default function App() {
                   <span>R² <b>{formatR2(curve.fit.r2)}</b></span>
                   <span>n <b>{curve.fit.n}</b></span>
                 </div>
-                {curve.flags.length > 0 && (
+                <div className="residual-strip">
+                  <span className="label">Residual</span>
+                  {curve.residuals.map((r) => (
+                    <span key={r.label}>
+                      <span className="label">{r.label}</span>{' '}
+                      <b>
+                        {r.percent >= 0 ? '+' : ''}
+                        {r.percent.toFixed(1)}%
+                      </b>
+                    </span>
+                  ))}
+                </div>
+                {curveFlags.length > 0 && (
                   <div className="panel-body" style={{ paddingTop: 4 }}>
-                    <FlagList flags={curve.flags} />
+                    <FlagList flags={curveFlags} />
                   </div>
                 )}
               </>
@@ -390,6 +456,7 @@ export default function App() {
                   entries={entries}
                   valency={options.valency}
                   confidenceLevel={options.confidenceLevel}
+                  saturationConfirmed={options.saturationConfirmed}
                 />
               ) : (
                 <div className="empty">Fit a standard curve first.</div>
