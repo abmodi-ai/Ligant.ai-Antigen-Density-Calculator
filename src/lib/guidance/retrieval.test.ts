@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import { buildIndex, expandQuery, questionIntent, search, tokenise, type RetrievalIndex } from './retrieval'
 import { stem, STOPWORDS, SYNONYM_GROUPS } from './synonyms'
 import { ANTIGEN_DENSITY_GUIDANCE } from './corpus/antigen-density'
-import { CYTOTOXICITY_GUIDANCE } from './corpus/cytotoxicity'
 import { SHARED_GUIDANCE } from './corpus/shared'
 import type { GuidanceEntry, ToolContext } from './types'
 
@@ -16,7 +15,6 @@ import type { GuidanceEntry, ToolContext } from './types'
  */
 const CORPUS: GuidanceEntry[] = [
   ...ANTIGEN_DENSITY_GUIDANCE,
-  ...CYTOTOXICITY_GUIDANCE,
   ...SHARED_GUIDANCE,
 ]
 
@@ -33,10 +31,12 @@ const ids = (query: string, anchor?: string) =>
 
 describe('tokenise', () => {
   it('keeps the forms that splitting on punctuation would destroy', () => {
+    // Only forms the corpus contains. Rules for EC50, E:T and the rest went
+    // with the tool that used them: a normalisation for a term no passage uses
+    // makes a token that can never match, which costs the reader the word that
+    // carried their meaning.
     expect(tokenise('what is R²')).toContain('r2')
-    expect(tokenise('my E:T ratio')).toContain('et')
     expect(tokenise('the F/P ratio')).toContain('fp')
-    expect(tokenise('reporting EC 50')).toContain('ec50')
     expect(tokenise('log 10 space')).toContain('log10')
   })
 
@@ -157,12 +157,6 @@ describe('questions a scientist would actually type', () => {
     ['subtract background before or after converting', 'ad.background.mode', 'ad.background'],
     ['is my standard curve straight', 'ad.curve.straight', 'ad.curve'],
     ['what does this number mean', 'ad.result.meaning', 'ad.result'],
-    ['what goes in the dose column', 'cy.dose.what', 'cy.dose'],
-    ['percentage or unbounded response', 'cy.scale.which', 'cy.scale'],
-    ['what does the hill slope tell me', 'cy.potency.hill', 'cy.potency'],
-    ['how long should the co-culture run', 'cy.duration.why', 'cy.response'],
-    ['why is my EC50 interval so wide', 'cy.potency.interval', 'cy.potency'],
-    ['my response goes above 100 percent', 'cy.scale.over100', 'cy.scale'],
     ['what does the confidence interval cover', 'shared.confidence', 'shared.confidence'],
     ['where does my data go', 'shared.privacy', 'shared.privacy'],
   ]
@@ -187,8 +181,10 @@ describe('paraphrase, which is what the synonym groups are for', () => {
     expect(ids('is anything sent to a server')).toContain('shared.privacy')
   })
 
-  it('reaches the potency passage from "how strong is my CAR"', () => {
-    expect(ids('how potent is this construct', 'cy.potency').length).toBeGreaterThan(0)
+  it('reaches the result passage from the reader\u2019s own words for it', () => {
+    // The corpus writes "antibody binding capacity"; a reader says "molecules
+    // per cell". The synonym group is what carries one to the other.
+    expect(ids('how many molecules per cell', 'ad.result').length).toBeGreaterThan(0)
   })
 })
 
@@ -289,7 +285,6 @@ describe('declining what the corpus does not cover', () => {
   it('no longer declines a question the corpus has since answered', () => {
     for (const [query, anchor] of [
       ['can I use this for CAR-NK', undefined],
-      ['what is the recommended incubation time', 'cy.response'],
     ] as [string, string | undefined][]) {
       expect(search(index, query, { context: CONTEXT, anchor })).not.toEqual([])
     }
@@ -302,9 +297,14 @@ describe('declining what the corpus does not cover', () => {
   // comparison holds only across a shared effector donor, and says nothing
   // about how much donors vary, which is what was asked.
   it('surfaces an in-domain near miss under its own title, where the reader can judge it', () => {
-    const [top] = search(index, 'does the donor matter', {
+    // The corpus says what to do when the detector is set wrong, and never says
+    // which settings to use. In domain, answered by an in-domain passage that
+    // does not address the point, and no coverage statistic can separate the
+    // two. Excluding it by threshold would take real answers with it, so it is
+    // returned under its own heading where a reader can see what it is.
+    const [top] = search(index, 'which cytometer settings should I use', {
       context: CONTEXT,
-      anchor: 'cy.response',
+      anchor: 'ad.mfi',
     })
     expect(top).toBeDefined()
     expect(top.entry.title).toBeTruthy()
@@ -315,14 +315,12 @@ describe('declining what the corpus does not cover', () => {
   })
 
   it('credits a synonym toward coverage, or bench phrasing could never pass', () => {
-    // Nothing in the corpus spells "E:T"; it writes "effector to target ratio".
-    // Without synonym credit this question is all unknown terms and is declined.
-    const results = search(index, 'what E:T ratio should I use', {
-      context: CONTEXT,
-      anchor: 'cy.dose',
-    })
+    // The corpus writes "median fluorescence intensity" and the reader says
+    // "dim". Without synonym credit this question is all unknown terms and is
+    // declined, which is the gap the groups exist to close.
+    const results = search(index, 'my beads are dim', { context: CONTEXT, anchor: 'ad.mfi' })
     expect(results.length).toBeGreaterThan(0)
-    expect(results[0].entry.anchor).toBe('cy.dose')
+    expect(results.some((m) => m.entry.anchor === 'ad.mfi')).toBe(true)
   })
 
   it('lets a question written entirely in synonyms through the gate', () => {
@@ -385,8 +383,6 @@ describe('a student asking what and why', () => {
     // "explain" appears nowhere in the corpus, so the relevance gate counted it
     // as the most distinctive word in the question.
     ['Can you explain what is the Bead Kit?', 'ad.beads.what', 'ad.bead-kit'],
-    ['tell me what an EC50 is', 'cy.potency.what.is', 'cy.potency'],
-    ['define specific lysis', 'cy.response.what.is', 'cy.response'],
     ['what is the purpose of the control', 'ad.control.what', 'ad.control'],
     ['why do I need beads', 'ad.beads.what', 'ad.bead-kit'],
     ['what is MFI', 'ad.mfi.what', 'ad.mfi'],
@@ -397,22 +393,10 @@ describe('a student asking what and why', () => {
     ['what is a standard curve', 'ad.curve.what', 'ad.curve'],
     ['what is antibody binding capacity', 'ad.result.what', 'ad.result'],
     ['what does titrating to saturation mean', 'ad.saturation.what', 'ad.saturation'],
-    ['what is an effector to target ratio', 'cy.dose.what.is', 'cy.dose'],
-    ['what is specific lysis', 'cy.response.what.is', 'cy.response'],
-    ['what is an EC50', 'cy.potency.what.is', 'cy.potency'],
-    ['what is a four parameter logistic curve', 'cy.curve.what.is', 'cy.curve'],
     // Added after probing the cytotoxicity corpus with the questions a student
     // arriving at this tool actually asks. Nine of thirty eight were declined
     // outright and several more were answered confidently with the wrong
     // passage, which is the failure the corpus cannot report on itself.
-    ['what is a cytotoxicity assay', 'cy.assay.what', 'cy.response'],
-    ['what is chromium release', 'cy.assay.what', 'cy.response'],
-    ['what assay gives me these numbers', 'cy.assay.what', 'cy.response'],
-    ['what is a negative control', 'cy.controls.what', 'cy.response'],
-    ['what is Emax', 'cy.potency.plateau.what', 'cy.potency'],
-    ['what is the upper plateau', 'cy.potency.plateau.what', 'cy.potency'],
-    ['what does a bad fit look like', 'cy.curve.poor.what', 'cy.curve'],
-    ['what is a 4PL', 'cy.curve.what.is', 'cy.curve'],
     ['what is R squared', 'shared.r2', 'shared.r2'],
     ['what is a construct', 'shared.construct', undefined],
     ['what is an scFv', 'shared.construct', undefined],
@@ -425,13 +409,13 @@ describe('a student asking what and why', () => {
   })
 
   it('returns both passages where two of them define the same thing', () => {
-    // Spontaneous release is defined twice: once as the floor specific lysis is
-    // computed against, once as a named control. Neither is the better answer,
-    // so the order is not asserted. Pinning one would be pinning an artefact of
-    // term frequency and calling it an editorial decision.
-    const found = ids('what is spontaneous release', 'cy.response')
-    expect(found).toContain('cy.response.what.is')
-    expect(found).toContain('cy.controls.what')
+    // The unstained signal is explained twice: once as what the control channel
+    // is for, once as the reason it is subtracted. Neither is the better
+    // answer, so the order is not asserted. Pinning one would be pinning an
+    // artefact of term frequency and calling it an editorial decision.
+    const found = ids('what is autofluorescence', 'ad.control')
+    expect(found).toContain('ad.control.what')
+    expect(found).toContain('ad.background.why')
   })
 
   it('does not let a definition take over a practical question', () => {

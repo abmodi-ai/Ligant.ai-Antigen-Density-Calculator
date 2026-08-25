@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { persist, restoreOptions } from './persist'
 import { DEFAULT_OPTIONS, captureCompatibilityFlags, type QuantifyOptions } from './quantify'
-import { DEFAULT_CYTOTOX_OPTIONS } from './cytotox'
 
 /**
  * Settings exactly as the released version wrote them, before the antibody host
@@ -71,12 +70,18 @@ describe('restoreOptions', () => {
     }
   })
 
-  it('serves the cytotoxicity tool, which has the same exposure', () => {
-    const v0 = { doseLabel: 'E:T ratio', responseLabel: 'Specific lysis (%)' }
-    const restored = restoreOptions(v0, DEFAULT_CYTOTOX_OPTIONS)
-    expect(restored.doseLabel).toBe('E:T ratio')
-    expect(restored.responseIsPercent).toBe(DEFAULT_CYTOTOX_OPTIONS.responseIsPercent)
-    expect(restored.confidenceLevel).toBe(DEFAULT_CYTOTOX_OPTIONS.confidenceLevel)
+  it('is generic over the shape it is given, not written for one tool', () => {
+    // The merge is the thing being tested, so the defaults here are a fixture
+    // rather than any real option set: a stored payload missing two of four
+    // keys must come back complete, with what it did carry preserved.
+    const defaults = { label: 'default', enabled: false, level: 0.95, count: 3 }
+    const stored = { label: 'kept', level: 0.99 }
+    expect(restoreOptions(stored, defaults)).toEqual({
+      label: 'kept',
+      enabled: false,
+      level: 0.99,
+      count: 3,
+    })
   })
 })
 

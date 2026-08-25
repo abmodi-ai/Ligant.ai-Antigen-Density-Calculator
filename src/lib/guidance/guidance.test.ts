@@ -1,10 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { entriesFor, plainText, type ToolContext } from './types'
 import { ANTIGEN_DENSITY_GUIDANCE } from './corpus/antigen-density'
-import { CYTOTOXICITY_GUIDANCE } from './corpus/cytotoxicity'
 import { SHARED_GUIDANCE } from './corpus/shared'
 
-const ALL = [...ANTIGEN_DENSITY_GUIDANCE, ...CYTOTOXICITY_GUIDANCE, ...SHARED_GUIDANCE]
+const ALL = [...ANTIGEN_DENSITY_GUIDANCE, ...SHARED_GUIDANCE]
 
 function ctx(facts: Record<string, number | string | boolean | null>): ToolContext {
   return { tool: 'test', facts, flags: [] }
@@ -55,14 +54,6 @@ describe('state-aware selection', () => {
     const found = entriesFor(ANTIGEN_DENSITY_GUIDANCE, 'ad.curve', ctx({}))
     expect(found.some((e) => e.id === 'ad.curve.slope-off')).toBe(false)
     expect(found.length).toBeGreaterThan(0)
-  })
-
-  it('explains an unreached plateau only when one is flagged', () => {
-    const quiet = entriesFor(CYTOTOXICITY_GUIDANCE, 'cy.potency', ctx({ plateauUnreached: false }))
-    expect(quiet.some((e) => e.id === 'cy.plateau.why')).toBe(false)
-
-    const raised = entriesFor(CYTOTOXICITY_GUIDANCE, 'cy.potency', ctx({ plateauUnreached: true }))
-    expect(raised[0].id).toBe('cy.plateau.why')
   })
 
   it('returns nothing for an anchor the corpus does not cover', () => {
