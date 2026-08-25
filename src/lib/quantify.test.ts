@@ -16,12 +16,31 @@ import {
   type QuantifyOptions,
 } from './quantify'
 
-/** Beads on an exact power law: ABC = 10 * MFI, so log-log slope is exactly 1. */
+/**
+ * Beads on an exact power law: ABC = 10 * MFI, so log-log slope is exactly 1.
+ *
+ * Deliberately synthetic, and the tool now says so: a standard with no residual
+ * scatter at all is not a measurement, so this fixture carries that critical
+ * flag. It stays exact because the tests below check the arithmetic recovers a
+ * known answer, which is a different question from whether a reader should
+ * trust such a table. Anything testing *validity* uses SCATTERED_BEADS.
+ */
 const EXACT_BEADS: BeadStandard[] = [
   { id: 'a', label: 'Blank', mfi: 100, assigned: 1_000, included: true },
   { id: 'b', label: 'Low', mfi: 1_000, assigned: 10_000, included: true },
   { id: 'c', label: 'Mid', mfi: 10_000, assigned: 100_000, included: true },
   { id: 'd', label: 'High', mfi: 50_000, assigned: 500_000, included: true },
+]
+
+/**
+ * A standard with the scatter real bead data has: the shipped worked example.
+ * Used wherever a test is about whether a calibration may be reported.
+ */
+const SCATTERED_BEADS: BeadStandard[] = [
+  { id: 'a', label: 'Population 1', mfi: 2_050, assigned: 8_300, included: true },
+  { id: 'b', label: 'Population 2', mfi: 12_900, assigned: 51_000, included: true },
+  { id: 'c', label: 'Population 3', mfi: 39_500, assigned: 175_000, included: true },
+  { id: 'd', label: 'Population 4', mfi: 121_000, assigned: 512_000, included: true },
 ]
 
 function curve(beads = EXACT_BEADS): CurveResult {
@@ -36,8 +55,16 @@ describe('fitStandardCurve', () => {
     expect(c.fit.slope).toBeCloseTo(1, 10)
     expect(c.fit.intercept).toBeCloseTo(1, 10) // log10(10)
     expect(c.fit.r2).toBeCloseTo(1, 10)
-    expect(c.flags).toHaveLength(0)
     expect(c.mfiRange).toEqual([100, 50_000])
+  })
+
+  it('says a standard with no scatter at all is not a measurement', () => {
+    // The same fixture, read as a reader would read it rather than as an
+    // arithmetic check. Perfect collinearity is reachable by constructed
+    // numbers and by nothing else, and it produces a zero width interval.
+    const c = curve()
+    expect(c.flags.filter((f) => f.level === 'critical')).toHaveLength(1)
+    expect(c.flags[0].message).toMatch(/no residual scatter/i)
   })
 
   it('requires three usable populations', () => {
@@ -500,10 +527,10 @@ describe('calibration flags reaching the result', () => {
     // the interval, not a reason to withhold the figure.
     const r = quantifyWithCalibration(
       { id: 'x', label: 'x', mfi: 5_000, controlMfi: null },
-      curve(EXACT_BEADS.slice(0, 3)),
+      curve(SCATTERED_BEADS.slice(0, 3)),
       DEMO_OPTIONS,
     )
-    expect(r.calibrationFlags).toHaveLength(0)
+    expect(r.calibrationFlags.every((f) => f.level === 'warning')).toBe(true)
     expect(calibrationValid(r)).toBe(true)
   })
 
@@ -738,5 +765,64 @@ describe('the order calibration problems are reported in', () => {
     const critical = curve(inverted).flags.filter((f) => f.level === 'critical')
     expect(critical[0].message).toContain('slopes downward')
     expect(critical.some((f) => f.message.includes('not increasing with MFI'))).toBe(true)
+  })
+})
+
+describe('a standard that is not a calibration', () => {
+  const std = (label: string, mfi: number, assigned: number) => ({
+    id: label,
+    label,
+    mfi,
+    assigned,
+    included: true,
+  })
+
+  // Found in a live pass. Pasting a two column block in which both columns are
+  // intensities produced slope 1.00, R squared 1, every residual zero, and a
+  // zero width confidence interval, while every reported value was the raw MFI.
+  // Nothing downstream could detect it: arithmetically it is a perfect fit.
+  it('names a table whose certified values are its own intensities', () => {
+    const result = fitStandardCurve([
+      std('P1', 2050, 2050),
+      std('P2', 12900, 12900),
+      std('P3', 39500, 39500),
+      std('P4', 121000, 121000),
+    ])
+    expect('error' in result).toBe(false)
+    if ('error' in result) return
+    const critical = result.flags.filter((f) => f.level === 'critical')
+    expect(critical.length).toBeGreaterThan(0)
+    expect(critical[0].message).toMatch(/same number as its intensity/i)
+    // And the arithmetic really is perfect, which is the whole problem.
+    expect(result.fit.slope).toBeCloseTo(1, 10)
+    expect(result.fit.r2).toBeCloseTo(1, 10)
+  })
+
+  it('catches constructed numbers that are not literally identical', () => {
+    // Certified values computed as exactly 4x the intensity: not the identity
+    // case, still collinear, still zero scatter, still not a measurement.
+    const result = fitStandardCurve([
+      std('P1', 2050, 8200),
+      std('P2', 12900, 51600),
+      std('P3', 39500, 158000),
+      std('P4', 121000, 484000),
+    ])
+    expect('error' in result).toBe(false)
+    if ('error' in result) return
+    const critical = result.flags.filter((f) => f.level === 'critical')
+    expect(critical.some((f) => /no residual scatter/i.test(f.message))).toBe(true)
+  })
+
+  it('leaves a real standard alone', () => {
+    const result = fitStandardCurve([
+      std('P1', 2050, 8300),
+      std('P2', 12900, 51000),
+      std('P3', 39500, 175000),
+      std('P4', 121000, 512000),
+    ])
+    expect('error' in result).toBe(false)
+    if ('error' in result) return
+    expect(result.flags.filter((f) => f.level === 'critical')).toEqual([])
+    expect(result.fit.residualSE).toBeGreaterThan(1e-9)
   })
 })

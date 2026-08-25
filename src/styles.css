@@ -344,6 +344,25 @@ tr.excluded td input { color: var(--text-muted); text-decoration: line-through; 
   border-left: 2px solid var(--brand-amber);
 }
 .flag.error { background: var(--error-wash); border-left-color: var(--brand-error); }
+
+/* A reason not to report the figure, against a caveat on reporting it. Both are
+   the reader's decision, so both are amber: red here is system error only, and
+   an unusable result is not the tool failing. The weight carries the
+   difference, and the label says it in words. */
+.flag-critical {
+  border-left-width: 4px;
+  background: var(--attention-wash-strong, var(--attention-wash));
+}
+.flag-critical > span > strong {
+  display: inline-block;
+  padding: 1px 6px;
+  margin-right: 4px;
+  border-radius: 3px;
+  background: var(--brand-amber);
+  color: var(--surface);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
 .flag svg { flex-shrink: 0; margin-top: 1px; }
 
 .empty { text-align: center; padding: 30px 20px; color: var(--text-muted); font-size: 13px; }

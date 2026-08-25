@@ -219,6 +219,39 @@ export function fitStandardCurve(standards: BeadStandard[]): CurveResult | { err
 
   const flags: Flag[] = []
 
+  // Before anything is said about the shape of this curve, whether it is a
+  // curve at all.
+  //
+  // A reader who pastes a two column block in which both columns are the same
+  // intensities gets a calibration that looks better than any real one: slope
+  // 1.00, R squared 1, every residual zero, and a confidence interval of zero
+  // width. Every reported value is then the raw intensity wearing the units of
+  // a calibrated result, and the interface is more confident about it than
+  // about a genuine standard. Nothing downstream can detect this, because
+  // arithmetically it is a perfect fit.
+  //
+  // Two checks. The first names the exact case, because it is the common one
+  // and deserves a sentence a reader can act on. The second is the net: a real
+  // bead standard has pipetting, gating and lot variation in it, so a residual
+  // scatter of zero across three or more populations is not a good calibration,
+  // it is not a measurement.
+  if (usable.every((s) => s.assigned === s.mfi)) {
+    flags.push({
+      level: 'critical',
+      message:
+        'Every certified value is the same number as its intensity, so this is not a calibration. A fit through it returns the intensity unchanged, and would report raw MFI as though it were antibody binding capacity.',
+      remedy:
+        'This is what a two column paste produces when both columns are intensities. Enter the certified values from the vial or its certificate of analysis in the second column.',
+    })
+  } else if (fit.residualSE < DEGENERATE_SE) {
+    flags.push({
+      level: 'critical',
+      message: `The populations fall exactly on a straight line, with no residual scatter at all (residual standard error ${fit.residualSE.toExponential(1)}). Real bead data carries pipetting, gating and lot variation, so this describes constructed numbers rather than a measurement.`,
+      remedy:
+        'The confidence interval on any result from this curve would be zero width, which is not a claim the data can support. Check that the certified values came from the certificate of analysis and were not derived from the intensities.',
+    })
+  }
+
   // Four parameters of confidence come from two degrees of freedom at n = 4.
   // At n = 3 there is one, and the interval is barely determined by the data.
   if (usable.length === 3) {
@@ -344,6 +377,16 @@ export function fitStandardCurve(standards: BeadStandard[]): CurveResult | { err
  * the whole-table rule below turns into one message rather than a column of
  * them.
  */
+/**
+ * Residual scatter below which a standard curve is not a measurement.
+ *
+ * In log10 units, so this is a residual of about one part in 4e9 on the
+ * certified value. Pipetting, gating and lot variation put a real standard
+ * three to five orders of magnitude above it. Reached only by numbers that were
+ * computed from one another.
+ */
+const DEGENERATE_SE = 1e-9
+
 const RATIO_TOLERANCE = 2.5
 
 /** Populations needed before a median ratio means anything. */

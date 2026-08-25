@@ -133,3 +133,22 @@ describe('the worked example, pasted', () => {
     expect(numbers(commas)).toEqual(expected)
   })
 })
+
+describe('a block whose two columns are the same numbers', () => {
+  // Found live. The column-swap guard tests strictly greater, so equal columns
+  // slipped past it, and equal columns are the worse case: the standard fits
+  // perfectly and every result is the raw intensity in calibrated clothing.
+  it('is named, because it fits perfectly and is wrong', () => {
+    const notices = readPaste('2050\t2050\n12900\t12900\n39500\t39500', {
+      calibration: true,
+    }).notices
+    expect(notices.join(' ')).toMatch(/same numbers/i)
+  })
+
+  it('says nothing about a genuine pair of columns', () => {
+    const notices = readPaste('2050\t8300\n12900\t51000\n39500\t175000', {
+      calibration: true,
+    }).notices
+    expect(notices.join(' ')).not.toMatch(/same numbers/i)
+  })
+})

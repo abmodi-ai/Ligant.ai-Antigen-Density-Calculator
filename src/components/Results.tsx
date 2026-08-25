@@ -36,10 +36,25 @@ export function FlagList({ flags }: { flags: Flag[] }) {
   return (
     <>
       {flags.map((f, i) => (
-        <div key={i} className="flag" role={f.level === 'critical' ? 'alert' : undefined}>
+        <div
+          key={i}
+          className={f.level === 'critical' ? 'flag flag-critical' : 'flag'}
+          role={f.level === 'critical' ? 'alert' : undefined}
+        >
           <FlagIcon />
           <span>
-            <strong>{f.level === 'critical' ? 'Caution: ' : 'Note: '}</strong>
+            {/*
+              A critical and a warning were the same amber rule, the same icon
+              and the same tint, separated only by "Caution" against "Note".
+              Read side by side on one card, a reason not to report the figure
+              looked exactly like a caveat on reporting it, and "Caution"
+              undersells the first. The label now says which it is.
+
+              Not red. Red in this palette is system error, and a result the
+              reader has to act on is not the tool failing. The separation is
+              carried by a filled label and a heavier rule instead.
+            */}
+            <strong>{f.level === 'critical' ? 'Do not report: ' : 'Note: '}</strong>
             {f.message}
             {f.remedy && <span className="flag-remedy">{f.remedy}</span>}
           </span>
@@ -85,7 +100,14 @@ export function Results({ entries, valency, confidenceLevel, saturationConfirmed
         // cannot support one, so neither is shown, and the reason is stated
         // above the figure rather than beside a chart in another panel.
         const valid = calibrationValid(result)
-        const band = result.netAbc !== null && valid ? bandFor(result.netAbc) : null
+        // A sample's own critical is as disqualifying as the calibration's. It
+        // was not treated that way: the card kept the band chip and the
+        // interpretation sentence, so "do not report this figure" sat directly
+        // above "cytotoxicity is frequently achievable", applying a verdict to
+        // a number the reader had just been told not to use.
+        const sampleCritical = result.flags.some((f) => f.level === 'critical')
+        const reportable = valid && !sampleCritical
+        const band = result.netAbc !== null && reportable ? bandFor(result.netAbc) : null
         return (
           <div className="result-card" key={sample.id}>
             <div className="result-name">

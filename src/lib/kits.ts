@@ -72,12 +72,24 @@ export function nextId(prefix: string): string {
   return `${prefix}-${counter}`
 }
 
+/** A kit's own name for the population that carries no antibody. */
+const BLANK_POPULATION = /^blank$/i
+
 export function standardsForKit(kit: BeadKit): BeadStandard[] {
   return kit.populations.map((label) => ({
     id: nextId('bead'),
     label,
     mfi: null,
     assigned: null,
-    included: true,
+    // A blank population carries no certified value by definition, so it cannot
+    // be in the fit. It started ticked on a fresh sheet while starting unticked
+    // in the worked example, which is the wrong way round for the reader with
+    // less to go on.
+    //
+    // This reads a label, which the field checks deliberately never do. The
+    // difference is whose label: this one comes from the kit definition in this
+    // file at the moment the rows are built, not from a text input. Renaming
+    // the row afterwards leaves inclusion exactly as the reader set it.
+    included: !BLANK_POPULATION.test(label),
   }))
 }

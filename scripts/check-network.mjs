@@ -210,6 +210,19 @@ for (const [name, path] of [['antigen density', '/'], ['cytotoxicity', '/cytotox
     if (parse.unresolved) uiFailures.push(`${name}: exported SVG still contains an unresolved var()`)
     if (parse.texts === 0) uiFailures.push(`${name}: exported SVG has no text elements`)
     if (parse.paths === 0) uiFailures.push(`${name}: exported SVG has no drawn paths`)
+    if (name === 'antigen density') {
+      // A standard curve without its slope and R squared is not publication
+      // usable, and those two numbers are the tool's whole argument that the
+      // calibration can be trusted. They were HTML beside the chart, so the
+      // exported figure carried neither, and sample points exported as
+      // unlabelled diamonds.
+      if (!/slope/i.test(svg) || !/R²/.test(svg)) {
+        uiFailures.push(`${name}: exported SVG carries no fit statistics`)
+      }
+      if (!/CD19/.test(svg)) {
+        uiFailures.push(`${name}: exported SVG does not name the samples it plots`)
+      }
+    }
   } catch (e) {
     uiFailures.push(`${name}: SVG export failed (${String(e).slice(0, 70)})`)
   }
@@ -257,6 +270,61 @@ for (const [name, path] of [['antigen density', '/'], ['cytotoxicity', '/cytotox
   })
   if (overflow.page) uiFailures.push(`${name}: page scrolls horizontally at 360px`)
   for (const t of overflow.clipped) uiFailures.push(`${name}: "${t}" is clipped at 360px`)
+
+  // The results rail is sticky on a wide screen, and must not be once the two
+  // columns collapse: a sticky element in a single column pins the results over
+  // the inputs and can leave part of it unreachable. Raised in review as the
+  // one thing a desktop pass cannot see, and a lot of bench scientists open a
+  // tool like this on a phone.
+  const narrow = await page.evaluate(() => {
+    const rail = document.querySelector('.rail')
+    if (!rail) return null
+    const r = rail.getBoundingClientRect()
+    return {
+      position: getComputedStyle(rail).position,
+      // Reachable by scrolling: its bottom sits inside the scrollable document.
+      bottom: Math.round(r.bottom + window.scrollY),
+      scrollHeight: document.documentElement.scrollHeight,
+      overlaps: [...document.querySelectorAll('.stack > .panel')].some((p) => {
+        const q = p.getBoundingClientRect()
+        return q.right > r.left + 1 && q.left < r.right - 1 && q.bottom > r.top + 1 && q.top < r.bottom - 1
+      }),
+    }
+  })
+  if (narrow) {
+    if (narrow.position === 'sticky') {
+      uiFailures.push(`${name}: the results rail is still sticky at 360px, where there is only one column`)
+    }
+    if (narrow.bottom > narrow.scrollHeight + 2) {
+      uiFailures.push(`${name}: the results rail extends past the scrollable document at 360px, so part of it cannot be reached`)
+    }
+    if (narrow.overlaps) {
+      uiFailures.push(`${name}: the results rail overlaps an input panel at 360px`)
+    }
+  }
+
+  // A guidance panel is positioned against the viewport, so the narrow case is
+  // the one that can push it off screen.
+  const narrowPin = page.locator('.guidance-pin-button').first()
+  if ((await narrowPin.count()) > 0) {
+    await narrowPin.scrollIntoViewIfNeeded().catch(() => {})
+    await narrowPin.click().catch(() => {})
+    await page.waitForTimeout(250)
+    const panelAt360 = await page.evaluate(() => {
+      const el = document.querySelector('.guidance-panel')
+      if (!el) return null
+      const r = el.getBoundingClientRect()
+      return {
+        off: r.left < 0 || r.top < 0 || r.right > window.innerWidth || r.bottom > window.innerHeight,
+        width: Math.round(r.width),
+      }
+    })
+    if (panelAt360?.off) {
+      uiFailures.push(`${name}: a guidance panel runs off screen at 360px (${panelAt360.width}px wide)`)
+    }
+    await page.keyboard.press('Escape')
+  }
+
   await page.setViewportSize({ width: 1280, height: 900 })
 }
 
@@ -797,6 +865,120 @@ else {
 await page.evaluate(() => localStorage.clear())
 
 // ---------------------------------------------------------------------------
+// A table whose two columns are the same numbers.
+//
+// Found in a live pass, and the worst failure this tool can have: it fits
+// perfectly. Slope 1.00, R squared 1, every residual zero, a confidence
+// interval of zero width, and every reported density is the raw intensity
+// wearing calibrated units. The interface was more confident about it than
+// about the real worked example, and nothing downstream could tell, because
+// arithmetically there is nothing wrong.
+// ---------------------------------------------------------------------------
+await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' })
+await page.evaluate(() => localStorage.clear())
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(700)
+await page.getByRole('button', { name: 'Clear all' }).click()
+await page.waitForTimeout(400)
+
+await page.evaluate(() => {
+  const cell = document.querySelector('input[aria-label^="MFI for"]')
+  cell.focus()
+  const data = new DataTransfer()
+  data.setData('text/plain', '2050\t2050\n12900\t12900\n39500\t39500\n121000\t121000')
+  cell.dispatchEvent(
+    new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }),
+  )
+})
+await page.waitForTimeout(400)
+await page.getByLabel('Stained MFI for Sample 1').fill('8660')
+await page.waitForTimeout(700)
+
+const identity = await page.evaluate(() => ({
+  verdict: document.querySelector('.verdict')?.textContent ?? '',
+  invalid: !!document.querySelector('.verdict-invalid'),
+  notice: document.querySelector('.paste-notice')?.innerText ?? '',
+  digits: [...document.querySelectorAll('.result-card .hero .value')].filter((v) =>
+    /\d/.test(v.textContent ?? ''),
+  ).length,
+  bands: document.querySelectorAll('.result-card .band-chip').length,
+}))
+if (!identity.invalid) {
+  uiFailures.push(`antigen density: a standard whose certified values are its own intensities reports "${identity.verdict.slice(0, 60)}"`)
+}
+if (!/same number as its intensity/i.test(identity.verdict)) {
+  uiFailures.push('antigen density: the verdict on an identity standard does not say what is wrong with it')
+}
+if (identity.digits > 0) {
+  uiFailures.push(`antigen density: ${identity.digits} card(s) still report a density from an identity standard`)
+}
+if (identity.bands > 0) {
+  uiFailures.push('antigen density: a density band was offered on an identity standard')
+}
+if (!/same numbers/i.test(identity.notice)) {
+  uiFailures.push('antigen density: pasting two identical columns raised no notice')
+}
+
+await page.evaluate(() => localStorage.clear())
+
+// ---------------------------------------------------------------------------
+// A reason not to report, against a caveat on reporting.
+//
+// The two were the same amber rule, the same icon and the same tint, separated
+// by "Caution" against "Note". A card carried "do not report this figure"
+// immediately above an interpretation sentence about that figure.
+// ---------------------------------------------------------------------------
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(700)
+// The host mismatch produces a sample-level critical while leaving a number.
+await page.locator('#host').selectOption('rat').catch(() => {})
+await page.waitForTimeout(700)
+
+const severity = await page.evaluate(() => {
+  const critical = [...document.querySelectorAll('.result-card .flag-critical')]
+  const warning = [...document.querySelectorAll('.result-card .flag:not(.flag-critical)')]
+  const styleOf = (el) => {
+    if (!el) return null
+    const s = getComputedStyle(el)
+    return { border: s.borderLeftWidth, background: s.backgroundColor }
+  }
+  return {
+    criticals: critical.length,
+    label: critical[0]?.querySelector('strong')?.textContent ?? '',
+    criticalStyle: styleOf(critical[0]),
+    warningStyle: styleOf(warning[0]),
+    bands: document.querySelectorAll('.result-card .band-chip').length,
+    // Scoped to the card. The page also carries a standing explainer titled
+    // "Interpretation of density bands", which is not a verdict on any figure.
+    interpretation: [...document.querySelectorAll('.result-card dt')].some(
+      (dt) => dt.textContent?.trim() === 'Interpretation',
+    ),
+  }
+})
+if (severity.criticals === 0) {
+  uiFailures.push('antigen density: no critical flag rendered where one was expected')
+} else {
+  if (!/do not report/i.test(severity.label)) {
+    uiFailures.push(`antigen density: a critical flag is labelled "${severity.label.trim()}" rather than saying not to report`)
+  }
+  if (
+    severity.warningStyle &&
+    severity.criticalStyle.border === severity.warningStyle.border &&
+    severity.criticalStyle.background === severity.warningStyle.background
+  ) {
+    uiFailures.push('antigen density: a critical flag is styled identically to a caveat')
+  }
+  if (severity.bands > 0) {
+    uiFailures.push('antigen density: a density band was offered beside a figure the reader was told not to report')
+  }
+  if (severity.interpretation) {
+    uiFailures.push('antigen density: an interpretation is applied to a figure the reader was told not to report')
+  }
+}
+
+await page.evaluate(() => localStorage.clear())
+
+// ---------------------------------------------------------------------------
 // Every key written is a key disclosed.
 //
 // The privacy claim is that a reader can see exactly what is kept in their
@@ -1068,6 +1250,11 @@ console.log('that cannot support a figure reports itself, and withholds the figu
   'for it, at the card it belongs to; and an unlisted tool is absent from the\n' +
   'switcher and the sitemap, asks not to be indexed, and still works for anyone\n' +
   'holding its link; and what is wrong with one value is said at the field it\n' +
-  'was typed into, on inclusion rather than on what a row is called; and every\n' +
+  'was typed into, on inclusion rather than on what a row is called; and a\n' +
+  'standard whose certified values are its own intensities is refused despite\n' +
+  'fitting perfectly; and a reason not to report reads and looks different from a\n' +
+  'caveat, and carries no band or interpretation; and the exported figure carries\n' +
+  'its own fit statistics and names its samples; and the results rail is not\n' +
+  'sticky where there is only one column; and every\n' +
   'key written to a browser is disclosed on the page and removed by the control\n' +
   'that offers to remove it.')

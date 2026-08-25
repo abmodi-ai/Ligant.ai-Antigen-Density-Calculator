@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { meanResponseInterval } from '../lib/stats'
 import { decadeTicks, formatDecade, minorTicks } from '../lib/axis'
+import { formatR2 } from '../lib/format'
 import { formatNumber, type CurveResult, type SampleResult, type Sample } from '../lib/quantify'
 
 const W = 580
@@ -144,6 +145,28 @@ export function StandardCurve({ curve, samples, assignedLabel, confidenceLevel }
             {assignedLabel}
           </text>
 
+          {/*
+            The fit, in the figure rather than beside it.
+
+            Slope, R squared and n were HTML below the chart, so an exported SVG
+            carried a curve with no statement of how well it fitted. Those two
+            numbers are the tool's whole argument that the calibration can be
+            trusted, and a standard curve without them is not publication
+            usable. They travel with the figure now.
+          */}
+          <g fontFamily="var(--mono)" fontSize={10.5} fill="var(--text-secondary)">
+            {[
+              `slope   ${curve.fit.slope.toFixed(3)}`,
+              `intercept ${curve.fit.intercept.toFixed(3)}`,
+              `R²      ${formatR2(curve.fit.r2)}`,
+              `n       ${curve.fit.n}`,
+            ].map((line, i) => (
+              <text key={`fit${i}`} x={M.left + 10} y={M.top + 15 + i * 13}>
+                {line}
+              </text>
+            ))}
+          </g>
+
           {/* bead standards */}
           {curve.logMfi.map((lx, i) => {
             const ly = curve.logAssigned[i]
@@ -195,6 +218,22 @@ export function StandardCurve({ curve, samples, assignedLabel, confidenceLevel }
                     })
                   }
                 />
+                {/*
+                  Named in the figure. Sample markers exported as unlabelled
+                  diamonds, so nothing in a saved chart said which one was
+                  which. Flipped to the left near the right edge so a long
+                  label does not run out of the plot.
+                */}
+                <text
+                  x={sx(lx) + (sx(lx) > M.left + PLOT_W * 0.68 ? -10 : 10)}
+                  y={sy(ly) + 4}
+                  textAnchor={sx(lx) > M.left + PLOT_W * 0.68 ? 'end' : 'start'}
+                  fontSize={11}
+                  fill="var(--text-primary)"
+                  pointerEvents="none"
+                >
+                  {sample.label || 'Sample'}
+                </text>
               </g>
             )
           })}
