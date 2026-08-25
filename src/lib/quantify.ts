@@ -231,6 +231,33 @@ export function fitStandardCurve(standards: BeadStandard[]): CurveResult | { err
     })
   }
 
+  // A downward slope is a different kind of failure from a slope merely away
+  // from unity, and it deserves its own sentence. A curve that falls means a
+  // brighter sample reports fewer molecules: not imprecise, inverted.
+  if (fit.slope <= 0) {
+    flags.push({
+      level: 'critical',
+      message: `The standard curve slopes downward (slope ${fit.slope.toFixed(2)}). Brighter populations are carrying lower certified values, which no calibration can do.`,
+      remedy:
+        'Every result from this curve would be inverted, reporting fewer molecules for a brighter sample. Check the certified values against the certificate of analysis before reading any result.',
+    })
+  } else if (Math.abs(fit.slope - 1) > SLOPE_TOLERANCE) {
+    flags.push({
+      level: 'warning',
+      message: `Log-log slope is ${fit.slope.toFixed(3)}. A well-behaved standard approximates 1.0.`,
+      remedy:
+        'Departures from unity indicate detector non-linearity or a compensation error. Lower the detector voltage if the brightest population is saturating, and confirm compensation was applied to beads and cells alike.',
+    })
+  }
+
+  if (fit.r2 < MIN_R2) {
+    flags.push({
+      level: 'critical',
+      message: `Standard curve R² = ${fit.r2.toFixed(4)}, below the conventional acceptance threshold of ${MIN_R2}.`,
+      remedy:
+        'Check that each bead population is gated on the correct peak and that none are transposed, then look for a saturated or off-scale population.',
+    })
+  }
   // Assigned value must rise with intensity. A set that does not is a
   // transcription or row-order error, and it produces a confident wrong answer
   // rather than an obvious failure.
@@ -244,23 +271,6 @@ export function fitStandardCurve(standards: BeadStandard[]): CurveResult | { err
       message: `Assigned values are not increasing with MFI: ${byMfi[inversion - 1].label} (${formatNumber(byMfi[inversion - 1].assigned)}) is at or above ${byMfi[inversion].label} (${formatNumber(byMfi[inversion].assigned)}) despite lower fluorescence.`,
       remedy:
         'A brighter population must carry a higher assigned value. This almost always means two rows were transposed or a value was transcribed against the wrong population. Check the entries against the certificate of analysis before reading any result.',
-    })
-  }
-
-  if (fit.r2 < MIN_R2) {
-    flags.push({
-      level: 'critical',
-      message: `Standard curve R² = ${fit.r2.toFixed(4)}, below the conventional acceptance threshold of ${MIN_R2}.`,
-      remedy:
-        'Check that each bead population is gated on the correct peak and that none are transposed, then look for a saturated or off-scale population.',
-    })
-  }
-  if (Math.abs(fit.slope - 1) > SLOPE_TOLERANCE) {
-    flags.push({
-      level: 'warning',
-      message: `Log-log slope is ${fit.slope.toFixed(3)}. A well-behaved standard approximates 1.0.`,
-      remedy:
-        'Departures from unity indicate detector non-linearity or a compensation error. Lower the detector voltage if the brightest population is saturating, and confirm compensation was applied to beads and cells alike.',
     })
   }
 

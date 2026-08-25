@@ -618,6 +618,24 @@ details.options > div { padding-top: 12px; display: flex; flex-direction: column
 
 .ask-empty { color: var(--text-muted) !important; }
 
+/* ---------- is this calibration usable ---------- */
+
+.verdict {
+  margin: 0;
+  padding: 10px 16px 14px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.verdict strong { font-weight: 600; }
+/* Teal is evidence in this palette, so a usable ruler wears it. */
+.verdict-valid strong { color: var(--brand-teal); }
+/* Amber is the decision moment. Never red: red is system error, and an
+   unusable calibration is a reading to act on rather than the tool failing. */
+.verdict-caveat strong,
+.verdict-invalid strong { color: var(--brand-amber); }
+.verdict-pending { color: var(--text-muted); }
+
 /* ---------- a row that disagrees with the rest ---------- */
 
 /* Amber, because this is a decision for the reader: the tool cannot know which

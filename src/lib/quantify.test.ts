@@ -678,3 +678,65 @@ describe('per-row consistency of the standards', () => {
     expect(checkStandardConsistency(standards).outliers).toEqual([])
   })
 })
+
+describe('a curve that slopes downward', () => {
+  const inverted: BeadStandard[] = [
+    { id: 'a', label: 'Population 1', mfi: 2_050, assigned: 512_000, included: true },
+    { id: 'b', label: 'Population 2', mfi: 12_900, assigned: 175_000, included: true },
+    { id: 'c', label: 'Population 3', mfi: 39_500, assigned: 51_000, included: true },
+    { id: 'd', label: 'Population 4', mfi: 121_000, assigned: 8_300, included: true },
+  ]
+
+  it('is critical, not a caveat', () => {
+    const c = curve(inverted)
+    expect(c.fit.slope).toBeLessThan(0)
+    const flag = c.flags.find((f) => f.message.includes('slopes downward'))
+    expect(flag?.level).toBe('critical')
+  })
+
+  it('says what a downward curve does to a result, not only that it is unusual', () => {
+    const flag = curve(inverted).flags.find((f) => f.message.includes('slopes downward'))
+    expect(flag?.remedy).toContain('inverted')
+  })
+
+  it('invalidates every result derived from it', () => {
+    const c = curve(inverted)
+    const r = quantifyWithCalibration({ id: 's', label: 's', mfi: 8_900, controlMfi: null }, c, DEMO_OPTIONS)
+    expect(calibrationValid(r)).toBe(false)
+  })
+
+  it('does not also complain that the slope departs from unity', () => {
+    // Two flags for one condition is noise. The downward case says everything
+    // the distance-from-unity case would, and more.
+    const c = curve(inverted)
+    expect(c.flags.some((f) => f.message.includes('A well-behaved standard'))).toBe(false)
+  })
+
+  it('leaves the ordinary slope caveat in place for a curve that merely leans', () => {
+    const leaning: BeadStandard[] = inverted.map((s, i) => ({
+      ...s,
+      assigned: 10 ** (0.545 + 1.4 * Math.log10(s.mfi as number)) * (i % 2 ? 1.02 : 0.98),
+    }))
+    const c = curve(leaning)
+    expect(c.fit.slope).toBeGreaterThan(1)
+    const flag = c.flags.find((f) => f.message.includes('A well-behaved standard'))
+    expect(flag?.level).toBe('warning')
+  })
+})
+
+describe('the order calibration problems are reported in', () => {
+  it('leads with what is wrong with the curve, then where', () => {
+    // The verdict line shows the first invalidating flag, and a reader wants
+    // the consequence before the row number, especially now that the row is
+    // also named inline in the table.
+    const inverted: BeadStandard[] = [
+      { id: 'a', label: 'Population 1', mfi: 2_050, assigned: 512_000, included: true },
+      { id: 'b', label: 'Population 2', mfi: 12_900, assigned: 175_000, included: true },
+      { id: 'c', label: 'Population 3', mfi: 39_500, assigned: 51_000, included: true },
+      { id: 'd', label: 'Population 4', mfi: 121_000, assigned: 8_300, included: true },
+    ]
+    const critical = curve(inverted).flags.filter((f) => f.level === 'critical')
+    expect(critical[0].message).toContain('slopes downward')
+    expect(critical.some((f) => f.message.includes('not increasing with MFI'))).toBe(true)
+  })
+})

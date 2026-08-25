@@ -100,7 +100,19 @@ export function Results({ entries, valency, confidenceLevel, saturationConfirmed
 
             <FlagList flags={result.calibrationFlags} />
 
-            {result.netAbc === null ? (
+            {!valid ? (
+              <>
+                <div className="hero">
+                  <span className="value below-detection">Calibration invalid</span>
+                </div>
+                <p className="hint">
+                  No density is reported, because this calibration cannot support one. The figure
+                  the arithmetic would produce is not merely imprecise: it is derived from a ruler
+                  the tool has just told you is wrong, and a number on the page invites being
+                  written down.
+                </p>
+              </>
+            ) : result.netAbc === null ? (
               <>
                 <div className="hero">
                   <span className="value below-detection">Below detection</span>

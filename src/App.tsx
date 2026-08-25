@@ -18,6 +18,7 @@ import { StandardCurve } from './components/StandardCurve'
 import { Results, FlagList } from './components/Results'
 import { StandardsTable, SamplesTable } from './components/Tables'
 import { Method } from './components/Method'
+import { CalibrationVerdict } from './components/CalibrationVerdict'
 import { LigantMark } from './components/LigantMark'
 import { Masthead } from './components/shared/Masthead'
 import { SkipLink } from './components/shared/SkipLink'
@@ -212,6 +213,13 @@ export default function App() {
               standards={standards}
               assignedLabel={kit.assignedLabel}
               onChange={(next) => setState((s) => ({ ...s, standards: next }))}
+            />
+            {/* The verdict belongs where the calibration was built, not beside a
+                chart in another panel a reader may never scroll to. */}
+            <CalibrationVerdict
+              curve={curve}
+              error={'error' in curveResult ? curveResult.error : undefined}
+              flags={curveFlags}
             />
           </section>
 

@@ -414,6 +414,8 @@ const invalidated = await page.evaluate(() => {
     withoutAlarm: cards.filter((c) => !/cannot calibrate this stain/i.test(c.innerText)).length,
     withBand: cards.filter((c) => c.querySelector('.band-chip')).length,
     withVerdict: cards.filter((c) => /Full effector response is expected/i.test(c.innerText)).length,
+    withFigure: cards.filter((c) => /\d/.test(c.querySelector('.hero .value')?.textContent ?? ''))
+      .length,
   }
 })
 if (invalidated.count === 0) uiFailures.push('antigen density: no result cards under a host mismatch')
@@ -428,6 +430,13 @@ if (invalidated.withBand > 0) {
 if (invalidated.withVerdict > 0) {
   uiFailures.push(
     `antigen density: ${invalidated.withVerdict} card(s) interpret a figure the calibration cannot support`,
+  )
+}
+// This is the case that matters for withholding: a host mismatch leaves the
+// arithmetic perfectly able to produce 35,636, and the tool must decline to.
+if (invalidated.withFigure > 0) {
+  uiFailures.push(
+    `antigen density: ${invalidated.withFigure} card(s) still print a figure under an invalidated calibration`,
   )
 }
 
@@ -449,6 +458,64 @@ try {
   }
 } catch (e) {
   uiFailures.push(`antigen density: CSV export under a mismatch failed (${String(e).slice(0, 70)})`)
+}
+
+await page.evaluate(() => localStorage.clear())
+
+// ---------------------------------------------------------------------------
+// Whether the calibration is usable, said where it was built.
+//
+// The table is in one panel and the chart in another, so a reader who has just
+// finished typing had nothing telling them whether it worked. An unusable
+// calibration must also withhold the figure it cannot support: a number on the
+// page invites being written down, whatever sits above it.
+// ---------------------------------------------------------------------------
+await page.evaluate(() => localStorage.clear())
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(600)
+
+const verdictOk = await page.evaluate(() => ({
+  text: document.querySelector('.verdict')?.textContent ?? '',
+  invalid: !!document.querySelector('.verdict-invalid'),
+}))
+if (!/Calibration valid/.test(verdictOk.text)) {
+  uiFailures.push(`antigen density: the worked example reports "${verdictOk.text.slice(0, 60)}", expected a valid calibration`)
+}
+if (verdictOk.invalid) uiFailures.push('antigen density: a sound calibration is reported as unusable')
+
+// Invert the standard: certified values falling as intensity rises.
+for (const [population, value] of [
+  ['Population 1', '512000'],
+  ['Population 2', '175000'],
+  ['Population 3', '51000'],
+  ['Population 4', '8300'],
+]) {
+  await page.getByLabel(`Assigned value for ${population}`).fill(value)
+}
+await page.waitForTimeout(700)
+
+const inverted = await page.evaluate(() => ({
+  verdict: document.querySelector('.verdict')?.textContent ?? '',
+  headlines: [...document.querySelectorAll('.result-card .hero .value')].map((v) => v.textContent),
+  bands: document.querySelectorAll('.result-card .band-chip').length,
+  digits: [...document.querySelectorAll('.result-card .hero .value')].filter((v) =>
+    /\d/.test(v.textContent ?? ''),
+  ).length,
+}))
+if (!/not usable/i.test(inverted.verdict)) {
+  uiFailures.push('antigen density: a downward sloping standard is not reported as unusable')
+}
+if (!/slopes downward/i.test(inverted.verdict)) {
+  uiFailures.push(`antigen density: the verdict leads with "${inverted.verdict.slice(0, 70)}" rather than what is wrong with the curve`)
+}
+if (inverted.digits > 0) {
+  uiFailures.push(`antigen density: ${inverted.digits} card(s) still show a figure under an unusable calibration`)
+}
+if (inverted.headlines.some((h) => !/Calibration invalid/.test(h ?? ''))) {
+  uiFailures.push(`antigen density: a card headline reads ${JSON.stringify(inverted.headlines)} under an unusable calibration`)
+}
+if (inverted.bands > 0) {
+  uiFailures.push('antigen density: a density band was offered on an unusable calibration')
 }
 
 await page.evaluate(() => localStorage.clear())
@@ -696,4 +763,5 @@ console.log('than approximated, every answer carries the title of the passage it
 console.log('and nothing the reader types reaches storage; and the CSV export carries a')
 console.log('machine-readable status; and a pasted column of thousands-formatted values')
 console.log('reads as the numbers it was written as; and a population whose certified value')
-console.log('does not belong with the others is named at its own row.')
+console.log('does not belong with the others is named at its own row; and a calibration')
+console.log('that cannot support a figure reports itself, and withholds the figure.')
