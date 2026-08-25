@@ -305,6 +305,133 @@ export function fitStandardCurve(standards: BeadStandard[]): CurveResult | { err
 }
 
 /**
+ * How far one population's certified value may sit from the pattern of the rest
+ * before it is called out by name.
+ *
+ * Where the log-log slope is near unity, the ratio of certified value to
+ * intensity is roughly constant across populations, so a row that disagrees
+ * with the others disagrees on a quantity computable per row, before any
+ * regression exists. That is what R squared cannot do: it says the table is
+ * wrong without saying which row.
+ *
+ * Measured rather than chosen. Across well behaved curves the widest spread
+ * from the median ratio is 1.36 at the edge of the slope tolerance this tool
+ * already enforces, and 1.70 even over a three decade range. The smallest real
+ * error is a transposed pair at 3.28, and an order of magnitude slip on one row
+ * reaches 9.98. The threshold sits in the gap:
+ *
+ *     slope 0.85 to 1.15, any range      1.36 to 1.70    never flagged
+ *     two populations transposed         3.28            flagged
+ *     one row out by a factor of ten     9.98 to 10.47   flagged
+ *     a blank given a certified value    1141            flagged
+ *
+ * A review proposed a factor of ten here. That would have missed the
+ * transposition it listed as an acceptance criterion, and missed a tenfold slip
+ * on the highest population by 0.02, which is the error the check exists for.
+ *
+ * Curves sloped far enough to spread the ratios past this threshold (0.5, or
+ * 1.5) are already carrying a slope warning, and flag most of their rows, which
+ * the whole-table rule below turns into one message rather than a column of
+ * them.
+ */
+const RATIO_TOLERANCE = 2.5
+
+/** Populations needed before a median ratio means anything. */
+const MIN_RATIO_ROWS = 3
+
+/** One population's disagreement with the rest of the table. */
+export interface RatioOutlier {
+  id: string
+  label: string
+  /** Certified value divided by intensity for this population. */
+  ratio: number
+  /** How many times it differs from the median, in whichever direction. */
+  factor: number
+  message: string
+  remedy: string
+}
+
+export interface StandardConsistency {
+  /** Median ratio across usable populations, or null where too few to judge. */
+  median: number | null
+  outliers: RatioOutlier[]
+  /**
+   * True where so many populations disagree that the table is the problem
+   * rather than any row in it. A column of identical warnings is noise, and it
+   * points at nothing.
+   */
+  wholeTable: boolean
+}
+
+/**
+ * Find the population whose certified value does not belong with the others.
+ *
+ * Runs on the entered rows alone, with no fit and no ordering assumption, so it
+ * reports at the point of entry rather than after a chart. Rows excluded from
+ * the fit are excluded here too: a population the reader has already set aside
+ * is not something to warn them about.
+ */
+export function checkStandardConsistency(
+  standards: readonly BeadStandard[],
+): StandardConsistency {
+  const usable = standards.filter(
+    (s) => s.included && s.mfi !== null && s.assigned !== null && s.mfi > 0 && s.assigned > 0,
+  )
+  if (usable.length < MIN_RATIO_ROWS) return { median: null, outliers: [], wholeTable: false }
+
+  const ratios = usable.map((s) => (s.assigned as number) / (s.mfi as number))
+  const sorted = [...ratios].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  const median =
+    sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid]
+  if (!(median > 0)) return { median: null, outliers: [], wholeTable: false }
+
+  const outliers: RatioOutlier[] = []
+  usable.forEach((s, i) => {
+    const ratio = ratios[i]
+    const factor = Math.max(ratio / median, median / ratio)
+    if (factor <= RATIO_TOLERANCE) return
+    outliers.push({
+      id: s.id,
+      label: s.label,
+      ratio,
+      factor,
+      message: `${s.label || 'This population'} does not agree with the other standards. Its certified value is ${formatRatio(ratio)} times its intensity, where the others sit near ${formatRatio(median)}, a difference of about ${formatFactor(factor)} times.`,
+      remedy:
+        'Check this row against the certificate of analysis. A value entered against the wrong population, or transposed with the row beside it, is the usual cause.',
+    })
+  })
+
+  return {
+    median,
+    outliers,
+    wholeTable: outliers.length * 2 > usable.length,
+  }
+}
+
+/** Ratios span orders of magnitude, so they are read at two significant figures. */
+function formatRatio(v: number): string {
+  if (!Number.isFinite(v)) return 'n/a'
+  if (v >= 1000) return v.toExponential(1)
+  if (v >= 100) return v.toFixed(0)
+  if (v >= 10) return v.toFixed(1)
+  return v.toFixed(2)
+}
+
+/**
+ * How many times two quantities differ, to two significant figures.
+ *
+ * The sentence reads "a difference of about", so the number after it must not
+ * be more precise than that: 9.98 claims a precision the word "about" denies.
+ */
+function formatFactor(v: number): string {
+  if (!Number.isFinite(v)) return 'n/a'
+  const rounded = Number(v.toPrecision(2))
+  if (rounded >= 1000) return rounded.toExponential(1)
+  return String(rounded)
+}
+
+/**
  * Whether the declared detection antibody can be captured by the selected beads.
  *
  * This is the one invalidating condition that is invisible in the numbers, and

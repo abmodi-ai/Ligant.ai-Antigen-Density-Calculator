@@ -4,6 +4,7 @@ import {
   bandFor,
   calibrationValid,
   captureCompatibilityFlags,
+  checkStandardConsistency,
   confidenceLabel,
   fitStandardCurve,
   quantifyWithCalibration,
@@ -579,5 +580,101 @@ describe('curvature in the standard', () => {
     const r = quantifyWithCalibration({ id: 'x', label: 'x', mfi: 20_000, controlMfi: null }, c, DEMO_OPTIONS)
     expect(r.calibrationFlags).toHaveLength(0)
     expect(r.netAbc).not.toBeNull()
+  })
+})
+
+describe('per-row consistency of the standards', () => {
+  const rows = (pairs: [number, number][]): BeadStandard[] =>
+    pairs.map(([mfi, assigned], i) => ({
+      id: `p${i}`,
+      label: `Population ${i + 1}`,
+      mfi,
+      assigned,
+      included: true,
+    }))
+
+  const CLEAN: [number, number][] = [
+    [2_050, 8_300],
+    [12_900, 51_000],
+    [39_500, 175_000],
+    [121_000, 512_000],
+  ]
+
+  it('says nothing about the worked example', () => {
+    const result = checkStandardConsistency(rows(CLEAN))
+    expect(result.outliers).toEqual([])
+    expect(result.median).toBeCloseTo(4.14, 2)
+  })
+
+  it('says nothing when every value is scaled by the same factor', () => {
+    // A legitimate configuration: the ratios stay uniform, only the median moves.
+    const scaled = CLEAN.map(([m, a]) => [m, a * 10] as [number, number])
+    expect(checkStandardConsistency(rows(scaled)).outliers).toEqual([])
+  })
+
+  it('names both rows when two populations are transposed', () => {
+    const transposed: [number, number][] = [
+      [2_050, 8_300],
+      [12_900, 175_000],
+      [39_500, 51_000],
+      [121_000, 512_000],
+    ]
+    const named = checkStandardConsistency(rows(transposed)).outliers.map((o) => o.label)
+    expect(named).toEqual(['Population 2', 'Population 3'])
+  })
+
+  it('catches a tenfold slip that leaves the order intact', () => {
+    // The error nothing else locates: monotonicity passes, R squared says the
+    // table is wrong without saying where.
+    const slipped: [number, number][] = [...CLEAN.slice(0, 3), [121_000, 5_120_000]]
+    const outliers = checkStandardConsistency(rows(slipped)).outliers
+    expect(outliers).toHaveLength(1)
+    expect(outliers[0].label).toBe('Population 4')
+    expect(outliers[0].factor).toBeGreaterThan(9)
+    // "About 9.98 times" claims a precision the word "about" denies.
+    expect(outliers[0].message).toContain('about 10 times')
+  })
+
+  it('names a blank population given a certified value', () => {
+    const withBlank: [number, number][] = [[210, 1_014_135], ...CLEAN]
+    const outliers = checkStandardConsistency(rows(withBlank)).outliers
+    expect(outliers).toHaveLength(1)
+    expect(outliers[0].label).toBe('Population 1')
+  })
+
+  it('leaves a well behaved curve alone across the slopes the tool accepts', () => {
+    for (const slope of [0.85, 0.95, 1.05, 1.15]) {
+      const pairs = CLEAN.map(([m]) => [m, 10 ** (0.545 + slope * Math.log10(m))] as [number, number])
+      expect(checkStandardConsistency(rows(pairs)).outliers).toEqual([])
+    }
+  })
+
+  it('reports the table rather than the rows once most of them disagree', () => {
+    const scattered: [number, number][] = [
+      [2_050, 8_300],
+      [12_900, 200],
+      [39_500, 9_000_000],
+      [121_000, 300],
+    ]
+    const result = checkStandardConsistency(rows(scattered))
+    expect(result.wholeTable).toBe(true)
+  })
+
+  it('needs three populations before a median means anything', () => {
+    const two = checkStandardConsistency(rows(CLEAN.slice(0, 2)))
+    expect(two.median).toBeNull()
+    expect(two.outliers).toEqual([])
+  })
+
+  it('ignores a population the reader has already excluded', () => {
+    const standards = rows(CLEAN)
+    standards.push({ id: 'x', label: 'Blank', mfi: 210, assigned: 1_014_135, included: false })
+    expect(checkStandardConsistency(standards).outliers).toEqual([])
+  })
+
+  it('ignores a row that is not filled in yet', () => {
+    const standards = rows(CLEAN)
+    standards.push({ id: 'y', label: 'Population 5', mfi: 200_000, assigned: null, included: true })
+    expect(checkStandardConsistency(standards).outliers).toEqual([])
   })
 })

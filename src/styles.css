@@ -618,6 +618,22 @@ details.options > div { padding-top: 12px; display: flex; flex-direction: column
 
 .ask-empty { color: var(--text-muted) !important; }
 
+/* ---------- a row that disagrees with the rest ---------- */
+
+/* Amber, because this is a decision for the reader: the tool cannot know which
+   value is right, only that these do not belong together. */
+tr.inconsistent td { background: rgba(184, 134, 11, 0.05); }
+
+.row-flag td {
+  padding: 8px 12px 10px 16px;
+  border-left: 3px solid var(--series-decision);
+  background: var(--surface-sunken);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.row-flag strong { color: var(--text-primary); font-weight: 600; }
+
 /* ---------- what a paste was read as ---------- */
 
 .paste-notice {

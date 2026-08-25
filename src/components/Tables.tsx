@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { BeadStandard, Sample } from '../lib/quantify'
+import { checkStandardConsistency, type BeadStandard, type Sample } from '../lib/quantify'
 import { NumericCell as NumCell, parseNum } from './shared/NumericCell'
 import { PasteNotices } from './shared/PasteNotices'
 import { GuidancePin } from './guidance/GuidancePin'
@@ -14,6 +14,11 @@ interface StandardsTableProps {
 
 export function StandardsTable({ standards, assignedLabel, onChange }: StandardsTableProps) {
   const [notices, setNotices] = useState<string[]>([])
+
+  // Named at the row it belongs to, at the moment it is entered. R squared can
+  // say the table is wrong; only this can say which population.
+  const consistency = checkStandardConsistency(standards)
+  const outlierFor = new Map(consistency.outliers.map((o) => [o.id, o]))
 
   const update = (i: number, patch: Partial<BeadStandard>) =>
     onChange(standards.map((s, idx) => (idx === i ? { ...s, ...patch } : s)))
@@ -59,8 +64,18 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
           </tr>
         </thead>
         <tbody>
-          {standards.map((s, i) => (
-            <tr key={s.id} className={s.included ? undefined : 'excluded'}>
+          {standards.flatMap((s, i) => [
+            <tr
+              key={s.id}
+              className={
+                [
+                  s.included ? '' : 'excluded',
+                  !consistency.wholeTable && outlierFor.has(s.id) ? 'inconsistent' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ') || undefined
+              }
+            >
               <td className="shrink" style={{ paddingLeft: 12 }}>
                 <input
                   type="checkbox"
@@ -104,8 +119,31 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
                   ✕
                 </button>
               </td>
+            </tr>,
+            !consistency.wholeTable && outlierFor.has(s.id) ? (
+              <tr className="row-flag" key={`${s.id}-flag`}>
+                <td colSpan={5}>
+                  <strong>{outlierFor.get(s.id)?.message}</strong>{' '}
+                  <span>{outlierFor.get(s.id)?.remedy}</span>
+                </td>
+              </tr>
+            ) : null,
+          ])}
+          {consistency.wholeTable && (
+            <tr className="row-flag">
+              <td colSpan={5}>
+                <strong>
+                  Most of these populations disagree with one another, so the problem is the table
+                  rather than any one row.
+                </strong>{' '}
+                <span>
+                  Check the certified values against the certificate of analysis before reading any
+                  result. A column pasted into the wrong place, or values from a different lot, are
+                  the usual causes.
+                </span>
+              </td>
             </tr>
-          ))}
+          )}
         </tbody>
       </table>
       <PasteNotices notices={notices} onDismiss={() => setNotices([])} />

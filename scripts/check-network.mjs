@@ -454,6 +454,48 @@ try {
 await page.evaluate(() => localStorage.clear())
 
 // ---------------------------------------------------------------------------
+// A population that disagrees with the rest of the table.
+//
+// R squared can say a table is wrong without saying which row. This names the
+// row, at the row, at the moment it is entered. The case is a tenfold slip on
+// the top population, which leaves the order intact, so the monotonicity check
+// stays silent and nothing else locates it.
+// ---------------------------------------------------------------------------
+await page.evaluate(() => localStorage.clear())
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(600)
+
+const cleanFlags = await page.evaluate(() => document.querySelectorAll('.row-flag').length)
+if (cleanFlags !== 0) {
+  uiFailures.push(`antigen density: the worked example raised ${cleanFlags} row warning(s), expected none`)
+}
+
+await page.getByLabel('Assigned value for Population 4').fill('5120000')
+await page.waitForTimeout(500)
+
+const rowFlag = await page.evaluate(() => {
+  const flags = [...document.querySelectorAll('.row-flag')]
+  const rows = [...document.querySelectorAll('tr.inconsistent')]
+  return {
+    count: flags.length,
+    text: flags[0]?.innerText ?? '',
+    // The warning has to sit against the row it accuses, not in a panel below.
+    marked: rows.map((r) => r.querySelector('input[aria-label^="Label for"]')?.value ?? ''),
+  }
+})
+if (rowFlag.count !== 1) {
+  uiFailures.push(`antigen density: a tenfold slip on one population raised ${rowFlag.count} row warnings, expected 1`)
+}
+if (!/Population 4/.test(rowFlag.text)) {
+  uiFailures.push('antigen density: the row warning does not name the population it accuses')
+}
+if (rowFlag.marked[0] !== 'Population 4') {
+  uiFailures.push(`antigen density: the marked row is ${JSON.stringify(rowFlag.marked)}, expected Population 4`)
+}
+
+await page.evaluate(() => localStorage.clear())
+
+// ---------------------------------------------------------------------------
 // Pasting a column of thousands-formatted values.
 //
 // The parser used to split on every comma in a line without a tab, so a pasted
@@ -653,4 +695,5 @@ console.log('figure it invalidates; a question the corpus cannot answer is decli
 console.log('than approximated, every answer carries the title of the passage it came from,')
 console.log('and nothing the reader types reaches storage; and the CSV export carries a')
 console.log('machine-readable status; and a pasted column of thousands-formatted values')
-console.log('reads as the numbers it was written as.')
+console.log('reads as the numbers it was written as; and a population whose certified value')
+console.log('does not belong with the others is named at its own row.')
