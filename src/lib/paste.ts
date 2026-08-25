@@ -133,6 +133,19 @@ export function readPaste(text: string, options: ReadOptions = {}): PasteResult 
       )
     }
 
+    // Both columns the same numbers. The guard below tests strictly greater,
+    // so equal columns slipped past it, and equal columns are the worst case:
+    // they fit perfectly and report raw intensity as a calibrated result.
+    if (
+      firstColumn.length >= MIN_ROWS_FOR_PATTERN &&
+      firstColumn.length === secondColumn.length &&
+      firstColumn.every((v, i) => v === secondColumn[i])
+    ) {
+      notices.push(
+        'Both pasted columns carry the same numbers. A certified value is not the intensity it was measured at, and a standard built this way fits perfectly while returning the intensity unchanged. Check that the second column came from the certificate of analysis.',
+      )
+    }
+
     // Certified values run several times the intensity in these kits, so a
     // first column that is larger in every row suggests the two were swapped.
     // Reported, never corrected: the tool cannot be sure, and a silent swap

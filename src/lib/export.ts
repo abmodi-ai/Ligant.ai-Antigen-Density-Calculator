@@ -182,9 +182,18 @@ export function exportResultsCsv(payload: ExportPayload, filename: string) {
   rows.push('')
 
   rows.push(csvRow(['SAMPLES']))
+  // A control below the lowest bead is the ordinary case rather than a fault,
+  // and the pairing of "no" with "ok" in the same row reads like a
+  // contradiction to anyone auditing the file without the screen beside them.
+  rows.push(
+    csvRow([
+      'Note: control_within_calibrated_range is normally "no". An isotype or FMO control sits below the dimmest bead in most real runs, which is why it is reported rather than flagged. It is escalated to a flag only when the background is also a material fraction of the gross signal; flag_status carries that judgement.',
+    ]),
+  )
   rows.push(
     csvRow([
       'Sample', 'Sample MFI', 'Control MFI', 'Gross ABC', 'Background ABC', 'Net ABC',
+      'Net ABC (as reported)',
       'CI lower', 'CI upper', 'Inferred antigen sites low', 'Inferred antigen sites high',
       'flag_status', 'within_calibrated_range', 'control_within_calibrated_range',
       'background_pct_of_gross', 'mode_divergence_pct', 'calibration_valid', 'flag_detail',
@@ -196,6 +205,11 @@ export function exportResultsCsv(payload: ExportPayload, filename: string) {
       csvRow([
         sample.label, sample.mfi, sample.controlMfi,
         result.grossAbc, result.controlAbc, result.netAbc,
+        // Full precision stays, because this file is read by machines. Beside
+        // it, the figure the screen shows: 35636.10777668543 against an
+        // interval of 31,661 to 40,110 is fifteen digits of which two are
+        // supported, and it is the column someone pastes into a manuscript.
+        result.netAbc === null ? '' : formatNumber(result.netAbc),
         result.lower, result.upper, result.sitesLow, result.sitesHigh,
         resultStatus([...result.calibrationFlags, ...result.flags]),
         yesNo(result.sampleInRange),

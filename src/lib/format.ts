@@ -12,8 +12,11 @@
  */
 export function formatR2(v: number): string {
   if (!Number.isFinite(v)) return 'n/a'
-  if (v >= 1) return '1'
-  const fixed = v.toFixed(6)
-  if (Number(fixed) >= 1) return '> 0.999999'
-  return fixed.replace(/0+$/, '').replace(/\.$/, '')
+  // A residual of exactly zero really does give one, and the tool now says
+  // separately that such a standard is not a measurement.
+  if (v >= 1) return '1.0000'
+  const fixed = v.toFixed(4)
+  // Rounding up to 1.0000 would assert a perfect fit the data does not support.
+  if (Number(fixed) >= 1) return '> 0.9999'
+  return fixed
 }

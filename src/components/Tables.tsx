@@ -15,6 +15,11 @@ interface StandardsTableProps {
 
 export function StandardsTable({ standards, assignedLabel, onChange }: StandardsTableProps) {
   const [notices, setNotices] = useState<string[]>([])
+  // The row being typed in. Its warning waits until the reader leaves it: a
+  // live pass caught the row below moving out from under the cursor part way
+  // through entering four values, because inserting the warning reflows the
+  // table. Nothing is suppressed, only deferred to the moment it is useful.
+  const [editing, setEditing] = useState<string | null>(null)
 
   // Named at the row it belongs to, at the moment it is entered. R squared can
   // say the table is wrong; only this can say which population.
@@ -82,9 +87,10 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
               started: s.mfi !== null && anyComplete,
             })
             const outlier = consistency.wholeTable ? undefined : outlierFor.get(s.id)
-            const fieldIssues = [mfiIssue, assignedIssue].filter(
-              (issue): issue is FieldIssue => issue !== null,
-            )
+            const fieldIssues =
+              editing === s.id
+                ? []
+                : [mfiIssue, assignedIssue].filter((issue): issue is FieldIssue => issue !== null)
             return [
               <tr
                 key={s.id}
@@ -116,7 +122,8 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
                     ariaLabel={`MFI for ${s.label}`}
                     onChange={(v) => update(i, { mfi: v })}
                     calibration
-                    issue={mfiIssue?.severity}
+                    issue={editing === s.id ? null : mfiIssue?.severity}
+                    onEditing={(on) => setEditing(on ? s.id : null)}
                     onPasteGrid={(g, n) => pasteFrom(i, 0, g, n)}
                   />
                 </td>
@@ -205,6 +212,7 @@ interface SamplesTableProps {
 
 export function SamplesTable({ samples, showControl, onChange }: SamplesTableProps) {
   const [notices, setNotices] = useState<string[]>([])
+  const [editing, setEditing] = useState<string | null>(null)
 
   const update = (i: number, patch: Partial<Sample>) =>
     onChange(samples.map((s, idx) => (idx === i ? { ...s, ...patch } : s)))
@@ -248,9 +256,10 @@ export function SamplesTable({ samples, showControl, onChange }: SamplesTablePro
           {samples.flatMap((s, i) => {
             const mfiIssue = checkMfi(s.mfi)
             const controlIssue = showControl ? checkControl(s.controlMfi, s.mfi) : null
-            const issues = [mfiIssue, controlIssue].filter(
-              (issue): issue is FieldIssue => issue !== null,
-            )
+            const issues =
+              editing === s.id
+                ? []
+                : [mfiIssue, controlIssue].filter((issue): issue is FieldIssue => issue !== null)
             const span = showControl ? 4 : 3
             return [
               <tr key={s.id}>
@@ -267,7 +276,8 @@ export function SamplesTable({ samples, showControl, onChange }: SamplesTablePro
                     value={s.mfi}
                     ariaLabel={`Stained MFI for ${s.label}`}
                     onChange={(v) => update(i, { mfi: v })}
-                    issue={mfiIssue?.severity}
+                    issue={editing === s.id ? null : mfiIssue?.severity}
+                    onEditing={(on) => setEditing(on ? s.id : null)}
                     onPasteGrid={(g, n) => pasteFrom(i, 0, g, n)}
                   />
                 </td>
