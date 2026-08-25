@@ -130,12 +130,29 @@ for (const [name, path] of [['antigen density', '/']]) {
     hasClearStorage: !!document.body.innerText.match(/Clear stored data/),
     hasSuiteMark: /bench tools/i.test(document.querySelector('.masthead')?.textContent ?? ''),
     hasGuidanceSwitch: !!document.querySelector('[role="switch"]'),
+    // Who publishes this, under what terms, and how to reach them. A reader
+    // deciding whether to use a measurement tool in their own work needs all
+    // three, and none of it was on the page.
+    footer: (() => {
+      const text = document.querySelector('.site-footer')?.textContent ?? ''
+      return {
+        licence: /Apache License, Version 2\.0/.test(text),
+        'open source statement': /free and open source under Apache 2\.0/.test(text),
+        'research use only notice': /Research use only/i.test(text),
+        'registered address': /3675 Market Street/.test(text) && /Philadelphia PA 19104/.test(text),
+        'contact address': /hello@ligant\.ai/.test(text),
+        'legal entity': /Ligant AI Incorporated/.test(text),
+      }
+    })(),
   }))
   if (!structure.hasMain) uiFailures.push(`${name}: no main landmark`)
   if (!structure.hasSkipLink) uiFailures.push(`${name}: no skip link`)
   if (!structure.hasPrivacy) uiFailures.push(`${name}: privacy disclosure missing`)
   if (!structure.hasClearStorage) uiFailures.push(`${name}: no control to clear stored data`)
   if (!structure.hasSuiteMark) uiFailures.push(`${name}: the masthead does not name the suite`)
+  for (const [what, present] of Object.entries(structure.footer)) {
+    if (!present) uiFailures.push(`${name}: the footer does not carry the ${what}`)
+  }
   // Guidance is on for everyone, so there is nothing to switch. A switch left
   // rendering would offer to turn off something that no longer reads it.
   if (structure.hasGuidanceSwitch) {
@@ -993,6 +1010,40 @@ await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' })
 await page.evaluate(() => localStorage.clear())
 await page.reload({ waitUntil: 'networkidle' })
 await page.waitForTimeout(700)
+
+// --- the wide layout, where the left column must stay one flow ---
+//
+// Making the method section its own grid child, to get the phone order right,
+// forced the rail to span both grid rows to stay sticky. A spanning item is
+// sized across the rows it spans, so the grid inflated the first row to absorb
+// a tall rail and opened several hundred pixels of empty space between the
+// settings and the method section. Nothing here measured that, and a reader
+// found it.
+const desktop = await page.evaluate(() => {
+  const panels = [...document.querySelectorAll('.stack > .panel')]
+  const method = document.querySelector('.method-panel')
+  if (panels.length < 2 || !method) return null
+  const previous = panels[panels.length - 2]
+  return {
+    gap: Math.round(method.getBoundingClientRect().top - previous.getBoundingClientRect().bottom),
+    columns: getComputedStyle(document.querySelector('.layout')).gridTemplateColumns.split(' ').length,
+  }
+})
+if (!desktop) {
+  uiFailures.push('antigen density: could not find the left column and its method section')
+} else {
+  if (desktop.columns !== 2) {
+    uiFailures.push(`antigen density: the wide layout has ${desktop.columns} column(s), expected 2`)
+  }
+  // The column's own gap is 16px. Anything approaching a screenful is the
+  // grid stretching a row rather than a margin.
+  if (desktop.gap > 64) {
+    uiFailures.push(
+      `antigen density: ${desktop.gap}px of empty space sits between the last input panel and the ` +
+        'method section on a wide screen',
+    )
+  }
+}
 
 // --- the phone reading order ---
 await page.setViewportSize({ width: 420, height: 900 })

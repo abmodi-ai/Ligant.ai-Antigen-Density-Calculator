@@ -2,6 +2,7 @@
   "name": "ligant-bench-tools",
   "private": true,
   "version": "0.1.0",
+  "license": "Apache-2.0",
   "type": "module",
   "description": "Deterministic, privacy-preserving browser tool for cell therapy research: antigen density quantification from flow cytometry",
   "scripts": {
