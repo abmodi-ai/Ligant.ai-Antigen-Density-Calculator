@@ -1175,6 +1175,57 @@ for (const text of prose.everything) {
 await page.evaluate(() => localStorage.clear())
 
 // ---------------------------------------------------------------------------
+// What the origin's own robots.txt says.
+//
+// A live check found the served file carrying blanket `Disallow: /` rules for
+// ClaudeBot, GPTBot, Google-Extended, CCBot, Bytespider, Amazonbot,
+// Applebot-Extended and meta-externalagent, none of which this repository
+// writes: they are injected by Cloudflare's managed robots.txt setting, which
+// merges its own block into the origin's file. For a free tool whose whole
+// purpose is to be found and recommended, that is the opposite of the policy.
+//
+// This asserts what the origin serves, which is the half that lives in version
+// control. The injected block is a dashboard setting and cannot be seen from
+// here; a mismatch between this file and the live one is the signal that the
+// setting is still on.
+// ---------------------------------------------------------------------------
+{
+  const robots = await (await fetch(ORIGIN + '/robots.txt')).text()
+
+  const disallows = robots
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => /^Disallow:\s*\S/i.test(line))
+  if (disallows.length > 0) {
+    uiFailures.push(
+      `robots.txt: the origin disallows ${disallows.length} path(s) (${disallows.join('; ').slice(0, 80)}), ` +
+        'on a tool published to be found',
+    )
+  }
+
+  if (!/^User-agent:\s*\*/im.test(robots) || !/^Allow:\s*\/\s*$/im.test(robots)) {
+    uiFailures.push('robots.txt: the origin does not allow every crawler everything')
+  }
+
+  // The policy, stated by the origin rather than left to the edge, so that
+  // turning the managed setting off does not silently remove it too.
+  const signal = robots.match(/^Content-Signal:\s*(.+)$/im)
+  if (!signal) {
+    uiFailures.push('robots.txt: the origin states no Content-Signal policy of its own')
+  } else {
+    for (const expected of ['search=yes', 'ai-input=yes', 'ai-train=no', 'use=reference']) {
+      if (!signal[1].includes(expected)) {
+        uiFailures.push(`robots.txt: the Content-Signal policy is missing ${expected} (reads "${signal[1].trim()}")`)
+      }
+    }
+  }
+
+  if (!robots.includes(`Sitemap: ${SITE_URL}/sitemap.xml`)) {
+    uiFailures.push('robots.txt: no sitemap is advertised')
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Every key written is a key disclosed.
 //
 // The privacy claim is that a reader can see exactly what is kept in their
