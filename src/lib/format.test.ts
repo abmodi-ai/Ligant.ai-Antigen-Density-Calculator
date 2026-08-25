@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatR2 } from './format'
+import { formatNumber, formatR2 } from './format'
 
 describe('formatR2', () => {
   // Fixed width, because a live pass found the same quantity rendered as
@@ -26,5 +26,27 @@ describe('formatR2', () => {
 
   it('says so rather than printing nonsense for a value that is not a number', () => {
     expect(formatR2(NaN)).toBe('n/a')
+  })
+})
+
+describe('formatNumber', () => {
+  // Moved here from the calibration core so that anything writing a number into
+  // a sentence can reach it. The range guard did not, and told readers that
+  // capacities "fall roughly between 1e+2 and 1e+7".
+  it('writes the bounds of the certified range as numbers', () => {
+    expect(formatNumber(1e2)).toBe('100')
+    expect(formatNumber(1e7)).toBe('10,000,000')
+  })
+
+  it('keeps precision where the magnitude warrants it', () => {
+    expect(formatNumber(8.234)).toBe('8.23')
+    expect(formatNumber(63.21)).toBe('63.2')
+    expect(formatNumber(8_300)).toBe('8300')
+    expect(formatNumber(63_252.4)).toBe('63,252')
+  })
+
+  it('reaches for an exponent only where a full rendering would break a layout', () => {
+    expect(formatNumber(1e9)).toBe('1.00e+9')
+    expect(formatNumber(NaN)).toBe('n/a')
   })
 })

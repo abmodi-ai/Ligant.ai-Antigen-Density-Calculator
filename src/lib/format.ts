@@ -20,3 +20,27 @@ export function formatR2(v: number): string {
   if (Number(fixed) >= 1) return '> 0.9999'
   return fixed
 }
+
+/**
+ * Above this a value is written in scientific notation, because rendering it in
+ * full breaks the layout it sits in.
+ */
+const SCIENTIFIC_ABOVE = 1e9
+
+/**
+ * Human readable, with the precision the magnitude warrants.
+ *
+ * Lives here rather than with the calibration core so that anything writing a
+ * number into a sentence can reach it. A range guard written without it said
+ * capacities "fall roughly between 1e+2 and 1e+7", which is not a sentence
+ * anyone says at a bench, and is the third time an exponent has reached the
+ * interface through a formatter that was one import away.
+ */
+export function formatNumber(v: number): string {
+  if (!Number.isFinite(v)) return 'n/a'
+  if (Math.abs(v) >= SCIENTIFIC_ABOVE) return v.toExponential(2)
+  if (v >= 10_000) return Math.round(v).toLocaleString('en-US')
+  if (v >= 100) return v.toFixed(0)
+  if (v >= 10) return v.toFixed(1)
+  return v.toFixed(2)
+}

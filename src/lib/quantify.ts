@@ -25,6 +25,7 @@ import {
   type LinearFit,
 } from './stats'
 import type { Flag, FlagLevel } from './flags'
+import { formatNumber } from './format'
 
 export type { Flag, FlagLevel }
 
@@ -449,7 +450,11 @@ export function checkStandardConsistency(
       label: s.label,
       ratio,
       factor,
-      message: `${s.label || 'This population'} does not agree with the other standards. Its certified value is ${formatRatio(ratio)} times its intensity, where the others sit near ${formatRatio(median)}, a difference of about ${formatFactor(factor)} times.`,
+      // The row is named by `label` beside this, and by whatever renders it.
+      // The message used to open with the label as well, from when it was shown
+      // inside the table row, which read "Population 1 Population 1 does not
+      // agree ..." once the caller started naming the row itself.
+      message: `This population does not agree with the other standards. Its certified value is ${formatRatio(ratio)} times its intensity, where the others sit near ${formatRatio(median)}, a difference of about ${formatFactor(factor)} times.`,
       remedy:
         'Check this row against the certificate of analysis. A value entered against the wrong population, or transposed with the row beside it, is the usual cause.',
     })
@@ -863,14 +868,4 @@ export function confidenceLabel(level: number): string {
 export const MAX_PLAUSIBLE_DENSITY = 2e7
 
 /** Beyond this a value is shown in scientific notation instead of in full. */
-const SCIENTIFIC_ABOVE = 1e9
-
-export function formatNumber(v: number): string {
-  if (!Number.isFinite(v)) return 'n/a'
-  // Rendering an absurd value in full breaks the layout it sits in.
-  if (Math.abs(v) >= SCIENTIFIC_ABOVE) return v.toExponential(2)
-  if (v >= 10_000) return Math.round(v).toLocaleString('en-US')
-  if (v >= 100) return v.toFixed(0)
-  if (v >= 10) return v.toFixed(1)
-  return v.toFixed(2)
-}
+export { formatNumber }
