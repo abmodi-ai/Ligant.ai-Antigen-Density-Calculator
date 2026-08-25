@@ -611,6 +611,77 @@ if (!/thousands separators/i.test(pasted.notice)) {
 await page.evaluate(() => localStorage.clear())
 
 // ---------------------------------------------------------------------------
+// What is wrong with one value, said at the field it was typed into.
+//
+// Every other check in this tool speaks about the table or the curve, which
+// means a reader learns about a mistyped cell after scrolling past a chart.
+// These are the two that are worth catching at the row: a population carrying
+// an intensity and no certified value, which is dropped from the fit without
+// saying so, and a control brighter than the sample it belongs to, which is
+// usually two columns entered the wrong way round.
+// ---------------------------------------------------------------------------
+await page.evaluate(() => localStorage.clear())
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(600)
+
+// The shipped example carries a row named "Blank" with no certified value,
+// left out of the fit. Nothing may be said about it: the rule is on inclusion,
+// never on what a row is called, because labels are free text.
+const quietStart = await page.evaluate(() => document.querySelectorAll('.row-flag').length)
+if (quietStart !== 0) {
+  uiFailures.push(`antigen density: the worked example raised ${quietStart} field warning(s) before anything was typed`)
+}
+
+await page.getByLabel('Assigned value for Population 3').fill('')
+await page.waitForTimeout(500)
+
+const orphan = await page.evaluate(() => {
+  const field = document.querySelector('input[aria-label="Assigned value for Population 3"]')
+  const flag = field?.closest('tr')?.nextElementSibling
+  return {
+    marked: field?.getAttribute('aria-invalid'),
+    text: flag?.classList.contains('row-flag') ? flag.textContent ?? '' : '',
+  }
+})
+if (orphan.marked !== 'true') {
+  uiFailures.push('antigen density: a population with no certified value is not marked at the field')
+}
+if (!/certified value/i.test(orphan.text)) {
+  uiFailures.push(`antigen density: the row beneath a population with no certified value reads "${orphan.text.slice(0, 70)}"`)
+}
+
+await page.evaluate(() => localStorage.clear())
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(600)
+
+// The control at 9,600 against a stained reading of 8,900. A real population
+// can read this way, so it is a caveat rather than a refusal, and the result
+// is still computed.
+await page.getByLabel('Control MFI for CD19 (NALM-6)').fill('9600')
+await page.waitForTimeout(500)
+
+const swapped = await page.evaluate(() => {
+  const field = document.querySelector('input[aria-label="Control MFI for CD19 (NALM-6)"]')
+  const flag = field?.closest('tr')?.nextElementSibling
+  return {
+    marked: field?.className ?? '',
+    invalid: field?.getAttribute('aria-invalid'),
+    text: flag?.classList.contains('row-flag') ? flag.textContent ?? '' : '',
+  }
+})
+if (!/cell-warning/.test(swapped.marked)) {
+  uiFailures.push('antigen density: a control brighter than its sample is not marked at the field')
+}
+if (swapped.invalid === 'true') {
+  uiFailures.push('antigen density: a control brighter than its sample is treated as an invalid entry rather than a caveat')
+}
+if (!/other way round/i.test(swapped.text)) {
+  uiFailures.push(`antigen density: the row beneath a brighter control reads "${swapped.text.slice(0, 70)}"`)
+}
+
+await page.evaluate(() => localStorage.clear())
+
+// ---------------------------------------------------------------------------
 // Asking a question at a card.
 //
 // Every answer is a passage already in the page, so the assertions are about
@@ -764,4 +835,6 @@ console.log('and nothing the reader types reaches storage; and the CSV export ca
 console.log('machine-readable status; and a pasted column of thousands-formatted values')
 console.log('reads as the numbers it was written as; and a population whose certified value')
 console.log('does not belong with the others is named at its own row; and a calibration')
-console.log('that cannot support a figure reports itself, and withholds the figure.')
+console.log('that cannot support a figure reports itself, and withholds the figure; and what\n' +
+  'is wrong with one value is said at the field it was typed into, on inclusion\n' +
+  'rather than on what a row is called.')

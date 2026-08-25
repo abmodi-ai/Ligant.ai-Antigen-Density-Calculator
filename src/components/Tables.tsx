@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { checkStandardConsistency, type BeadStandard, type Sample } from '../lib/quantify'
+import { checkAssigned, checkControl, checkMfi, type FieldIssue } from '../lib/validate'
 import { NumericCell as NumCell, parseNum } from './shared/NumericCell'
 import { PasteNotices } from './shared/PasteNotices'
 import { GuidancePin } from './guidance/GuidancePin'
@@ -19,6 +20,13 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
   // say the table is wrong; only this can say which population.
   const consistency = checkStandardConsistency(standards)
   const outlierFor = new Map(consistency.outliers.map((o) => [o.id, o]))
+
+  // A row missing its certified value is dropped from the fit without saying
+  // so, which is worth naming. It is only worth naming once some other row is
+  // complete: before that the table is mid-entry, and every row in it is on its
+  // way to being filled. This keeps the check on the row left behind by a short
+  // paste rather than on every row between one keystroke and the next.
+  const anyComplete = standards.some((s) => s.mfi !== null && s.assigned !== null)
 
   const update = (i: number, patch: Partial<BeadStandard>) =>
     onChange(standards.map((s, idx) => (idx === i ? { ...s, ...patch } : s)))
@@ -64,71 +72,90 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
           </tr>
         </thead>
         <tbody>
-          {standards.flatMap((s, i) => [
-            <tr
-              key={s.id}
-              className={
-                [
-                  s.included ? '' : 'excluded',
-                  !consistency.wholeTable && outlierFor.has(s.id) ? 'inconsistent' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ') || undefined
-              }
-            >
-              <td className="shrink" style={{ paddingLeft: 12 }}>
-                <input
-                  type="checkbox"
-                  checked={s.included}
-                  aria-label={`Include ${s.label} in the fit`}
-                  onChange={(e) => update(i, { included: e.target.checked })}
-                />
-              </td>
-              <td>
-                <input
-                  type="text"
-                  value={s.label}
-                  aria-label={`Label for standard ${i + 1}`}
-                  onChange={(e) => update(i, { label: e.target.value })}
-                />
-              </td>
-              <td className="num">
-                <NumCell
-                  value={s.mfi}
-                  ariaLabel={`MFI for ${s.label}`}
-                  onChange={(v) => update(i, { mfi: v })}
-                  calibration
-                  onPasteGrid={(g, n) => pasteFrom(i, 0, g, n)}
-                />
-              </td>
-              <td className="num">
-                <NumCell
-                  value={s.assigned}
-                  ariaLabel={`Assigned value for ${s.label}`}
-                  onChange={(v) => update(i, { assigned: v })}
-                  calibration
-                  onPasteGrid={(g, n) => pasteFrom(i, 1, g, n)}
-                />
-              </td>
-              <td className="shrink">
-                <button
-                  className="icon"
-                  aria-label={`Remove ${s.label}`}
-                  onClick={() => onChange(standards.filter((_, idx) => idx !== i))}
-                >
-                  ✕
-                </button>
-              </td>
-            </tr>,
-            !consistency.wholeTable && outlierFor.has(s.id) ? (
-              <tr className="row-flag" key={`${s.id}-flag`}>
-                <td colSpan={5}>
-                  <strong>{outlierFor.get(s.id)?.message}</strong>{' '}
-                  <span>{outlierFor.get(s.id)?.remedy}</span>
+          {standards.flatMap((s, i) => {
+            // What can be said about each value on its own, at the field it was
+            // typed into. The row below carries these and the consistency flag
+            // together, so a reader never has to reconcile two places.
+            const mfiIssue = checkMfi(s.mfi)
+            const assignedIssue = checkAssigned(s.assigned, {
+              included: s.included,
+              started: s.mfi !== null && anyComplete,
+            })
+            const outlier = consistency.wholeTable ? undefined : outlierFor.get(s.id)
+            const fieldIssues = [mfiIssue, assignedIssue].filter(
+              (issue): issue is FieldIssue => issue !== null,
+            )
+            return [
+              <tr
+                key={s.id}
+                className={
+                  [s.included ? '' : 'excluded', outlier ? 'inconsistent' : '']
+                    .filter(Boolean)
+                    .join(' ') || undefined
+                }
+              >
+                <td className="shrink" style={{ paddingLeft: 12 }}>
+                  <input
+                    type="checkbox"
+                    checked={s.included}
+                    aria-label={`Include ${s.label} in the fit`}
+                    onChange={(e) => update(i, { included: e.target.checked })}
+                  />
                 </td>
-              </tr>
-            ) : null,
-          ])}
+                <td>
+                  <input
+                    type="text"
+                    value={s.label}
+                    aria-label={`Label for standard ${i + 1}`}
+                    onChange={(e) => update(i, { label: e.target.value })}
+                  />
+                </td>
+                <td className="num">
+                  <NumCell
+                    value={s.mfi}
+                    ariaLabel={`MFI for ${s.label}`}
+                    onChange={(v) => update(i, { mfi: v })}
+                    calibration
+                    issue={mfiIssue?.severity}
+                    onPasteGrid={(g, n) => pasteFrom(i, 0, g, n)}
+                  />
+                </td>
+                <td className="num">
+                  <NumCell
+                    value={s.assigned}
+                    ariaLabel={`Assigned value for ${s.label}`}
+                    onChange={(v) => update(i, { assigned: v })}
+                    calibration
+                    issue={assignedIssue?.severity}
+                    onPasteGrid={(g, n) => pasteFrom(i, 1, g, n)}
+                  />
+                </td>
+                <td className="shrink">
+                  <button
+                    className="icon"
+                    aria-label={`Remove ${s.label}`}
+                    onClick={() => onChange(standards.filter((_, idx) => idx !== i))}
+                  >
+                    ✕
+                  </button>
+                </td>
+              </tr>,
+              outlier || fieldIssues.length > 0 ? (
+                <tr className="row-flag" key={`${s.id}-flag`}>
+                  <td colSpan={5}>
+                    {fieldIssues.map((issue, n) => (
+                      <p key={n}>{issue.message}</p>
+                    ))}
+                    {outlier && (
+                      <p>
+                        <strong>{outlier.message}</strong> <span>{outlier.remedy}</span>
+                      </p>
+                    )}
+                  </td>
+                </tr>
+              ) : null,
+            ]
+          })}
           {consistency.wholeTable && (
             <tr className="row-flag">
               <td colSpan={5}>
@@ -218,46 +245,65 @@ export function SamplesTable({ samples, showControl, onChange }: SamplesTablePro
           </tr>
         </thead>
         <tbody>
-          {samples.map((s, i) => (
-            <tr key={s.id}>
-              <td>
-                <input
-                  type="text"
-                  value={s.label}
-                  aria-label={`Label for sample ${i + 1}`}
-                  onChange={(e) => update(i, { label: e.target.value })}
-                />
-              </td>
-              <td className="num">
-                <NumCell
-                  value={s.mfi}
-                  ariaLabel={`Stained MFI for ${s.label}`}
-                  onChange={(v) => update(i, { mfi: v })}
-                  onPasteGrid={(g, n) => pasteFrom(i, 0, g, n)}
-                />
-              </td>
-              {showControl && (
-                <td className="num">
-                  <NumCell
-                    value={s.controlMfi}
-                    placeholder="isotype / FMO"
-                    ariaLabel={`Control MFI for ${s.label}`}
-                    onChange={(v) => update(i, { controlMfi: v })}
-                    onPasteGrid={(g, n) => pasteFrom(i, 1, g, n)}
+          {samples.flatMap((s, i) => {
+            const mfiIssue = checkMfi(s.mfi)
+            const controlIssue = showControl ? checkControl(s.controlMfi, s.mfi) : null
+            const issues = [mfiIssue, controlIssue].filter(
+              (issue): issue is FieldIssue => issue !== null,
+            )
+            const span = showControl ? 4 : 3
+            return [
+              <tr key={s.id}>
+                <td>
+                  <input
+                    type="text"
+                    value={s.label}
+                    aria-label={`Label for sample ${i + 1}`}
+                    onChange={(e) => update(i, { label: e.target.value })}
                   />
                 </td>
-              )}
-              <td className="shrink">
-                <button
-                  className="icon"
-                  aria-label={`Remove ${s.label}`}
-                  onClick={() => onChange(samples.filter((_, idx) => idx !== i))}
-                >
-                  ✕
-                </button>
-              </td>
-            </tr>
-          ))}
+                <td className="num">
+                  <NumCell
+                    value={s.mfi}
+                    ariaLabel={`Stained MFI for ${s.label}`}
+                    onChange={(v) => update(i, { mfi: v })}
+                    issue={mfiIssue?.severity}
+                    onPasteGrid={(g, n) => pasteFrom(i, 0, g, n)}
+                  />
+                </td>
+                {showControl && (
+                  <td className="num">
+                    <NumCell
+                      value={s.controlMfi}
+                      placeholder="isotype / FMO"
+                      ariaLabel={`Control MFI for ${s.label}`}
+                      onChange={(v) => update(i, { controlMfi: v })}
+                      issue={controlIssue?.severity}
+                      onPasteGrid={(g, n) => pasteFrom(i, 1, g, n)}
+                    />
+                  </td>
+                )}
+                <td className="shrink">
+                  <button
+                    className="icon"
+                    aria-label={`Remove ${s.label}`}
+                    onClick={() => onChange(samples.filter((_, idx) => idx !== i))}
+                  >
+                    ✕
+                  </button>
+                </td>
+              </tr>,
+              issues.length > 0 ? (
+                <tr className="row-flag" key={`${s.id}-flag`}>
+                  <td colSpan={span}>
+                    {issues.map((issue, n) => (
+                      <p key={n}>{issue.message}</p>
+                    ))}
+                  </td>
+                </tr>
+              ) : null,
+            ]
+          })}
         </tbody>
       </table>
       <PasteNotices notices={notices} onDismiss={() => setNotices([])} />

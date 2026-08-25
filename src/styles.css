@@ -651,6 +651,15 @@ tr.inconsistent td { background: rgba(184, 134, 11, 0.05); }
   color: var(--text-secondary);
 }
 .row-flag strong { color: var(--text-primary); font-weight: 600; }
+.row-flag p { margin: 0; }
+.row-flag p + p { margin-top: 6px; }
+
+/* A field whose own value cannot be used, or is worth a second look. Amber for
+   both, because both are the reader's decision: an unusable value is left out
+   of the fit rather than breaking anything, which is not a system error. The
+   solid rule is the value that cannot be used; the dotted one is doubt. */
+td input.cell-error { box-shadow: inset 0 -2px 0 var(--series-decision); }
+td input.cell-warning { box-shadow: inset 0 -2px 0 rgba(184, 134, 11, 0.35); }
 
 /* ---------- what a paste was read as ---------- */
 

@@ -7,6 +7,7 @@
  */
 
 import { parseNum, readPaste } from '../../lib/paste'
+import type { Severity } from '../../lib/validate'
 
 export { parseNum }
 
@@ -34,6 +35,12 @@ interface Props {
   ariaLabel: string
   /** True in a calibration table, where a pasted block has an expected shape. */
   calibration?: boolean
+  /**
+   * What is wrong with this value, where anything is. Marks the field so the
+   * sentence beneath the row can be traced back to the cell it is about.
+   * Nothing here prevents entry, and nothing here is red.
+   */
+  issue?: Severity | null
 }
 
 export function NumericCell({
@@ -43,12 +50,17 @@ export function NumericCell({
   placeholder,
   ariaLabel,
   calibration,
+  issue,
 }: Props) {
+  const className =
+    [value !== null ? 'filled' : '', issue ? `cell-${issue}` : ''].filter(Boolean).join(' ') ||
+    undefined
   return (
     <input
       type="text"
       inputMode="decimal"
-      className={value !== null ? 'filled' : undefined}
+      className={className}
+      aria-invalid={issue === 'error' || undefined}
       value={value === null ? '' : String(value)}
       placeholder={placeholder}
       aria-label={ariaLabel}
