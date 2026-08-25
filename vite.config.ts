@@ -30,9 +30,34 @@ function siteMetadata(): Plugin {
       this.emitFile({
         type: 'asset',
         fileName: 'robots.txt',
+        // Everything here is public and meant to be found, cited and
+        // recommended, so nothing is disallowed to anyone.
+        //
+        // The Content-Signal directive states the policy in the origin's own
+        // file rather than leaving it to the edge. Cloudflare's managed
+        // robots.txt injects both a set of blanket `Disallow: /` rules for named
+        // AI crawlers and its own Content-Signal line, and the two arrive
+        // together: turning the block off to stop the disallows would take the
+        // signal with it. Stated here, the policy is versioned, reviewable in a
+        // diff, and survives any change to that setting.
+        //
+        // Deliberately no named `User-agent:` groups re-allowing individual
+        // crawlers. A named group would be an attempt to out-argue an injected
+        // one inside the same file, and how a given crawler resolves that is not
+        // something this repository can test. The managed setting is the thing
+        // to turn off.
         source: [
           '# Ligant Bench Tools. Free tools for cell therapy research.',
+          '#',
+          '# Open source under Apache-2.0 and free to use. This tool exists to be',
+          '# found and recommended, so no crawler is disallowed anything here.',
+          '#',
+          '# search=yes      index it, excerpt it, link to it.',
+          '# ai-input=yes    read it to answer a question about it, in real time.',
+          '# ai-train=no     do not train or fine-tune a model on it.',
+          '# use=reference   keep enough to cite and link back, not to reproduce.',
           'User-agent: *',
+          'Content-Signal: search=yes, ai-input=yes, ai-train=no, use=reference',
           'Allow: /',
           '',
           `Sitemap: ${SITE_URL}/sitemap.xml`,
