@@ -22,7 +22,7 @@ Scope is cell therapy, and deliberately only cell therapy: CAR-T, CAR-NK, TCR-T,
 TIL and other adoptive cell products. Gene therapy is out of scope, as is
 anything that is not a cell product. Each tool is designed for the modality
 rather than merely usable within it, meaning its defaults, units, controls and
-quality checks are the ones these assays actually use. `CLAUDE.md` records the
+quality checks are the ones these assays actually use. `CONVENTIONS.md` records the
 rule and what it rules out.
 
 ## Method: antigen density

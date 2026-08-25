@@ -63,7 +63,7 @@ if (failures.length > 0) {
   console.error(`Style check failed with ${failures.length} issue(s):\n`)
   console.error(failures.join('\n'))
   console.error('\nEm dashes are not used in this project. Use a full stop, a colon,')
-  console.error('a semicolon, or parentheses instead. See CLAUDE.md.')
+  console.error('a semicolon, or parentheses instead. See CONVENTIONS.md.')
   process.exit(1)
 }
 
