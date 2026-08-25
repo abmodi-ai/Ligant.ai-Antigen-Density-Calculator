@@ -160,7 +160,7 @@ if (failures.length > 0) {
   console.error(`Privacy check failed with ${failures.length} issue(s):\n`)
   console.error(failures.join('\n'))
   console.error('\nThis project contacts no third party and transmits no user data.')
-  console.error('See the invariants in CONVENTIONS.md before changing any of the above.')
+  console.error('See the privacy section of README.md before changing any of the above.')
   process.exit(1)
 }
 
