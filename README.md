@@ -1,41 +1,37 @@
-# Ligant Bench Tools
+# Antigen Density Calculator
 
-Free, deterministic browser tools for cell therapy research. Nothing a user
-enters leaves their machine. One tool is published:
+Converts flow cytometry median fluorescence intensity into antibody binding
+capacity against a calibrated bead standard, reports the uncertainty, and
+refuses to report a number it cannot defend.
 
-- **Antigen density calculator** converts flow cytometry MFI into antibody
-  binding capacity (ABC) against a calibrated bead standard.
+Free, open source, and built by [Ligant](https://ligant.ai) and A.B. Modi for
+cell therapy researchers. It runs entirely in the browser. Nothing you enter
+ever leaves your computer.
 
-A second is built and unlisted:
+Live at **[benchtools.ligant.ai](https://benchtools.ligant.ai)**.
 
-- **Cytotoxicity curve fitter** fits a four parameter logistic to dose response
-  data and reports potency with a confidence interval. It is served at
-  `/cytotoxicity/` and works, but it is absent from the tool switcher and the
-  sitemap and its page asks not to be indexed, so it reaches anyone holding the
-  link and nobody else. The reason is review rather than function: the antigen
-  density tool has been through two external QA passes and this one through
-  none, and what those passes found were defects that put wrong numbers on the
-  screen. `listed` in `src/lib/site.ts` is the single switch; the meta tag in
-  `cytotoxicity/index.html` and the rule in `public/_headers` come off with it.
+## Why this exists
 
-Scope is cell therapy, and deliberately only cell therapy: CAR-T, CAR-NK, TCR-T,
-TIL and other adoptive cell products. Gene therapy is out of scope, as is
-anything that is not a cell product. Each tool is designed for the modality
-rather than merely usable within it, meaning its defaults, units, controls and
-quality checks are the ones these assays actually use. `CONVENTIONS.md` records the
-rule and what it rules out.
+The quantity a chimeric antigen receptor actually responds to is surface
+antigen density, not relative fluorescence. A CAR that clears a target line at
+50,000 molecules per cell may do nothing at 500, and the same construct may kill
+a normal tissue that expresses the antigen at an intermediate level. On-target
+off-tumour toxicity is a question about numbers of molecules, and it cannot be
+answered in arbitrary fluorescence units.
 
-## Method: antigen density
+Laboratories do this conversion today in ad-hoc spreadsheets. The arithmetic is
+short, the failure modes are not: a bead population entered against the wrong
+certified value, a control brighter than its sample, a calibration curve bending
+in a way that leaves both R² and the slope looking healthy. Every one of those
+produces a number that looks like an answer.
 
-The number a CAR actually responds to is surface antigen density, not relative
-fluorescence. Labs convert MFI to antibody binding capacity in ad-hoc
-spreadsheets, which is tedious and easy to get wrong. This does it correctly,
-shows its working, and refuses to report a number it cannot defend.
+This tool does the conversion, shows its working, and says plainly when the
+answer should not be reported. It is open source because a measurement nobody
+can inspect is not a measurement, and because the field is better served by one
+implementation that is argued over in public than by fifty spreadsheets that are
+not.
 
-The reported quantity is ABC, the number of antibody molecules bound per cell.
-That is not the same as antigen copy number, so the tool never labels it as
-such: antigen sites are shown separately as a range inferred from binding
-valency, and marked as inferred.
+## Method
 
 Bead standards are fitted by ordinary least squares in log10–log10 space:
 
@@ -43,8 +39,13 @@ Bead standards are fitted by ordinary least squares in log10–log10 space:
 log10(assigned value) = slope · log10(MFI) + intercept
 ```
 
-A sample MFI is then mapped through that fit. Two calibration chemistries are
-supported, because they certify different quantities:
+A sample intensity is mapped through that fit and reported as **ABC**, the
+number of antibody molecules bound per cell. ABC is not antigen copy number, so
+the tool never labels it as such. Antigen sites are shown separately, as a range
+inferred from binding valency and marked as inferred.
+
+Two calibration chemistries are supported, because they certify different
+quantities:
 
 | Chemistry | Beads certify | Conversion |
 |---|---|---|
@@ -53,213 +54,223 @@ supported, because they certify different quantities:
 
 Corrections and reporting:
 
-- **Background** subtracted either in density space (default) or in MFI space.
-  These agree only when the log-log slope is exactly 1.
-- **Binding valency** brackets antigen sites per cell: a whole IgG binding
-  bivalently gives ABC to 2×ABC.
-- **Confidence interval** is the interval on the fitted mean response at the
-  sample's MFI, quantifying uncertainty in the position of the calibration curve. It
-  deliberately excludes measurement variability in the unknown sample, which
-  would require replicates; claiming it here would overstate precision.
+- **Background** is subtracted either in density space (the default) or in MFI
+  space. The two agree only when the log-log slope is exactly 1, and the tool
+  reports how far apart they are when they are not.
+- **Binding valency** brackets antigen sites per cell. A whole IgG binding
+  bivalently gives a range of ABC to 2×ABC.
+- **The confidence interval** is the interval on the fitted mean response at the
+  sample's intensity. It quantifies uncertainty in the position of the
+  calibration curve, and deliberately excludes measurement variability in the
+  unknown sample, which would need replicates. Claiming it here would overstate
+  precision.
 
-Assigned bead values are **lot-specific** and are never hard-coded. Kits supply
-population structure and chemistry only.
+Assigned bead values are **lot-specific and are never hard-coded**. Kit
+definitions supply population structure and calibration chemistry only; the
+certified values are transcribed by the user from the vial or its certificate of
+analysis.
 
-### Quality flags
+### What it refuses to do
 
-The tool refuses to be quietly wrong. It flags:
+The tool computes and reports rather than blocking entry, but it withholds a
+figure the calibration cannot support, and says which one and why. It flags:
 
-- sample MFI outside the bead range (extrapolated, not quantitative)
+- a sample intensity outside the bead range, which is extrapolation rather than
+  quantification
 - R² below 0.98
-- log-log slope more than 0.15 from unity (detector or compensation problem)
-- a standard that is not straight in log-log space, tested by the significance
-  of a quadratic term and reported as the drift in local slope across the range.
-  A symmetric bend leaves the overall slope at unity and R² high, so neither of
-  those catches it. Requires six populations; below that the test has no power
-  and is not run
-- assigned values not increasing with MFI (transposed rows)
-- a fit resting on three populations, leaving one degree of freedom
+- a log-log slope more than 0.15 from unity, which usually means a detector or
+  compensation problem
+- a standard curve that is not straight in log-log space, tested by the
+  significance of a quadratic term and reported as the drift in local slope
+  across the range. A symmetric bend leaves the overall slope at unity and R²
+  high, so neither of those catches it. The test needs six populations; below
+  that it has no power and is not run
+- a bead population whose intensity-to-certified-value ratio disagrees with the
+  rest of the table, named at its own row
+- assigned values that do not increase with intensity, which is a transposition
+- a fit resting on three populations, which leaves one degree of freedom
 - background at or above sample signal, reported as below detection
-- background a material fraction of gross, escalated when the control MFI is
-  itself extrapolated below the standard
+- background that is a material fraction of the gross signal, escalated when the
+  control intensity is itself extrapolated below the standards
 - density-space and MFI-space subtraction diverging by more than a tenth
-- a declared antibody host the selected capture beads cannot bind
-- results below the lowest standard
+- a declared antibody host that the selected capture beads cannot bind
+- a value that cannot be used, named at the field it was typed into
 
-## Method: cytotoxicity curve fitting
+### Interpretation bands
 
-A four parameter logistic is fitted by Levenberg-Marquardt on a log dose axis,
-with an analytic Jacobian. The fit is collapsed onto the canonical branch, so a
-positive Hill slope always means the high dose plateau is `top` and a curve that
-falls with dose is reported as an IC50 rather than an EC50. The potency interval
-is symmetric in log dose and therefore asymmetric in dose, which is how a
-sigmoidal fit actually behaves.
+Results are labelled against order-of-magnitude bands drawn from the published
+CAR density-threshold literature: sub-threshold below 100 ABC, low to 1,000,
+intermediate to 10,000, high above that.
 
-The recurring failure in a killing assay is a curve fitted through data that
-never plateaus: it converges, R² looks respectable, and the reported potency is
-an extrapolation. That case is flagged, along with a potency outside the tested
-dose range, an unreached lower plateau, implausible plateaus on a percentage
-scale, a Hill slope steeper than the points can support, and four parameters
-resting on fewer than six dose levels. Every flag carries a remedy.
+**These are reading aids, not validated cutoffs.** A CAR's activation threshold
+is a property of the specific construct (binder affinity, hinge, costimulatory
+domain) and of the effector function in question: cytotoxicity triggers at lower
+density than cytokine release, which triggers lower than proliferation.
 
-Series are distinguished by marker shape, dash pattern and a direct label, never
-by hue. The brand defines no categorical palette and cannot supply one: navy
-against slate measures ΔE 14.1 for normal vision, below the legibility floor.
-Shape encoding also survives greyscale printing, which a journal figure has to.
+## The functions that do the work
+
+The computation is a small, pure core with no framework in it. Every function
+below takes values and returns values.
+
+**`src/lib/stats.ts`** implements the statistics from scratch rather than
+pulling in a library, so that every number can be traced and tested:
+
+| Function | Does |
+|---|---|
+| `linearRegression(xs, ys)` | Ordinary least squares, returning slope, intercept, R², residual standard error and the sums the interval needs |
+| `meanResponseInterval(fit, x, level)` | The confidence interval on the fitted mean response at a point |
+| `quadraticCurvature(xs, ys)` | Fits a centred quadratic by closed-form normal equations and tests the second-order term, which is what detects a symmetric bend |
+| `studentTCdf`, `studentTInv`, `tCritical` | Student's t, via a Lanczos log-gamma and the regularised incomplete beta |
+
+**`src/lib/quantify.ts`** is the calibration core:
+
+| Function | Does |
+|---|---|
+| `fitStandardCurve(standards)` | Fits the bead standards and raises the curve-level flags |
+| `checkStandardConsistency(standards)` | Finds the population that disagrees with the others, before any fit is trusted |
+| `captureCompatibilityFlags(kit, host)` | Checks the declared antibody host against the capture chemistry |
+| `quantifySample(sample, curve, options)` | Maps one intensity through the fit, applies background and valency, returns the result and its flags |
+| `quantifyWithCalibration(...)` | The same, with curve-level flags propagated onto the sample, so an invalid calibration reaches every figure it invalidates |
+| `calibrationValid`, `resultStatus` | Whether a result may be reported, and at what confidence |
+| `bandFor(abc)` | The interpretation band |
+
+**`src/lib/validate.ts`** (`checkMfi`, `checkAssigned`, `checkControl`) says what
+is wrong with a single value at the field it was typed into.
+**`src/lib/paste.ts`** (`readPaste`) reads a block pasted from a spreadsheet and
+reports what it assumed, rather than silently guessing.
+**`src/lib/persist.ts`** (`persist`, `restoreOptions`) holds the rule that
+storage mirrors work in progress, and nothing else.
+
+## Reproducibility and determinism
+
+A tool that produces a number a laboratory writes down has to produce the same
+number tomorrow. That is a design constraint here, not an aspiration:
+
+1. **Every reported number comes from a pure function over the user's inputs.**
+   No network call and no model output ever reaches a computed value. A test
+   asserts that repeated evaluation of identical inputs produces identical
+   results, bit for bit.
+2. **The statistics are verified against external references**, not against the
+   implementation's own output: published Student's t critical values, and
+   closed-form regression results computed independently.
+3. **The methods text travels with the numbers.** The CSV export carries the
+   fit, the options in force, the flags raised, and a machine-readable status
+   per sample, so a result can be audited without the session that produced it.
+4. **The whole thing is 313 tests and roughly 8,900 lines of TypeScript**, with
+   no runtime dependency beyond React and two self-hosted typefaces.
+
+Where a threshold appears in this tool, it was chosen from measurement rather
+than from convention, and the reasoning is in the commit that introduced it. The
+ratio-consistency tolerance is 2.5 rather than the 10 originally proposed,
+because 10 would have missed both the transposition and the decimal slip the
+check exists to catch, while real curves stay under 1.70.
+
+## How AI is used, and how it is not
+
+The tool ships a question-answering layer: a reader can ask a question at any
+control and get an answer. It is worth being exact about what that is, because
+"AI" covers two very different things and only one of them is here.
+
+**No language model is involved, and nothing is generated.** Every answer is a
+passage written by hand, held in the repository, and returned verbatim under its
+own heading so the reader can see where it came from. The retrieval is BM25 over
+that corpus, with title weighting, hand-written domain synonym groups, and a
+conservative stemmer. It is scoped to the control the question was asked at,
+which is what lets a small corpus behave like a large one.
+
+This has consequences a generative system cannot offer:
+
+- **It cannot invent an answer.** When nothing in the corpus clears the relevance
+  gate, the tool says so rather than approximating. Silence is a truthful
+  statement that the corpus does not cover a question yet.
+- **It is deterministic.** The same question against the same state returns the
+  same passages in the same order.
+- **It is auditable.** The corpus is source code. You can read every answer the
+  tool is capable of giving, and disagree with any of them in a pull request.
+- **It runs entirely in the browser**, with no inference server, no API key and
+  no request. There is nothing to send anywhere because there is nothing to ask.
+
+Questions the reader types are held in memory for the session and are never
+written to storage. A question can carry as much of someone's work as the data
+does.
+
+If on-device inference is added later, the constraints are already set: weights
+must be Apache-2.0 or MIT licensed and served from this origin, so that no
+outside party ever observes a user, and the single content-security-policy
+relaxation it would need (`'wasm-unsafe-eval'`) grants no network capability. No
+model output would reach a computed value in any case; determinism is not
+negotiable.
 
 ## Privacy
 
-Nothing you enter is transmitted, and the page contacts no third party. Not "we
-do not sell your data" but "nothing outside this origin is contacted at all":
+Nothing you enter is transmitted, and the page contacts no third party at all.
+Not "we do not sell your data", but "no origin other than this one is contacted,
+ever":
 
-- Typefaces are self-hosted (about 104 kB, Latin subsets), not loaded from a
-  font network, so no third party sees a visitor.
-- No analytics script.
-- The content security policy allows connections to this origin only.
+- Typefaces are self-hosted, about 104 kB of Latin subsets, rather than loaded
+  from a font network, so no third party sees a visitor.
+- There is no analytics script, no error reporting and no telemetry of any kind.
+- The content security policy permits connections to this origin only.
+- What is stored in your browser is disclosed on the page, is only ever the
+  values currently on screen, and is removed by a button. Enter nothing and
+  nothing is written.
 
-This is checked, not asserted. `npm run check:privacy` fails the build on any
-external origin in the policy, the entry document, or the bundle, and on any
-network primitive in the source. `npm run check:network` then serves the
-production build with that policy applied as a real header, drives a full user
-session in a browser, and fails if a single request leaves the origin. Both run
-in CI.
+**This is enforced, not promised.** Two checks run in CI on every commit:
 
-## Determinism
+- `npm run check:privacy` fails the build on any external origin in the policy,
+  the entry document or the bundle, and on any network primitive in the source.
+- `npm run check:network` serves the production build with the real policy
+  applied as a header, drives a full session in a browser, and fails if a single
+  request leaves the origin. It also asserts that every key written to browser
+  storage is disclosed on the page and removed by the control that offers to
+  remove it.
 
-Every number comes from pure functions over the user's inputs. No model, no
-network call, no language model anywhere in the compute path. Identical inputs
-produce identical outputs, always. A test asserts exactly that.
+String analysis is the early gate. The runtime assertion is the guarantee.
 
-The statistics core is verified against published Student's t critical values and
-against closed-form regression results.
+If you would rather not trust a website at all, `npm run build:single` emits one
+self-contained HTML file with everything inlined. It works from a local disk
+with no server and no network connection.
 
-## Interpretation bands
-
-Results are labelled against order-of-magnitude density bands drawn from the
-published CAR density-threshold literature. **These are reading aids, not
-validated cutoffs.** A CAR's activation threshold is a property of the specific
-construct (scFv affinity, hinge, costimulatory domain) and of the effector
-function in question: cytotoxicity triggers at lower density than cytokine
-release and proliferation.
-
-## Development
+## Running it
 
 ```sh
 npm install
-npm run dev            # local dev server
-npm test               # unit tests over the maths cores
-npm run build          # static site -> dist/
-npm run build:single   # one self-contained HTML file -> dist-single/
+npm run dev            # development server
+npm run verify         # style, privacy, types, tests, build, runtime network check
+npm run build          # static site to dist/
+npm run build:single   # one self-contained HTML file
 ```
 
-No backend. No accounts. No data leaves the browser. State persists to
-`localStorage` and degrades cleanly when storage is unavailable.
+`npm run verify` is what CI runs. A change that breaks the privacy guarantee
+fails the build rather than reaching review.
 
-## Brand
+## Contributing
 
-Implements **Ligant Brand Guidelines v1.1**. Every colour is taken from the
-published palette, with nothing re-stepped or invented. Inter for UI text,
-IBM Plex Mono for digits, identifiers, and aligned columns. The Council · Ringed
-mark is drawn as inline SVG (ring = the table, six dots = the agents, amber
-centre = the human), so it stays crisp at favicon sizes.
+The most valuable contributions are corrections to the science. If a flag fires
+when it should not, if a threshold is wrong, or if a guidance passage is
+misleading, an issue with the numbers that show it is worth more than a patch.
 
-Two brand rules changed the design rather than just its colours:
+Two conventions matter enough to state here. No language model output may reach
+a computed value. And a new quality check must encode a real failure mode of
+this assay, with the measurement that justifies its threshold, rather than
+generic curve-fitting hygiene.
 
-- **Density bands are achromatic.** §04 states green is not good and red is not
-  bad news, and §06.03 asks for epistemic neutrality. Density is a magnitude, so
-  the bands run along a warm-neutral to navy ramp and assert no verdict. They
-  previously used a green/amber/red status scale, which editorialised the result.
-- **Quality flags wear amber, not red.** Amber is the human decision moment; red
-  is reserved for system error. An extrapolation warning is a decision point,
-  not a failure.
+## Status and limitations
 
-### Single theme, deliberately
+`v0.1.0`. **Research use only. Not for clinical or diagnostic decision-making.**
 
-The app is light-only, on the brand's Off-White ground, and every colour is a
-published value, with nothing re-stepped, derived, or invented. The UI therefore
-carries **no brand variance and needs no sign-off**.
+The confidence interval covers the calibration curve, not the sample. Assigned
+bead values are lot-specific and must come from your own certificate of
+analysis. The interpretation bands are reading aids and not validated cutoffs.
+The tool cannot see your gating, your compensation or your titration, and says
+so where those would change the answer.
 
-Measured on Off-White: navy 13.3:1, slate body 8.3:1, muted 5.5:1, teal 4.8:1.
-All are AA or better for body text. Amber is 3.05:1, so it carries icons, rules,
-and marks, never small text.
+## Licence
 
-Backgrounds are painted explicitly rather than left transparent, so the page
-holds its own ground on any host, including a dark one.
+See `LICENSE`.
 
-## Stack
+---
 
-React + TypeScript + Vite. The chart is hand-rolled SVG rather than a charting
-library, so exports are true vector suitable for a manuscript figure, and there is
-no dependency to rot.
-
-## Deployment
-
-`ci.yml` runs typecheck, tests, and both builds on every push, and uploads the
-result as an artifact. It is independent of hosting.
-
-`deploy-cloudflare.yml` publishes `dist/` to Cloudflare Pages by direct upload.
-
-**GitHub Pages is not an option here**: it is unavailable for private
-repositories on the GitHub Free plan, so no workflow can enable it while the
-repository is private on a Free account.
-
-### Option A: deploy from CI (no dashboard Git connection)
-
-`deploy-cloudflare.yml` builds and uploads on every push. It needs two
-repository secrets, added under **Settings → Secrets and variables → Actions**:
-
-| Secret | Where it comes from |
-|---|---|
-| `CLOUDFLARE_API_TOKEN` | Cloudflare → My Profile → API Tokens → Create Token, with the **Cloudflare Pages: Edit** permission |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account home, or the hex string in any dashboard URL |
-
-The workflow creates the Pages project (`ligant-tools`) on first run and deploys
-to it thereafter. Without the secrets it skips rather than failing red, so CI
-stays green until they are set.
-
-### Option B: connect the repository in the dashboard
-
-1. Cloudflare dashboard → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**
-2. Authorise GitHub and pick this repository
-3. Build command `npm run build`, output directory `dist`; everything else default
-
-Node comes from `.node-version` (22) either way. Use one option or the other,
-not both, or the two will fight over the same project.
-
-### After either option
-
-**Custom domain**: the site is served from `benchtools.ligant.ai`. Pages project
-→ **Custom domains** → **Set up a custom domain**. Cloudflare adds the DNS
-record and issues the certificate itself when the zone is on the same account.
-
-The origin and the tool list are defined once in `src/lib/site.ts`. The tool
-switcher, the canonical links, the social metadata, `robots.txt` and
-`sitemap.xml` are all derived from it, the last two generated at build time, so
-adding a tool cannot leave the sitemap behind and moving the site is a one line
-change.
-
-**Web Analytics**: deliberately not enabled. The script is served from a
-third-party origin, which the Content-Security-Policy in `public/_headers` does
-not permit and which `npm run check:privacy` fails the build on. Zero
-third-party origins is a stated invariant of the product, so there is no visitor
-measurement of any kind.
-
-`public/_headers` also sets a strict Content-Security-Policy, `nosniff`,
-`X-Frame-Options`, a `Referrer-Policy`, and cache rules: hashed assets are
-immutable for a year, while the entry document must revalidate so a deploy
-reaches returning visitors. The policy has been verified against a production
-build. The app renders, computes, and loads both typefaces with no violations.
-
-### Anywhere else
-
-The build is plain files with relative asset paths, so it runs from a repository
-sub-path, a custom domain, or a subdirectory unchanged. Netlify and Vercel take
-the same build command and output directory.
-
-`npm run build:single` emits one self-contained HTML file that needs no server at
-all, which suits a quick host, an offline demo, or sending to a collaborator.
-
-## Status
-
-`v0.1.0`, first release. Research use only; not for clinical or diagnostic
-decision-making.
+Also in this repository: a cytotoxicity curve fitter, at `/cytotoxicity/`. It
+works, but it has had none of the external review this calculator has had, so it
+is unlisted and is not part of this release.
