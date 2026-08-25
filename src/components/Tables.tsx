@@ -28,6 +28,20 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
   const consistency = checkStandardConsistency(standards)
   const outlierFor = new Map(consistency.outliers.map((o) => [o.id, o]))
 
+  // Said about the table rather than about any row in it, and moved into the
+  // same block for the same reason: it was the last message still inserted
+  // between the rows, so it was the last one that could move a field under a
+  // reader while it appeared.
+  if (consistency.wholeTable) {
+    notes.push({
+      row: 'These populations',
+      severity: 'error',
+      message: 'disagree with one another, so the problem is the table rather than any one row.',
+      remedy:
+        'Check the certified values against the certificate of analysis before reading any result. A column pasted into the wrong place, or values from a different lot, are the usual causes.',
+    })
+  }
+
   // A row missing its certified value is dropped from the fit without saying
   // so, which is worth naming. It is only worth naming once some other row is
   // complete: before that the table is mid-entry, and every row in it is on its
@@ -161,21 +175,6 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
               </tr>,
             ]
           })}
-          {consistency.wholeTable && (
-            <tr className="row-flag">
-              <td colSpan={5}>
-                <strong>
-                  Most of these populations disagree with one another, so the problem is the table
-                  rather than any one row.
-                </strong>{' '}
-                <span>
-                  Check the certified values against the certificate of analysis before reading any
-                  result. A column pasted into the wrong place, or values from a different lot, are
-                  the usual causes.
-                </span>
-              </td>
-            </tr>
-          )}
         </tbody>
       </table>
       <RowNotes notes={notes} />

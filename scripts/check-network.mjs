@@ -1084,6 +1084,43 @@ if (!/certified capacities in these kits fall/i.test(shift.warned)) {
   )
 }
 
+// --- what the messages say, at the moment several of them are on screen ---
+//
+// Two defects of the same shape reached a live pass, one on each side of the
+// same change: a note repeated the row name the component had already printed
+// ("Population 1 Population 1 does not agree ..."), and a range guard written
+// without the shared formatter said capacities "fall roughly between 1e+2 and
+// 1e+7". Asserted as classes rather than as the two strings, because both are
+// cheap to reintroduce anywhere a sentence is composed.
+const prose = await page.evaluate(() => {
+  const notes = [...document.querySelectorAll('.row-notes li')].map((li) => ({
+    row: li.querySelector('strong')?.textContent?.trim() ?? '',
+    text: li.textContent ?? '',
+  }))
+  const everything = [
+    ...document.querySelectorAll('.row-notes li, .flag, .verdict, .paste-notice p, .result-card'),
+  ].map((el) => el.textContent ?? '')
+  return { notes, everything }
+})
+if (prose.notes.length === 0) {
+  uiFailures.push('antigen density: expected the table to be saying something, and it said nothing')
+}
+for (const note of prose.notes) {
+  // "Population 1" followed immediately by "Population 1 does not agree ...".
+  if (note.row && note.text.replace(note.row, '').trimStart().startsWith(note.row)) {
+    uiFailures.push(`antigen density: a note repeats the row it already names: "${note.text.slice(0, 70)}"`)
+  }
+}
+for (const text of prose.everything) {
+  const exponent = text.match(/\d(?:\.\d+)?e[+-]\d+/i)
+  if (exponent) {
+    uiFailures.push(
+      `antigen density: a message written for a reader carries "${exponent[0]}" in scientific ` +
+        `notation ("${text.trim().slice(0, 70)}")`,
+    )
+  }
+}
+
 await page.evaluate(() => localStorage.clear())
 
 // ---------------------------------------------------------------------------

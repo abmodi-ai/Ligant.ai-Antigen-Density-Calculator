@@ -30,6 +30,8 @@ const MFI_CEILING = 1e7
 const ASSIGNED_FLOOR = 1e2
 const ASSIGNED_CEILING = 1e7
 
+import { formatNumber } from './format'
+
 export type Severity = 'error' | 'warning'
 
 export interface FieldIssue {
@@ -99,7 +101,7 @@ export function checkAssigned(
   if (assigned < ASSIGNED_FLOOR || assigned > ASSIGNED_CEILING) {
     return {
       severity: 'warning',
-      message: `Certified capacities in these kits fall roughly between ${ASSIGNED_FLOOR.toExponential(0)} and ${ASSIGNED_CEILING.toExponential(0)}. Check this against the certificate of analysis.`,
+      message: `Certified capacities in these kits fall roughly between ${formatNumber(ASSIGNED_FLOOR)} and ${formatNumber(ASSIGNED_CEILING)}. Check this against the certificate of analysis.`,
     }
   }
   return null

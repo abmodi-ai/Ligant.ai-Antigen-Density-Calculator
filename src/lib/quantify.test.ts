@@ -876,3 +876,27 @@ describe('numbers written into a sentence a reader says out loud', () => {
     }
   })
 })
+
+describe('a message that does not name what the caller already names', () => {
+  const std = (label: string, mfi: number, assigned: number) => ({
+    id: label, label, mfi, assigned, included: true,
+  })
+
+  // Found live. The note is rendered with the row name in front of it, and the
+  // message opened with the row name too, so a reader saw "Population 1
+  // Population 1 does not agree with the other standards".
+  it('leaves the row name to whoever renders it', () => {
+    const consistency = checkStandardConsistency([
+      std('Population 1', 2_050, 8_300),
+      std('Population 2', 12_900, 51_000),
+      std('Population 3', 39_500, 175_000),
+      std('Population 4', 1_470, 5),
+    ])
+    expect(consistency.outliers.length).toBeGreaterThan(0)
+    for (const outlier of consistency.outliers) {
+      expect(outlier.message.startsWith(outlier.label)).toBe(false)
+      // The label is still carried, so a caller can name the row itself.
+      expect(outlier.label).toBeTruthy()
+    }
+  })
+})
