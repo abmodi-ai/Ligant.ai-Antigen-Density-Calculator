@@ -1,7 +1,7 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'node:path'
-import { SITE_URL, TOOLS } from './src/lib/site'
+import { LISTED_TOOLS, SITE_URL } from './src/lib/site'
 
 /**
  * Derives everything that needs to know the site's origin from `src/lib/site.ts`.
@@ -40,7 +40,10 @@ function siteMetadata(): Plugin {
         ].join('\n'),
       })
 
-      const urls = TOOLS.map(
+      // Listed tools only. An unlisted tool is still built and still served;
+      // it is simply not offered to anyone who was not sent to it, and its own
+      // page carries a robots directive saying the same thing.
+      const urls = LISTED_TOOLS.map(
         (tool) =>
           [
             '  <url>',

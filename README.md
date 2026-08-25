@@ -1,12 +1,22 @@
 # Ligant Bench Tools
 
 Free, deterministic browser tools for cell therapy research. Nothing a user
-enters leaves their machine. Two tools ship today:
+enters leaves their machine. One tool is published:
 
 - **Antigen density calculator** converts flow cytometry MFI into antibody
   binding capacity (ABC) against a calibrated bead standard.
+
+A second is built and unlisted:
+
 - **Cytotoxicity curve fitter** fits a four parameter logistic to dose response
-  data and reports potency with a confidence interval.
+  data and reports potency with a confidence interval. It is served at
+  `/cytotoxicity/` and works, but it is absent from the tool switcher and the
+  sitemap and its page asks not to be indexed, so it reaches anyone holding the
+  link and nobody else. The reason is review rather than function: the antigen
+  density tool has been through two external QA passes and this one through
+  none, and what those passes found were defects that put wrong numbers on the
+  screen. `listed` in `src/lib/site.ts` is the single switch; the meta tag in
+  `cytotoxicity/index.html` and the rule in `public/_headers` come off with it.
 
 Scope is cell therapy, and deliberately only cell therapy: CAR-T, CAR-NK, TCR-T,
 TIL and other adoptive cell products. Gene therapy is out of scope, as is

@@ -36,6 +36,19 @@ if (!SITE_URL) {
   process.exit(1)
 }
 
+/**
+ * The tool registry, read the same way and for the same reason: this script
+ * must not carry its own copy of what the site contains, or unlisting a tool
+ * would leave the assertion below testing the previous shape of the site.
+ */
+const TOOLS = [...readFileSync('src/lib/site.ts', 'utf8').matchAll(
+  /\{\s*id:\s*'([^']+)'[^}]*?path:\s*'([^']+)'[^}]*?listed:\s*(true|false)\s*\}/g,
+)].map(([, id, path, listed]) => ({ id, path, listed: listed === 'true' }))
+if (TOOLS.length === 0) {
+  console.error('Could not read the tool registry from src/lib/site.ts.')
+  process.exit(1)
+}
+
 const csp = readFileSync('public/_headers', 'utf8')
   .split('\n')
   .find((l) => l.trim().startsWith('Content-Security-Policy:'))
@@ -784,6 +797,75 @@ else {
 await page.evaluate(() => localStorage.clear())
 
 // ---------------------------------------------------------------------------
+// A tool that is built, served, and offered to nobody.
+//
+// Unlisted is four things that have to agree: absent from the switcher, absent
+// from the sitemap, asking not to be indexed, and still working for anyone
+// holding the link. Three of them are quiet failures. A tool left in the
+// sitemap is indexed whatever its page says; a tool dropped from the build is
+// a dead link for everyone already sent to it. This asserts all four, so
+// relisting is one flag rather than an archaeology exercise.
+// ---------------------------------------------------------------------------
+{
+  const unlisted = TOOLS.filter((tool) => !tool.listed)
+  const listed = TOOLS.filter((tool) => tool.listed)
+
+  const sitemap = await (await fetch(ORIGIN + '/sitemap.xml')).text()
+  for (const tool of unlisted) {
+    if (sitemap.includes(tool.path === '/' ? `${SITE_URL}/<` : SITE_URL + tool.path)) {
+      uiFailures.push(`${tool.id}: unlisted, but still in the sitemap`)
+    }
+  }
+  for (const tool of listed) {
+    if (!sitemap.includes(SITE_URL + tool.path)) {
+      uiFailures.push(`${tool.id}: listed, but missing from the sitemap`)
+    }
+  }
+
+  for (const tool of unlisted) {
+    const res = await fetch(ORIGIN + tool.path)
+    if (!res.ok) {
+      uiFailures.push(`${tool.id}: unlisted, but no longer served (HTTP ${res.status})`)
+      continue
+    }
+    if (!/name="robots"[^>]*noindex/i.test(await res.text())) {
+      uiFailures.push(`${tool.id}: unlisted, but its page does not ask to be left out of an index`)
+    }
+
+    // Still a working tool, not a shell. Someone was sent this link.
+    await page.goto(ORIGIN + tool.path, { waitUntil: 'networkidle' })
+    await page.waitForTimeout(900)
+    const alive = await page.evaluate(() => ({
+      main: !!document.querySelector('main#main'),
+      figures: document.querySelectorAll('svg').length,
+    }))
+    if (!alive.main || alive.figures === 0) {
+      uiFailures.push(`${tool.id}: unlisted, and the page no longer renders a working tool`)
+    }
+
+    // The way back is the one place it may appear, and only to a reader who is
+    // already standing on it.
+    const nav = await page.evaluate(() => [...document.querySelectorAll('.tool-nav a')].map((a) => a.getAttribute('href')))
+    if (!listed.every((t) => nav.includes(t.path))) {
+      uiFailures.push(`${tool.id}: unlisted, and the switcher offers no way back to the published tools`)
+    }
+  }
+
+  // The published pages must not point at it anywhere.
+  for (const tool of listed) {
+    await page.goto(ORIGIN + tool.path, { waitUntil: 'networkidle' })
+    await page.waitForTimeout(600)
+    const leaked = await page.evaluate((paths) => {
+      const hrefs = [...document.querySelectorAll('a[href]')].map((a) => a.getAttribute('href') ?? '')
+      return hrefs.filter((href) => paths.some((p) => href === p || href.endsWith(p)))
+    }, unlisted.map((t) => t.path))
+    if (leaked.length > 0) {
+      uiFailures.push(`${tool.id}: links to an unlisted tool (${leaked.join(', ')})`)
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // A student asking what and why at the other tool.
 //
 // The corpus was probed with the questions a reader new to cell therapy asks
@@ -911,6 +993,7 @@ console.log('reads as the numbers it was written as; and a population whose cert
 console.log('does not belong with the others is named at its own row; and a calibration')
 console.log('that cannot support a figure reports itself, and withholds the figure; and a\n' +
   'student question the corpus was extended to answer reaches the passage written\n' +
-  'for it, at the card it belongs to; and what\n' +
-  'is wrong with one value is said at the field it was typed into, on inclusion\n' +
-  'rather than on what a row is called.')
+  'for it, at the card it belongs to; and an unlisted tool is absent from the\n' +
+  'switcher and the sitemap, asks not to be indexed, and still works for anyone\n' +
+  'holding its link; and what is wrong with one value is said at the field it\n' +
+  'was typed into, on inclusion rather than on what a row is called.')
