@@ -133,6 +133,18 @@ p  { margin: 0; }
 @media (max-width: 1060px) { .layout { grid-template-columns: minmax(0, 1fr); } }
 
 .rail { position: sticky; top: 24px; display: flex; flex-direction: column; gap: 16px; }
+
+/* Two columns: inputs and method stacked on the left, results on the right.
+   The rail spans every row so that sticky has the full height to work in;
+   without it the rail would stick only within the first row. */
+@media (min-width: 1061px) {
+  .layout > .stack { grid-column: 1; grid-row: 1; }
+  .layout > .rail { grid-column: 2; grid-row: 1 / -1; }
+  .layout > .panel { grid-column: 1; grid-row: 2; }
+}
+
+/* One column: inputs, then results, then method, which is source order. Sticky
+   is dropped, since there is nothing beside the rail to stay level with. */
 @media (max-width: 1060px) { .rail { position: static; } }
 
 .stack { display: flex; flex-direction: column; gap: 16px; }
@@ -640,6 +652,31 @@ tr.inconsistent td { background: rgba(184, 134, 11, 0.05); }
   color: var(--text-secondary);
 }
 .row-flag strong { color: var(--text-primary); font-weight: 600; }
+
+/* ---------- what the table has to say about its rows ---------- */
+
+/* Below the table rather than between its rows, so that appearing and
+   disappearing never moves a field the reader is typing into. */
+.row-notes {
+  list-style: none;
+  margin: 0 16px 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.row-notes li {
+  padding: 8px 12px;
+  border-left: 2px solid var(--series-decision);
+  background: var(--surface-sunken);
+  border-radius: 0 6px 6px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.row-notes li.row-note-error { border-left-width: 4px; }
+.row-notes strong { color: var(--text-primary); font-weight: 600; }
+.row-note-remedy { display: block; margin-top: 4px; }
 .row-flag p { margin: 0; }
 .row-flag p + p { margin-top: 6px; }
 

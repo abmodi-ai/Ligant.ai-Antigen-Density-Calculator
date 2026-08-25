@@ -605,7 +605,7 @@ await page.evaluate(() => localStorage.clear())
 await page.reload({ waitUntil: 'networkidle' })
 await page.waitForTimeout(600)
 
-const cleanFlags = await page.evaluate(() => document.querySelectorAll('.row-flag').length)
+const cleanFlags = await page.evaluate(() => document.querySelectorAll('.row-notes li').length)
 if (cleanFlags !== 0) {
   uiFailures.push(`antigen density: the worked example raised ${cleanFlags} row warning(s), expected none`)
 }
@@ -614,7 +614,10 @@ await page.getByLabel('Assigned value for Population 4').fill('5120000')
 await page.waitForTimeout(500)
 
 const rowFlag = await page.evaluate(() => {
-  const flags = [...document.querySelectorAll('.row-flag')]
+  // Below the table now, rather than inserted as a row inside it, so that
+  // saying something never moves a field the reader is typing into. The row it
+  // is about is named in the sentence and marked in the table.
+  const flags = [...document.querySelectorAll('.row-notes li')]
   const rows = [...document.querySelectorAll('tr.inconsistent')]
   return {
     count: flags.length,
@@ -700,7 +703,7 @@ await page.waitForTimeout(600)
 // The shipped example carries a row named "Blank" with no certified value,
 // left out of the fit. Nothing may be said about it: the rule is on inclusion,
 // never on what a row is called, because labels are free text.
-const quietStart = await page.evaluate(() => document.querySelectorAll('.row-flag').length)
+const quietStart = await page.evaluate(() => document.querySelectorAll('.row-notes li').length)
 if (quietStart !== 0) {
   uiFailures.push(`antigen density: the worked example raised ${quietStart} field warning(s) before anything was typed`)
 }
@@ -710,17 +713,19 @@ await page.waitForTimeout(500)
 
 const orphan = await page.evaluate(() => {
   const field = document.querySelector('input[aria-label="Assigned value for Population 3"]')
-  const flag = field?.closest('tr')?.nextElementSibling
+  const notes = [...document.querySelectorAll('.row-notes li')].map((n) => n.textContent ?? '')
   return {
     marked: field?.getAttribute('aria-invalid'),
-    text: flag?.classList.contains('row-flag') ? flag.textContent ?? '' : '',
+    // The note that names this row, so the sentence is still traceable to the
+    // value even though it no longer sits beneath it.
+    text: notes.find((t) => t.includes('Population 3')) ?? '',
   }
 })
 if (orphan.marked !== 'true') {
   uiFailures.push('antigen density: a population with no certified value is not marked at the field')
 }
 if (!/certified value/i.test(orphan.text)) {
-  uiFailures.push(`antigen density: the row beneath a population with no certified value reads "${orphan.text.slice(0, 70)}"`)
+  uiFailures.push(`antigen density: nothing names Population 3 as missing its certified value (found "${orphan.text.slice(0, 70)}")`)
 }
 
 await page.evaluate(() => localStorage.clear())
@@ -735,11 +740,11 @@ await page.waitForTimeout(500)
 
 const swapped = await page.evaluate(() => {
   const field = document.querySelector('input[aria-label="Control MFI for CD19 (NALM-6)"]')
-  const flag = field?.closest('tr')?.nextElementSibling
+  const notes = [...document.querySelectorAll('.row-notes li')].map((n) => n.textContent ?? '')
   return {
     marked: field?.className ?? '',
     invalid: field?.getAttribute('aria-invalid'),
-    text: flag?.classList.contains('row-flag') ? flag.textContent ?? '' : '',
+    text: notes.find((t) => t.includes('CD19')) ?? '',
   }
 })
 if (!/cell-warning/.test(swapped.marked)) {
@@ -749,7 +754,7 @@ if (swapped.invalid === 'true') {
   uiFailures.push('antigen density: a control brighter than its sample is treated as an invalid entry rather than a caveat')
 }
 if (!/other way round/i.test(swapped.text)) {
-  uiFailures.push(`antigen density: the row beneath a brighter control reads "${swapped.text.slice(0, 70)}"`)
+  uiFailures.push(`antigen density: nothing names CD19 as having a brighter control (found "${swapped.text.slice(0, 70)}")`)
 }
 
 await page.evaluate(() => localStorage.clear())
@@ -968,6 +973,120 @@ if (severity.criticals === 0) {
 await page.evaluate(() => localStorage.clear())
 
 // ---------------------------------------------------------------------------
+// The answer, on a phone, and the table that does not move under the cursor.
+//
+// Two findings from the same live pass, measured the way the reviewer measured
+// them rather than by reading the CSS.
+//
+// At 420px the columns collapse, and "Method and limitations" sat between the
+// last input and the first number: roughly 1,750px of methodology, putting the
+// standard curve at y=3,595 on a 5,000px page. Reading order is now inputs,
+// results, method.
+//
+// The row warning was inserted as a table row beneath the offending one, so it
+// reflowed the table and the next field moved 73px out from under the cursor.
+// Deferring it until blur moved the jump rather than removing it, and hid the
+// warning from anyone looking straight at the value they had just typed. The
+// sentence now sits below the table, where it moves nothing.
+// ---------------------------------------------------------------------------
+await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' })
+await page.evaluate(() => localStorage.clear())
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(700)
+
+// --- the phone reading order ---
+await page.setViewportSize({ width: 420, height: 900 })
+await page.waitForTimeout(500)
+const phone = await page.evaluate(() => {
+  const top = (el) => (el ? Math.round(el.getBoundingClientRect().top + window.scrollY) : null)
+  const heading = [...document.querySelectorAll('h2')]
+  const find = (text) => heading.find((h) => h.textContent?.includes(text))
+  const lastInput = [...document.querySelectorAll('.stack input')].pop()
+  return {
+    lastInput: top(lastInput),
+    curve: top(find('Standard curve')?.closest('.panel')),
+    method: top(find('Method and limitations')?.closest('.panel')),
+    page: document.documentElement.scrollHeight,
+  }
+})
+if (phone.curve === null || phone.method === null) {
+  uiFailures.push('antigen density: could not find the results and method panels at 420px')
+} else {
+  if (phone.method < phone.curve) {
+    uiFailures.push(
+      `antigen density: at 420px the method section (y=${phone.method}) sits above the results ` +
+        `(y=${phone.curve}), so a reader scrolls past it to reach their answer`,
+    )
+  }
+  // The results must be reachable shortly after the inputs end, not a screen
+  // or more later. Generous, because the check is on ordering, not on pixels.
+  if (phone.lastInput !== null && phone.curve - phone.lastInput > 1200) {
+    uiFailures.push(
+      `antigen density: at 420px the results begin ${phone.curve - phone.lastInput}px after the ` +
+        'last input',
+    )
+  }
+}
+await page.setViewportSize({ width: 1280, height: 900 })
+await page.waitForTimeout(400)
+
+// --- the table that does not move ---
+await page.getByRole('button', { name: 'Load worked example' }).click()
+await page.waitForTimeout(600)
+
+// Measured with the table in view, which is the situation being protected: a
+// reader is looking at the field they are about to type into. Measuring from a
+// scroll position where the table sits above the viewport gives a number that
+// is really the browser's scroll anchoring, not a reflow.
+await page.getByLabel('Assigned value for Population 2').scrollIntoViewIfNeeded()
+await page.waitForTimeout(300)
+
+const shift = await page.evaluate(async () => {
+  const field = (label) => document.querySelector(`input[aria-label="${label}"]`)
+  const target = field('MFI for Population 3')
+  const docTop = (el) => Math.round(el.getBoundingClientRect().top + window.scrollY)
+  const before = { viewport: Math.round(target.getBoundingClientRect().top), doc: docTop(target) }
+
+  // Provoke a warning on the row above, the way a reader typing would.
+  const victim = field('Assigned value for Population 2')
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set
+  setter.call(victim, '5')
+  victim.dispatchEvent(new Event('input', { bubbles: true }))
+  await new Promise((r) => setTimeout(r, 400))
+
+  return {
+    // Both, because either alone can mislead. The document measure says the
+    // table did not reflow; the viewport measure says the reader's cursor is
+    // still over the field it was over.
+    doc: Math.abs(docTop(target) - before.doc),
+    viewport: Math.abs(Math.round(target.getBoundingClientRect().top) - before.viewport),
+    warned: document.body.innerText,
+  }
+})
+if (shift.doc > 2) {
+  uiFailures.push(
+    `antigen density: a row warning reflowed the table, moving the field below it by ` +
+      `${shift.doc}px within the document`,
+  )
+}
+if (shift.viewport > 2) {
+  uiFailures.push(
+    `antigen density: a row warning moved the field below it by ${shift.viewport}px on screen, ` +
+      'so the next value is typed into a field that has moved',
+  )
+}
+// The range guard's own words, not just any warning. A certified value of 5
+// also trips the ratio check, whose remedy mentions the certificate of
+// analysis, so matching on that passed whether the range guard fired or not.
+if (!/certified capacities in these kits fall/i.test(shift.warned)) {
+  uiFailures.push(
+    'antigen density: a certified value of 5, far below any kit, drew no range warning of its own',
+  )
+}
+
+await page.evaluate(() => localStorage.clear())
+
+// ---------------------------------------------------------------------------
 // Every key written is a key disclosed.
 //
 // The privacy claim is that a reader can see exactly what is kept in their
@@ -1157,7 +1276,9 @@ console.log('reads as the numbers it was written as; and a population whose cert
 console.log('does not belong with the others is named at its own row; and a calibration')
 console.log('that cannot support a figure reports itself, and withholds the figure; and\n' +
   'what is wrong with one value is said at the field it\n' +
-  'was typed into, on inclusion rather than on what a row is called; and a\n' +
+  'was typed into, without moving the field below it and without waiting for the\n' +
+  'reader to leave the row; and the answer is reachable on a phone without\n' +
+  'scrolling past the method; and a\n' +
   'standard whose certified values are its own intensities is refused despite\n' +
   'fitting perfectly; and a reason not to report reads and looks different from a\n' +
   'caveat, and carries no band or interpretation; and the exported figure carries\n' +

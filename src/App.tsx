@@ -389,14 +389,6 @@ export default function App() {
             </div>
           </section>
 
-          <Method
-            storageKeys={[STORAGE_KEY]}
-            onClearStorage={() => {
-              // Resetting the tool is what removes the key: the empty document
-              // it produces has nothing to keep, so the effect above clears it.
-              setState(emptyState(kit))
-            }}
-          />
         </div>
 
         {/* ---------------- outputs ---------------- */}
@@ -488,6 +480,25 @@ export default function App() {
             </div>
           </section>
         </div>
+
+        {/*
+          A grid child of its own, after the results in source order.
+
+          It used to sit inside the left column beneath the inputs. On one
+          column that put roughly 1,750 pixels of methodology between the last
+          input and the first number: a phone reader finished entering data
+          around y=1,000 and reached the standard curve at y=3,595. Reading
+          order is now inputs, results, method, and the wide layout is restored
+          by placing it back into column one.
+        */}
+        <Method
+          storageKeys={[STORAGE_KEY]}
+          onClearStorage={() => {
+            // Resetting the tool is what removes the key: the empty document
+            // it produces has nothing to keep, so the effect above clears it.
+            setState(emptyState(kit))
+          }}
+        />
       </div>
 
       </main>

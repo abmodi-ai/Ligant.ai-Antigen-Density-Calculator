@@ -826,3 +826,53 @@ describe('a standard that is not a calibration', () => {
     expect(result.fit.residualSE).toBeGreaterThan(1e-9)
   })
 })
+
+describe('numbers written into a sentence a reader says out loud', () => {
+  const std = (label: string, mfi: number, assigned: number, included = true) => ({
+    id: label, label, mfi, assigned, included,
+  })
+
+  // Found live. The ratio message read "its certified value is 0.00 times its
+  // intensity ... a difference of about 1.2e+3 times". A small ratio collapsed
+  // to zero, and an exponent landed in prose meant for a bench.
+  it('does not collapse a small ratio to zero, or reach for an exponent', () => {
+    const consistency = checkStandardConsistency([
+      std('Population 1', 2_050, 8_300),
+      std('Population 2', 12_900, 51_000),
+      std('Population 3', 39_500, 175_000),
+      // Certified value entered as 5: a ratio of 0.0034 against a median near 4.
+      std('Population 4', 1_470, 5),
+    ])
+    const message = consistency.outliers.map((o) => o.message).join(' ')
+    expect(message).not.toMatch(/0\.00\b/)
+    expect(message).not.toMatch(/e[+-]\d/)
+    expect(message).toMatch(/0\.0034/)
+  })
+
+  it('writes a large factor with a separator rather than an exponent', () => {
+    const consistency = checkStandardConsistency([
+      std('Population 1', 2_050, 8_300),
+      std('Population 2', 12_900, 51_000),
+      std('Population 3', 39_500, 175_000),
+      std('Blank given a value', 210, 240_000),
+    ])
+    const message = consistency.outliers.map((o) => o.message).join(' ')
+    expect(message).not.toMatch(/e[+-]\d/)
+    expect(message).toMatch(/\d,\d{3}/)
+  })
+
+  it('writes the curvature probability with one operator, not two', () => {
+    // "quadratic term p = < 0.001" carried both an equals and a less-than.
+    const bent = [
+      [2_050, 9_800], [6_100, 27_000], [12_900, 54_000],
+      [24_000, 96_000], [39_500, 152_000], [121_000, 430_000],
+    ].map(([mfi, assigned], i) => std(`Population ${i + 1}`, mfi, assigned))
+    const result = fitStandardCurve(bent)
+    if ('error' in result) throw new Error(result.error)
+    const message = result.flags.map((f) => f.message).join(' ')
+    if (/quadratic term/.test(message)) {
+      expect(message).not.toMatch(/p = <|p = >/)
+      expect(message).toMatch(/p [<=] /)
+    }
+  })
+})
