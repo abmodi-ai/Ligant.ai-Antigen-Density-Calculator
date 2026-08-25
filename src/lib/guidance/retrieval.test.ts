@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { buildIndex, expandQuery, questionIntent, search, tokenise, type RetrievalIndex } from './retrieval'
-import { stem } from './synonyms'
+import { stem, STOPWORDS, SYNONYM_GROUPS } from './synonyms'
 import { ANTIGEN_DENSITY_GUIDANCE } from './corpus/antigen-density'
 import { CYTOTOXICITY_GUIDANCE } from './corpus/cytotoxicity'
 import { SHARED_GUIDANCE } from './corpus/shared'
@@ -47,6 +47,51 @@ describe('tokenise', () => {
     // "below" is the whole meaning of the question, not a stopword.
     expect(tokens).toContain('below')
     expect(tokens).toContain('lowest')
+  })
+})
+
+describe('the synonym groups themselves', () => {
+  it('keeps every term in exactly one group', () => {
+    // The map is keyed by stem, so a term listed in two groups silently leaves
+    // the first and joins the second. Adding "potency" to a new group about
+    // efficacy took it out of the potency group, and "why is my EC50 so wide"
+    // stopped reaching the passage written for it. Nothing about that is
+    // visible at the point of the edit.
+    const seen = new Map<string, string>()
+    const collisions: string[] = []
+    for (const group of SYNONYM_GROUPS) {
+      for (const term of group.terms) {
+        const key = stem(term)
+        const first = seen.get(key)
+        // Within one group a plural and its singular stem alike, which is the
+        // point of listing both. Across groups it is a silent reassignment.
+        if (first !== undefined && first !== group.id) {
+          collisions.push(`${term} in ${first} and ${group.id}`)
+        } else seen.set(key, group.id)
+      }
+    }
+    expect(collisions).toEqual([])
+  })
+
+  it('does not put a stopword in a group, where it could never be reached', () => {
+    for (const group of SYNONYM_GROUPS) {
+      for (const term of group.terms) {
+        expect(STOPWORDS.has(term), `${term} in ${group.id}`).toBe(false)
+      }
+    }
+  })
+})
+
+describe('stemming an inflection that doubled a consonant', () => {
+  it('reaches the base form, so "fitting" and "fit" are the same word', () => {
+    expect(stem('fitting')).toBe(stem('fit'))
+    expect(stem('fitted')).toBe(stem('fit'))
+    expect(stem('running')).toBe(stem('run'))
+  })
+
+  it('leaves a doubled l, s or z alone, which is not an inflection', () => {
+    expect(stem('called')).toBe('call')
+    expect(stem('passed')).toBe('pass')
   })
 })
 
@@ -115,6 +160,9 @@ describe('questions a scientist would actually type', () => {
     ['what goes in the dose column', 'cy.dose.what', 'cy.dose'],
     ['percentage or unbounded response', 'cy.scale.which', 'cy.scale'],
     ['what does the hill slope tell me', 'cy.potency.hill', 'cy.potency'],
+    ['how long should the co-culture run', 'cy.duration.why', 'cy.response'],
+    ['why is my EC50 interval so wide', 'cy.potency.interval', 'cy.potency'],
+    ['my response goes above 100 percent', 'cy.scale.over100', 'cy.scale'],
     ['what does the confidence interval cover', 'shared.confidence', 'shared.confidence'],
     ['where does my data go', 'shared.privacy', 'shared.privacy'],
   ]
@@ -227,21 +275,34 @@ describe('declining what the corpus does not cover', () => {
   // with half the corpus, and BM25 will happily rank on that alone.
   const UNANSWERABLE: [string, string | undefined][] = [
     ['how do I cite this tool', undefined],
-    ['can I use this for CAR-NK', undefined],
     ['does fixation change MFI', 'ad.mfi'],
-    ['what is the recommended incubation time', 'cy.response'],
     ['what is the weather today', undefined],
     ['how do I install python', undefined],
   ]
 
-  // Not in the list above, deliberately. "How long should the killing assay
-  // run" reduces to killing and assay, finds a passage about killing assays,
-  // and scores 0.60 for it. The corpus does not give a duration, so this is a
-  // near miss, and it is the one the coverage statistic cannot reach: an
-  // in-domain question answered by an in-domain passage that does not address
-  // the point. Excluding it by threshold would take real answers with it.
+  // Two questions were listed here as unanswerable and no longer are: whether
+  // the suite covers CAR-NK, and how long the assay should run. Both were
+  // declined because nothing had been written about them, not because they were
+  // outside what the tool is for, and both are now answered. The distinction
+  // matters for what this list is: it holds questions the corpus should decline
+  // on principle, and a corpus gap does not belong in it.
+  it('no longer declines a question the corpus has since answered', () => {
+    for (const [query, anchor] of [
+      ['can I use this for CAR-NK', undefined],
+      ['what is the recommended incubation time', 'cy.response'],
+    ] as [string, string | undefined][]) {
+      expect(search(index, query, { context: CONTEXT, anchor })).not.toEqual([])
+    }
+  })
+
+  // The near miss the coverage statistic cannot reach: an in-domain question
+  // answered by an in-domain passage that does not address the point. Excluding
+  // it by threshold would take real answers with it, so it is surfaced under
+  // its own title where the reader can judge it. Here the corpus says a
+  // comparison holds only across a shared effector donor, and says nothing
+  // about how much donors vary, which is what was asked.
   it('surfaces an in-domain near miss under its own title, where the reader can judge it', () => {
-    const [top] = search(index, 'how long should the killing assay run', {
+    const [top] = search(index, 'does the donor matter', {
       context: CONTEXT,
       anchor: 'cy.response',
     })
@@ -340,10 +401,37 @@ describe('a student asking what and why', () => {
     ['what is specific lysis', 'cy.response.what.is', 'cy.response'],
     ['what is an EC50', 'cy.potency.what.is', 'cy.potency'],
     ['what is a four parameter logistic curve', 'cy.curve.what.is', 'cy.curve'],
+    // Added after probing the cytotoxicity corpus with the questions a student
+    // arriving at this tool actually asks. Nine of thirty eight were declined
+    // outright and several more were answered confidently with the wrong
+    // passage, which is the failure the corpus cannot report on itself.
+    ['what is a cytotoxicity assay', 'cy.assay.what', 'cy.response'],
+    ['what is chromium release', 'cy.assay.what', 'cy.response'],
+    ['what assay gives me these numbers', 'cy.assay.what', 'cy.response'],
+    ['what is a negative control', 'cy.controls.what', 'cy.response'],
+    ['what is Emax', 'cy.potency.plateau.what', 'cy.potency'],
+    ['what is the upper plateau', 'cy.potency.plateau.what', 'cy.potency'],
+    ['what does a bad fit look like', 'cy.curve.poor.what', 'cy.curve'],
+    ['what is a 4PL', 'cy.curve.what.is', 'cy.curve'],
+    ['what is R squared', 'shared.r2', 'shared.r2'],
+    ['what is a construct', 'shared.construct', undefined],
+    ['what is an scFv', 'shared.construct', undefined],
+    ['what is CAR T', 'shared.modality', undefined],
+    ['what is adoptive cell therapy', 'shared.modality', undefined],
   ]
 
   it.each(DEFINITIONS)('"%s" ranks %s first', (query, expected, anchor) => {
     expect(ids(query, anchor)[0]).toBe(expected)
+  })
+
+  it('returns both passages where two of them define the same thing', () => {
+    // Spontaneous release is defined twice: once as the floor specific lysis is
+    // computed against, once as a named control. Neither is the better answer,
+    // so the order is not asserted. Pinning one would be pinning an artefact of
+    // term frequency and calling it an editorial decision.
+    const found = ids('what is spontaneous release', 'cy.response')
+    expect(found).toContain('cy.response.what.is')
+    expect(found).toContain('cy.controls.what')
   })
 
   it('does not let a definition take over a practical question', () => {

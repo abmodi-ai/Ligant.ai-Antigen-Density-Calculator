@@ -86,6 +86,102 @@ export const CYTOTOXICITY_GUIDANCE: GuidanceEntry[] = [
   },
 
   {
+    id: 'cy.assay.what',
+    anchor: 'cy.response',
+    kind: 'definition',
+    title: 'What is a cytotoxicity assay?',
+    body: [
+      {
+        kind: 'p',
+        text: 'The bench experiment that produces the numbers entered here. Effector cells and target cells are co-cultured at a set ratio for a set time, and a readout reports how many targets died.',
+      },
+      {
+        kind: 'list',
+        items: [
+          'Chromium 51 release. Targets are loaded with the isotope and release it when lysed. Short, conventionally four hours, and the method most older figures were measured by.',
+          'Luciferase or luminescence. Targets carry the enzyme and lose signal as they die. Usually read after overnight co-culture, and the common choice where radioactivity is not wanted.',
+          'Flow cytometry with counting beads. Surviving targets are counted against a fixed number of beads, which allows a viability dye and a phenotype in the same tube.',
+          'Live cell imaging or impedance. Killing is followed continuously over days rather than read once, which is what makes serial killing and target outgrowth visible.',
+        ],
+      },
+      {
+        kind: 'note',
+        text: 'The formats do not return the same number. A four hour chromium release and a 72 hour imaging run measure different amounts of the same biology, so a potency figure travels only with the format and duration that produced it.',
+      },
+    ],
+  },
+  {
+    id: 'cy.controls.what',
+    anchor: 'cy.response',
+    kind: 'definition',
+    title: 'What are the controls in a killing assay?',
+    body: [
+      {
+        kind: 'p',
+        text: 'Four conditions. The first two set the scale specific lysis is computed on, and the last is what separates a receptor from a T cell.',
+      },
+      {
+        kind: 'list',
+          items: [
+          'Targets alone. The spontaneous floor: targets that die in culture with no effector present.',
+          'Targets fully lysed, by detergent or by the kit maximum. The ceiling the readout can reach.',
+          'Effectors alone. What the effectors contribute to the readout themselves, which matters wherever the signal is not target specific.',
+          'Untransduced or mock transduced effectors, from the same donor, across the same ratios. This is the specificity control, and killing seen here is killing the receptor did not do.',
+        ],
+      },
+      {
+        kind: 'note',
+        text: 'An antigen negative target line does the same work from the other direction, and is the stronger control where one is available: it holds the effector fixed and removes the antigen, rather than holding the antigen fixed and removing the receptor.',
+      },
+    ],
+  },
+  {
+    id: 'cy.potency.plateau.what',
+    anchor: 'cy.potency',
+    kind: 'definition',
+    title: 'What is the upper plateau?',
+    body: [
+      {
+        kind: 'p',
+        text: 'The response the fitted curve approaches at saturating dose. It is the height of the curve, where potency is its position along the dose axis, and the two are independent of one another.',
+      },
+      {
+        kind: 'p',
+        text: 'The distinction decides what a comparison means. A construct that reaches half its killing at a lower ratio is the more potent; a construct that reaches a higher final killing is the more efficacious. One can be both the more potent and the less efficacious, and a single potency figure will not say so.',
+      },
+      {
+        kind: 'note',
+        text: 'It is sometimes written Emax. The tool reports it as the fitted upper plateau, and flags it where the data never reach it, because an unreached plateau leaves both figures resting on the model.',
+      },
+    ],
+  },
+  {
+    id: 'cy.curve.poor.what',
+    anchor: 'cy.curve',
+    kind: 'definition',
+    title: 'What does a poor fit look like?',
+    body: [
+      {
+        kind: 'p',
+        text: 'Not a low R squared on its own. A four parameter logistic has enough freedom to pass close to most sets of points, so a fit can look excellent and still rest on parameters the data do not support.',
+      },
+      {
+        kind: 'list',
+        items: [
+          'Residuals with a pattern rather than scatter. Points above the curve at both ends and below it in the middle mean the shape is wrong, whatever R squared says.',
+          'A plateau the doses never reach, which leaves that parameter set by the model rather than measured.',
+          'A Hill slope far from one estimated across few levels. A steep transition sampled by two points is a line drawn through two points.',
+          'A response that rises and then falls. That is not one saturating transition and this model cannot describe it. Loss of effector viability, and target outgrowth at long timepoints, both produce it.',
+        ],
+      },
+      {
+        kind: 'note',
+        text: 'The tool fits and reports rather than refusing to fit. Whether a curve is reportable is the reader\u2019s judgement, made with the flags in view.',
+      },
+    ],
+  },
+
+  {
     id: 'cy.dose.what',
     anchor: 'cy.dose',
     title: 'What goes in the dose column?',
@@ -138,6 +234,73 @@ export const CYTOTOXICITY_GUIDANCE: GuidanceEntry[] = [
       },
     ],
   },
+  {
+    id: 'cy.duration.why',
+    anchor: 'cy.response',
+    title: 'How long the co-culture runs',
+    body: [
+      {
+        kind: 'p',
+        text: 'The duration is set by the assay format, and it is not independent of the dose axis. A lower effector to target ratio given longer reaches killing that a higher ratio reaches sooner, so the two trade against one another and the curve describes one pairing of them.',
+      },
+      {
+        kind: 'list',
+        items: [
+          'Four hours for chromium release, which is short enough that only rapid killing is counted.',
+          'Sixteen to twenty four hours for a luminescence readout.',
+          'Two to four days for imaging or impedance, long enough for serial killing and for target outgrowth to compete with it.',
+        ],
+      },
+      {
+        kind: 'note',
+        text: 'Potency shifts left as the co-culture runs longer. Constructs are therefore comparable only at the same duration, alongside the same target line and effector donor.',
+      },
+    ],
+  },
+  {
+    id: 'cy.potency.interval',
+    anchor: 'cy.potency',
+    title: 'Why the interval on potency is wide',
+    body: [
+      {
+        kind: 'p',
+        text: 'The interval describes how firmly the dose series pins the midpoint down. It widens for reasons that have little to do with how closely the curve passes through the points.',
+      },
+      {
+        kind: 'list',
+        items: [
+          'Few dose levels. Four parameters from five points leaves almost no residual degrees of freedom, and the interval reports that rather than hiding it.',
+          'No upper plateau. The midpoint is defined relative to the ceiling, so an unconstrained ceiling lets it slide.',
+          'Doses clustered on one side of the transition, which leaves the midpoint to be reached by extrapolation from whichever side was sampled.',
+          'Scatter between replicates at one ratio, which propagates into all four parameters at once.',
+        ],
+      },
+      {
+        kind: 'note',
+        text: 'Extending the dose range upward usually narrows the interval more than adding replicates at ratios already tested.',
+      },
+    ],
+  },
+  {
+    id: 'cy.scale.over100',
+    anchor: 'cy.scale',
+    title: 'Specific lysis above 100 percent',
+    body: [
+      {
+        kind: 'p',
+        text: 'Arithmetic rather than biology: more signal was lost than the maximum release control reported was available. The usual causes are a maximum release that under-reports, and a spontaneous release drifting upward through a long incubation.',
+      },
+      {
+        kind: 'p',
+        text: 'A few points a little over 100 are ordinary noise against the ceiling. A whole series above it means the controls want rechecking before the curve is read at all.',
+      },
+      {
+        kind: 'note',
+        text: 'Enter the values as measured. Truncating them at 100 pulls the fitted upper plateau down, which moves the midpoint the potency figure is taken from.',
+      },
+    ],
+  },
+
   {
     id: 'cy.potency.meaning',
     anchor: 'cy.potency',

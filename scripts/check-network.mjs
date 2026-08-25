@@ -783,6 +783,80 @@ else {
 
 await page.evaluate(() => localStorage.clear())
 
+// ---------------------------------------------------------------------------
+// A student asking what and why at the other tool.
+//
+// The corpus was probed with the questions a reader new to cell therapy asks
+// at the cytotoxicity tool, and a quarter of them were declined outright while
+// others were answered confidently with the wrong passage. The entries written
+// for them are only worth anything if they are reachable through the interface,
+// which is what this drives: a definitional question, asked at the card it
+// belongs to, answered under the heading of the passage written for it.
+// ---------------------------------------------------------------------------
+await page.goto(ORIGIN + '/cytotoxicity/', { waitUntil: 'networkidle' })
+await page.waitForTimeout(600)
+await page.getByRole('switch', { name: /Guidance/i }).click()
+await page.waitForTimeout(400)
+
+let cyOpened = false
+const cyPins = page.locator('.guidance-pin-button')
+for (let i = 0; i < (await cyPins.count()); i++) {
+  const label = await cyPins.nth(i).getAttribute('aria-label')
+  // The pin is labelled with the first entry at its anchor, which is the
+  // definition of specific lysis rather than the word "response".
+  if (/lysis|response/i.test(label ?? '')) {
+    await cyPins.nth(i).click()
+    cyOpened = true
+    break
+  }
+}
+if (!cyOpened) uiFailures.push('cytotoxicity: no guidance pin on the response column to ask a question at')
+else {
+  await page.waitForTimeout(400)
+  const cyForm = page.locator('.guidance-panel .ask-row input')
+  if ((await cyForm.count()) === 0) {
+    uiFailures.push('cytotoxicity: the guidance panel offers no way to ask a question')
+  } else {
+    await cyForm.fill('what is a cytotoxicity assay')
+    await page.locator('.guidance-panel .ask-row button').click()
+    await page.waitForTimeout(400)
+
+    const cyAsk = await page.evaluate(() => {
+      const panel = document.querySelector('.guidance-panel')
+      const exchange = panel?.querySelector('.ask-exchange')
+      return {
+        declined: !!exchange?.querySelector('.ask-empty'),
+        heading: exchange?.querySelector('.ask-answer h5, .ask-seen')?.textContent ?? '',
+      }
+    })
+    if (cyAsk.declined) {
+      uiFailures.push('cytotoxicity: a student question the corpus now answers was declined')
+    }
+    // The heading alone, never the exchange text: the exchange contains the
+    // question the reader typed, so matching against it would pass whatever the
+    // answer was. A vacuous assertion here has slipped through twice before.
+    if (!/cytotoxicity assay/i.test(cyAsk.heading)) {
+      uiFailures.push(`cytotoxicity: the question was answered from "${cyAsk.heading.slice(0, 60) || '(no heading)'}" rather than the passage written for it`)
+    }
+    // The formats list is long, and a panel that grows off screen is the
+    // failure mode this surface has had before.
+    const cyPanel = await page.evaluate(() => {
+      const el = document.querySelector('.guidance-panel')
+      if (!el) return null
+      const r = el.getBoundingClientRect()
+      return {
+        ok: r.top >= 0 && r.left >= 0 && r.bottom <= window.innerHeight && r.right <= window.innerWidth,
+        height: Math.round(r.height),
+      }
+    })
+    if (cyPanel && !cyPanel.ok) {
+      uiFailures.push(`cytotoxicity: the panel ran off screen once the answer was added (${cyPanel.height}px)`)
+    }
+  }
+}
+
+await page.evaluate(() => localStorage.clear())
+
 const fontsApplied = await page.evaluate(async () => {
   await document.fonts.ready
   return {
@@ -835,6 +909,8 @@ console.log('and nothing the reader types reaches storage; and the CSV export ca
 console.log('machine-readable status; and a pasted column of thousands-formatted values')
 console.log('reads as the numbers it was written as; and a population whose certified value')
 console.log('does not belong with the others is named at its own row; and a calibration')
-console.log('that cannot support a figure reports itself, and withholds the figure; and what\n' +
+console.log('that cannot support a figure reports itself, and withholds the figure; and a\n' +
+  'student question the corpus was extended to answer reaches the passage written\n' +
+  'for it, at the card it belongs to; and what\n' +
   'is wrong with one value is said at the field it was typed into, on inclusion\n' +
   'rather than on what a row is called.')
