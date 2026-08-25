@@ -47,8 +47,7 @@ export const SYNONYM_GROUPS: readonly SynonymGroup[] = [
   { id: 'g.curve', terms: ['curve', 'fit', 'fitted', 'regression', 'linear', 'calibration', 'slope', 'intercept'] },
   { id: 'g.range', terms: ['range', 'extrapolate', 'extrapolated', 'outside', 'beyond', 'below', 'above', 'bracket', 'bracketing', 'offscale'] },
   { id: 'g.plateau', terms: ['plateau', 'saturate', 'saturated', 'saturation', 'asymptote', 'top', 'bottom'] },
-  { id: 'g.potency', terms: ['ec50', 'ic50', 'potency', 'halfmaximal', 'maximal', 'inflection'] },
-  { id: 'g.dose', terms: ['dose', 'doses', 'et', 'ratio', 'effector', 'concentration', 'titration', 'titrate', 'dilution'] },
+  { id: 'g.dose', terms: ['ratio', 'concentration', 'titration', 'titrate', 'dilution'] },
   { id: 'g.killing', terms: ['lysis', 'killing', 'kill', 'cytotoxicity', 'cytotoxic', 'death', 'viability', 'specific'] },
   { id: 'g.error', terms: ['transcription', 'transcribed', 'typo', 'transposed', 'mistake', 'error', 'misplaced', 'decimal'] },
   { id: 'g.host', terms: ['host', 'species', 'mouse', 'rat', 'human', 'rabbit', 'humanised', 'capture', 'immunoglobulin', 'igg'] },
@@ -70,11 +69,7 @@ export const SYNONYM_GROUPS: readonly SynonymGroup[] = [
   { id: 'g.count', terms: ['few', 'fewer', 'more', 'number', 'points', 'levels', 'degrees', 'freedom'] },
   { id: 'g.detection', terms: ['detection', 'detectable', 'limit', 'quantification', 'sensitivity', 'noise'] },
   { id: 'g.compute', terms: ['calculate', 'calculation', 'compute', 'computed', 'formula', 'equation', 'arithmetic', 'derive', 'derived', 'work'] },
-  { id: 'g.assay', terms: ['assay', 'readout', 'chromium', 'cr51', 'luciferase', 'luminescence', 'imaging', 'impedance', 'cytometry', 'coculture', 'incubation', 'duration', 'timepoint', 'hours', 'overnight'] },
-  { id: 'g.release', terms: ['release', 'spontaneous', 'lysed', 'triton', 'untransduced', 'mock', 'untreated', 'specificity'] },
-  { id: 'g.logistic', terms: ['logistic', 'sigmoid', 'sigmoidal', '4pl', 'parameter', 'parameters', 'model', 'shape'] },
-  { id: 'g.efficacy', terms: ['emax', 'efficacy', 'efficacious', 'ceiling', 'height'] },
-  { id: 'g.modality', terms: ['modality', 'adoptive', 'til', 'nk', 'tcr', 'lymphocyte', 'lymphocytes', 'therapy', 'product', 'infused', 'transduced'] },
+  { id: 'g.modality', terms: ['modality', 'adoptive', 'til', 'nk', 'tcr', 'lymphocyte', 'lymphocytes', 'therapy', 'product', 'infused', 'transduced', 'effector'] },
   { id: 'g.units', terms: ['unit', 'units', 'log', 'log10', 'decade', 'decades', 'scale', 'percent', 'percentage'] },
 ] as const
 
@@ -82,25 +77,19 @@ export const SYNONYM_GROUPS: readonly SynonymGroup[] = [
  * Forms that survive tokenising only if they are normalised first.
  *
  * The tokeniser splits on anything that is not alphanumeric, which would turn
- * `R²` into a bare `r` and `E:T` into two single letters of pure noise. These
+ * `R²` into a bare `r` and `F/P` into two single letters of pure noise. These
  * are rewritten before splitting.
+ *
+ * Only forms the corpus actually contains. A rule for a term no passage uses
+ * produces a token that can never match anything, which costs a reader the one
+ * word in their question that carried their meaning.
  */
 export const NORMALISATIONS: readonly (readonly [RegExp, string])[] = [
   [/r\s*(²|\^?2|\bsquared\b)/gi, ' r2 '],
-  [/\be\s*[:/]\s*t\b/gi, ' et '],
   [/\bf\s*[:/]\s*p\b/gi, ' fp '],
-  [/\bec\s*50\b/gi, ' ec50 '],
-  [/\bic\s*50\b/gi, ' ic50 '],
   [/\blog\s*10\b/gi, ' log10 '],
-  [/\bhalf[\s-]maximal\b/gi, ' halfmaximal '],
   [/\bnon[\s-]specific\b/gi, ' nonspecific '],
   [/\boff[\s-]scale\b/gi, ' offscale '],
-  [/\bco[\s-]?cultures?\b/gi, ' coculture '],
-  [/\b4\s*-?\s*pl\b/gi, ' 4pl '],
-  [/\bfour[\s-]parameter\b/gi, ' four parameter '],
-  [/\b51\s*-?\s*cr\b/gi, ' cr51 '],
-  [/\bcr\s*-?\s*51\b/gi, ' cr51 '],
-  [/\be[\s-]?max\b/gi, ' emax '],
   [/\bdegrees? of freedom\b/gi, ' degrees freedom '],
 ] as const
 

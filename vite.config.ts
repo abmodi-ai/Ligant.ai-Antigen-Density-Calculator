@@ -1,7 +1,7 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'node:path'
-import { LISTED_TOOLS, SITE_URL } from './src/lib/site'
+import { SITE_URL, TOOLS } from './src/lib/site'
 
 /**
  * Derives everything that needs to know the site's origin from `src/lib/site.ts`.
@@ -40,10 +40,7 @@ function siteMetadata(): Plugin {
         ].join('\n'),
       })
 
-      // Listed tools only. An unlisted tool is still built and still served;
-      // it is simply not offered to anyone who was not sent to it, and its own
-      // page carries a robots directive saying the same thing.
-      const urls = LISTED_TOOLS.map(
+      const urls = TOOLS.map(
         (tool) =>
           [
             '  <url>',
@@ -69,9 +66,10 @@ function siteMetadata(): Plugin {
   }
 }
 
-// Multi-page build. The antigen density tool stays at the site root; each
-// additional tool gets its own directory and its own bundle, so a visitor
-// downloads only the tool they opened.
+// One tool, at the site root. The build kept a second entry point for a
+// cytotoxicity curve fitter, which has been removed: this repository is the
+// antigen density calculator, and a page nobody maintains is a liability
+// rather than a feature.
 export default defineConfig({
   plugins: [react(), siteMetadata()],
   base: '/',
@@ -79,7 +77,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
-        cytotoxicity: resolve(__dirname, 'cytotoxicity/index.html'),
       },
     },
   },

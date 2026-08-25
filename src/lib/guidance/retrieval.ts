@@ -370,7 +370,7 @@ export function search(
 
     // A term is covered outright by an exact match, and partially by a synonym.
     // Crediting the synonym is what lets a question phrased entirely in bench
-    // register clear the gate at all: "what E:T ratio should I use" contains no
+    // register clear the gate at all: "my beads are dim" contains no
     // word the corpus spells the same way, and is still a question the corpus
     // answers.
     let coveredIdf = 0

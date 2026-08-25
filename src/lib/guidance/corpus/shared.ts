@@ -59,7 +59,7 @@ export const SHARED_GUIDANCE: GuidanceEntry[] = [
       },
       {
         kind: 'p',
-        text: 'It measures closeness to the points, and nothing else. It does not say the model is the right shape, and it does not say a fitted parameter is supported by data: a standard curve with a gentle bend fits at 0.998, and a killing curve that never reaches its plateau fits at 0.999 while the plateau itself is invented.',
+        text: 'It measures closeness to the points, and nothing else. It does not say the model is the right shape, and it does not say the fit can be trusted where you are reading it: a standard curve with a gentle bend fits at 0.998 while its local slope runs from 1.16 at one end to 0.84 at the other, and a curve fitted through three populations fits whatever it is given.',
       },
       {
         kind: 'note',
@@ -68,8 +68,8 @@ export const SHARED_GUIDANCE: GuidanceEntry[] = [
     ],
   },
   {
-    // Used as a column heading in the cytotoxicity tool and as the thing being
-    // compared in both, without ever being defined.
+    // The thing being compared whenever two sets of results sit side by side,
+    // and never defined anywhere.
     id: 'shared.construct',
     kind: 'definition',
     anchor: 'shared.construct',
@@ -81,11 +81,11 @@ export const SHARED_GUIDANCE: GuidanceEntry[] = [
       },
       {
         kind: 'p',
-        text: 'Constructs are compared because those choices change behaviour without changing the target. Binder affinity shifts the antigen density at which the receptor fires, and the costimulatory domain changes how quickly the product exhausts. Both show up as a different curve against the same tumour line.',
+        text: 'Constructs are compared because those choices change behaviour without changing the target. Binder affinity shifts the antigen density at which the receptor fires, and the costimulatory domain changes how quickly the product exhausts. Neither changes how much antigen the tumour carries, which is what this tool measures.',
       },
       {
         kind: 'note',
-        text: 'A comparison between constructs holds only where the target line, the effector donor and the assay duration were shared. Two curves from different donors describe two experiments.',
+        text: 'A density measured on one target line says nothing about another, and a density measured with one antibody clone says nothing about a different clone against the same antigen.',
       },
     ],
   },

@@ -268,9 +268,3 @@ so where those would change the answer.
 ## Licence
 
 See `LICENSE`.
-
----
-
-Also in this repository: a cytotoxicity curve fitter, at `/cytotoxicity/`. It
-works, but it has had none of the external review this calculator has had, so it
-is unlisted and is not part of this release.

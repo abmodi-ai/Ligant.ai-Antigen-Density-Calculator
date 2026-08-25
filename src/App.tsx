@@ -177,7 +177,7 @@ export default function App() {
     <GuidanceProvider corpus={CORPUS} context={guidanceContext}>
     <div className="app">
       <SkipLink />
-      <Masthead current="antigen-density" title="Antigen Density Calculator">
+      <Masthead title="Antigen Density Calculator">
         Quantifies surface antigen density from flow cytometry median fluorescence intensity by
         calibration against certified bead standards. All values are computed deterministically by
         least-squares regression. No model or inference is applied beyond the reported fit.

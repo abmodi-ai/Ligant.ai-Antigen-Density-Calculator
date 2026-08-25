@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Deterministic, privacy-preserving browser tools for cell therapy research: antigen density quantification and dose response curve fitting",
+  "description": "Deterministic, privacy-preserving browser tool for cell therapy research: antigen density quantification from flow cytometry",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

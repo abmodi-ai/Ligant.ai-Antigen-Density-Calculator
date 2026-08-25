@@ -38,12 +38,11 @@ if (!SITE_URL) {
 
 /**
  * The tool registry, read the same way and for the same reason: this script
- * must not carry its own copy of what the site contains, or unlisting a tool
- * would leave the assertion below testing the previous shape of the site.
+ * must not carry its own copy of what the site contains.
  */
 const TOOLS = [...readFileSync('src/lib/site.ts', 'utf8').matchAll(
-  /\{\s*id:\s*'([^']+)'[^}]*?path:\s*'([^']+)'[^}]*?listed:\s*(true|false)\s*\}/g,
-)].map(([, id, path, listed]) => ({ id, path, listed: listed === 'true' }))
+  /\{\s*id:\s*'([^']+)'[^}]*?path:\s*'([^']+)'[^}]*?\}/g,
+)].map(([, id, path]) => ({ id, path }))
 if (TOOLS.length === 0) {
   console.error('Could not read the tool registry from src/lib/site.ts.')
   process.exit(1)
@@ -69,7 +68,7 @@ const TYPES = {
 
 const server = createServer(async (req, res) => {
   // Resolve a directory to its index, the way a static host does, so the
-  // multi-page routes under /cytotoxicity/ behave here as they do in production.
+  // directory routes behave here as they do in production.
   let path = req.url.split('?')[0]
   if (path.endsWith('/')) path += 'index.html'
   try {
@@ -115,21 +114,11 @@ await page.locator('table').first().locator('input[inputmode="decimal"]').first(
 await page.locator('details.options summary').first().click().catch(() => {})
 await page.waitForTimeout(1000)
 
-await page.goto(ORIGIN + '/cytotoxicity/', { waitUntil: 'networkidle' })
-await page.waitForTimeout(1200)
-await page.locator('#conf').selectOption('0.99')
-await page.locator('#pct').selectOption('other')
-await page.getByRole('button', { name: '+ Add construct' }).click()
-await page.locator('table').first().locator('input[inputmode="decimal"]').first().fill('0.2')
-await page.getByRole('button', { name: 'Clear all' }).click()
-await page.getByRole('button', { name: 'Load worked example' }).click()
-await page.waitForTimeout(1200)
-
 // ---- pre-launch regressions ------------------------------------------------
 
 const uiFailures = []
 
-for (const [name, path] of [['antigen density', '/'], ['cytotoxicity', '/cytotoxicity/']]) {
+for (const [name, path] of [['antigen density', '/']]) {
   await page.goto(ORIGIN + path, { waitUntil: 'networkidle' })
   await page.waitForTimeout(900)
 
@@ -1054,144 +1043,6 @@ for (const tool of TOOLS) {
 await page.evaluate(() => localStorage.clear())
 
 // ---------------------------------------------------------------------------
-// A tool that is built, served, and offered to nobody.
-//
-// Unlisted is four things that have to agree: absent from the switcher, absent
-// from the sitemap, asking not to be indexed, and still working for anyone
-// holding the link. Three of them are quiet failures. A tool left in the
-// sitemap is indexed whatever its page says; a tool dropped from the build is
-// a dead link for everyone already sent to it. This asserts all four, so
-// relisting is one flag rather than an archaeology exercise.
-// ---------------------------------------------------------------------------
-{
-  const unlisted = TOOLS.filter((tool) => !tool.listed)
-  const listed = TOOLS.filter((tool) => tool.listed)
-
-  const sitemap = await (await fetch(ORIGIN + '/sitemap.xml')).text()
-  for (const tool of unlisted) {
-    if (sitemap.includes(tool.path === '/' ? `${SITE_URL}/<` : SITE_URL + tool.path)) {
-      uiFailures.push(`${tool.id}: unlisted, but still in the sitemap`)
-    }
-  }
-  for (const tool of listed) {
-    if (!sitemap.includes(SITE_URL + tool.path)) {
-      uiFailures.push(`${tool.id}: listed, but missing from the sitemap`)
-    }
-  }
-
-  for (const tool of unlisted) {
-    const res = await fetch(ORIGIN + tool.path)
-    if (!res.ok) {
-      uiFailures.push(`${tool.id}: unlisted, but no longer served (HTTP ${res.status})`)
-      continue
-    }
-    if (!/name="robots"[^>]*noindex/i.test(await res.text())) {
-      uiFailures.push(`${tool.id}: unlisted, but its page does not ask to be left out of an index`)
-    }
-
-    // Still a working tool, not a shell. Someone was sent this link.
-    await page.goto(ORIGIN + tool.path, { waitUntil: 'networkidle' })
-    await page.waitForTimeout(900)
-    const alive = await page.evaluate(() => ({
-      main: !!document.querySelector('main#main'),
-      figures: document.querySelectorAll('svg').length,
-    }))
-    if (!alive.main || alive.figures === 0) {
-      uiFailures.push(`${tool.id}: unlisted, and the page no longer renders a working tool`)
-    }
-
-    // The way back is the one place it may appear, and only to a reader who is
-    // already standing on it.
-    const nav = await page.evaluate(() => [...document.querySelectorAll('.tool-nav a')].map((a) => a.getAttribute('href')))
-    if (!listed.every((t) => nav.includes(t.path))) {
-      uiFailures.push(`${tool.id}: unlisted, and the switcher offers no way back to the published tools`)
-    }
-  }
-
-  // The published pages must not point at it anywhere.
-  for (const tool of listed) {
-    await page.goto(ORIGIN + tool.path, { waitUntil: 'networkidle' })
-    await page.waitForTimeout(600)
-    const leaked = await page.evaluate((paths) => {
-      const hrefs = [...document.querySelectorAll('a[href]')].map((a) => a.getAttribute('href') ?? '')
-      return hrefs.filter((href) => paths.some((p) => href === p || href.endsWith(p)))
-    }, unlisted.map((t) => t.path))
-    if (leaked.length > 0) {
-      uiFailures.push(`${tool.id}: links to an unlisted tool (${leaked.join(', ')})`)
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// A student asking what and why at the other tool.
-//
-// The corpus was probed with the questions a reader new to cell therapy asks
-// at the cytotoxicity tool, and a quarter of them were declined outright while
-// others were answered confidently with the wrong passage. The entries written
-// for them are only worth anything if they are reachable through the interface,
-// which is what this drives: a definitional question, asked at the card it
-// belongs to, answered under the heading of the passage written for it.
-// ---------------------------------------------------------------------------
-await page.goto(ORIGIN + '/cytotoxicity/', { waitUntil: 'networkidle' })
-await page.waitForTimeout(600)
-let cyOpened = false
-const cyPins = page.locator('.guidance-pin-button')
-for (let i = 0; i < (await cyPins.count()); i++) {
-  const label = await cyPins.nth(i).getAttribute('aria-label')
-  // The pin is labelled with the first entry at its anchor, which is the
-  // definition of specific lysis rather than the word "response".
-  if (/lysis|response/i.test(label ?? '')) {
-    await cyPins.nth(i).click()
-    cyOpened = true
-    break
-  }
-}
-if (!cyOpened) uiFailures.push('cytotoxicity: no guidance pin on the response column to ask a question at')
-else {
-  await page.waitForTimeout(400)
-  const cyForm = page.locator('.guidance-panel .ask-row input')
-  if ((await cyForm.count()) === 0) {
-    uiFailures.push('cytotoxicity: the guidance panel offers no way to ask a question')
-  } else {
-    await cyForm.fill('what is a cytotoxicity assay')
-    await page.locator('.guidance-panel .ask-row button').click()
-    await page.waitForTimeout(400)
-
-    const cyAsk = await page.evaluate(() => {
-      const panel = document.querySelector('.guidance-panel')
-      const exchange = panel?.querySelector('.ask-exchange')
-      return {
-        declined: !!exchange?.querySelector('.ask-empty'),
-        heading: exchange?.querySelector('.ask-answer h5, .ask-seen')?.textContent ?? '',
-      }
-    })
-    if (cyAsk.declined) {
-      uiFailures.push('cytotoxicity: a student question the corpus now answers was declined')
-    }
-    // The heading alone, never the exchange text: the exchange contains the
-    // question the reader typed, so matching against it would pass whatever the
-    // answer was. A vacuous assertion here has slipped through twice before.
-    if (!/cytotoxicity assay/i.test(cyAsk.heading)) {
-      uiFailures.push(`cytotoxicity: the question was answered from "${cyAsk.heading.slice(0, 60) || '(no heading)'}" rather than the passage written for it`)
-    }
-    // The formats list is long, and a panel that grows off screen is the
-    // failure mode this surface has had before.
-    const cyPanel = await page.evaluate(() => {
-      const el = document.querySelector('.guidance-panel')
-      if (!el) return null
-      const r = el.getBoundingClientRect()
-      return {
-        ok: r.top >= 0 && r.left >= 0 && r.bottom <= window.innerHeight && r.right <= window.innerWidth,
-        height: Math.round(r.height),
-      }
-    })
-    if (cyPanel && !cyPanel.ok) {
-      uiFailures.push(`cytotoxicity: the panel ran off screen once the answer was added (${cyPanel.height}px)`)
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
 // A row added to the table is a row of the same table.
 //
 // Quantum Simply Cellular names its populations Blank and Population 1 to 4,
@@ -1304,11 +1155,8 @@ console.log('and nothing the reader types reaches storage; and the CSV export ca
 console.log('machine-readable status; and a pasted column of thousands-formatted values')
 console.log('reads as the numbers it was written as; and a population whose certified value')
 console.log('does not belong with the others is named at its own row; and a calibration')
-console.log('that cannot support a figure reports itself, and withholds the figure; and a\n' +
-  'student question the corpus was extended to answer reaches the passage written\n' +
-  'for it, at the card it belongs to; and an unlisted tool is absent from the\n' +
-  'switcher and the sitemap, asks not to be indexed, and still works for anyone\n' +
-  'holding its link; and what is wrong with one value is said at the field it\n' +
+console.log('that cannot support a figure reports itself, and withholds the figure; and\n' +
+  'what is wrong with one value is said at the field it\n' +
   'was typed into, on inclusion rather than on what a row is called; and a\n' +
   'standard whose certified values are its own intensities is refused despite\n' +
   'fitting perfectly; and a reason not to report reads and looks different from a\n' +
