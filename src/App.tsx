@@ -21,6 +21,7 @@ import { Method } from './components/Method'
 import { CalibrationVerdict } from './components/CalibrationVerdict'
 import { LigantMark } from './components/LigantMark'
 import { Masthead } from './components/shared/Masthead'
+import { SiteFooter } from './components/shared/SiteFooter'
 import { SkipLink } from './components/shared/SkipLink'
 import { GuidanceProvider } from './components/guidance/GuidanceProvider'
 import { GuidancePin } from './components/guidance/GuidancePin'
@@ -389,6 +390,26 @@ export default function App() {
             </div>
           </section>
 
+          {/*
+            Last in the left column, and last on a phone too.
+
+            It is placed here rather than as a sibling of the rail because the
+            two columns must not share grid rows: a rail spanning both rows made
+            the grid inflate the first one to absorb it, which opened a gap of
+            several hundred pixels between the settings and this section on a
+            wide screen. The single column order is handled in CSS instead, by
+            flattening this column and reordering, which needs no second grid
+            row at all.
+          */}
+          <Method
+            storageKeys={[STORAGE_KEY]}
+            onClearStorage={() => {
+              // Resetting the tool is what removes the key: the empty document
+              // it produces has nothing to keep, so the effect above clears it.
+              setState(emptyState(kit))
+            }}
+          />
+
         </div>
 
         {/* ---------------- outputs ---------------- */}
@@ -480,28 +501,11 @@ export default function App() {
             </div>
           </section>
         </div>
-
-        {/*
-          A grid child of its own, after the results in source order.
-
-          It used to sit inside the left column beneath the inputs. On one
-          column that put roughly 1,750 pixels of methodology between the last
-          input and the first number: a phone reader finished entering data
-          around y=1,000 and reached the standard curve at y=3,595. Reading
-          order is now inputs, results, method, and the wide layout is restored
-          by placing it back into column one.
-        */}
-        <Method
-          storageKeys={[STORAGE_KEY]}
-          onClearStorage={() => {
-            // Resetting the tool is what removes the key: the empty document
-            // it produces has nothing to keep, so the effect above clears it.
-            setState(emptyState(kit))
-          }}
-        />
       </div>
 
       </main>
+
+      <SiteFooter />
 
       <p className="disclaimer">
         <strong>Research use only. Not for clinical or diagnostic decision-making.</strong>{' '}

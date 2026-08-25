@@ -267,4 +267,8 @@ so where those would change the answer.
 
 ## Licence
 
-See `LICENSE`.
+Apache License 2.0. See `LICENSE`.
+
+Apache-2.0 rather than MIT because it grants an express patent licence, which
+matters for a measurement tool published by a company. Copyright 2026 Ligant AI
+Incorporated.

@@ -8,7 +8,7 @@ interface Props {
 
 export function Method({ storageKeys, onClearStorage }: Props) {
   return (
-    <section className="panel">
+    <section className="panel method-panel">
       <div className="panel-head">
         <div className="titles"><h2>Method and limitations</h2></div>
       </div>
