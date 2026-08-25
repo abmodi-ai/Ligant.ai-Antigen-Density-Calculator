@@ -11,7 +11,7 @@ import {
   type QuantifyOptions,
   type Sample,
 } from './lib/quantify'
-import { restoreOptions } from './lib/persist'
+import { persist, restoreOptions } from './lib/persist'
 import { exportChartSvg, exportResultsCsv } from './lib/export'
 import { formatR2 } from './lib/format'
 import { StandardCurve } from './components/StandardCurve'
@@ -102,13 +102,15 @@ export default function App() {
   const kit = BEAD_KITS.find((k) => k.id === state.kitId) ?? BEAD_KITS[0]
   const { standards, samples, options } = state
 
+  // A table with no number in it is not work in progress, so nothing is kept.
+  // Labels alone do not count: they arrive with the empty document.
+  const hasEntries =
+    standards.some((s) => s.mfi !== null || s.assigned !== null) ||
+    samples.some((s) => s.mfi !== null || s.controlMfi !== null)
+
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-    } catch {
-      // Storage unavailable. The application remains fully functional without it.
-    }
-  }, [state])
+    persist(STORAGE_KEY, state, hasEntries)
+  }, [state, hasEntries])
 
   const curveResult = useMemo(() => fitStandardCurve(standards), [standards])
   const curve: CurveResult | null = 'error' in curveResult ? null : curveResult
@@ -390,11 +392,8 @@ export default function App() {
           <Method
             storageKeys={[STORAGE_KEY]}
             onClearStorage={() => {
-              try {
-                localStorage.removeItem(STORAGE_KEY)
-              } catch {
-                // Nothing was persisted, so there is nothing to remove.
-              }
+              // Resetting the tool is what removes the key: the empty document
+              // it produces has nothing to keep, so the effect above clears it.
               setState(emptyState(kit))
             }}
           />

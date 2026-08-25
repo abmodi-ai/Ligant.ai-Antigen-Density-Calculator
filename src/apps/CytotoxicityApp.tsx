@@ -9,7 +9,7 @@ import {
   type DoseMatrix,
 } from '../lib/cytotox'
 import { confidenceLabel } from '../lib/quantify'
-import { restoreOptions } from '../lib/persist'
+import { persist, restoreOptions } from '../lib/persist'
 import { formatR2 } from '../lib/format'
 import { CytotoxTables } from '../components/CytotoxTables'
 import { DoseResponseCurve } from '../components/DoseResponseCurve'
@@ -83,13 +83,15 @@ export default function CytotoxicityApp() {
   const [undoState, setUndoState] = useState<Persisted | null>(null)
   const { matrix, options } = state
 
+  // A matrix with no number in it is not work in progress, so nothing is kept.
+  // Construct names alone do not count: they arrive with the empty matrix.
+  const hasEntries =
+    matrix.doses.some((d) => d !== null) ||
+    matrix.responses.some((row) => row.some((v) => v !== null))
+
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-    } catch {
-      // Storage unavailable. The application remains fully functional without it.
-    }
-  }, [state])
+    persist(STORAGE_KEY, state, hasEntries)
+  }, [state, hasEntries])
 
   const analyses = useMemo(
     () => analyseAll(seriesFromMatrix(matrix), options),
@@ -246,11 +248,8 @@ export default function CytotoxicityApp() {
           <CytotoxMethod
             storageKeys={[STORAGE_KEY]}
             onClearStorage={() => {
-              try {
-                localStorage.removeItem(STORAGE_KEY)
-              } catch {
-                // Nothing was persisted, so there is nothing to remove.
-              }
+              // Resetting the tool is what removes the key: the empty matrix it
+              // produces has nothing to keep, so the effect above clears it.
               setUndoState(state)
               setState({ matrix: emptyMatrix(), options: { ...DEFAULT_CYTOTOX_OPTIONS } })
             }}

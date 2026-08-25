@@ -18,11 +18,11 @@ const MARGIN = 12
  * extended past that box. Escaping to the document and positioning against the
  * viewport is the only arrangement that cannot be clipped by an ancestor.
  *
- * Renders nothing at all when guidance is off, or when nothing in the corpus
- * applies to this anchor under the current state, so a pin is never a dead end.
+ * Renders nothing at all when nothing in the corpus applies to this anchor
+ * under the current state, so a pin is never a dead end.
  */
 export function GuidancePin({ anchor, label }: { anchor: AnchorId; label?: string }) {
-  const { enabled, corpus, context, exchanges } = useGuidance()
+  const { corpus, context, exchanges } = useGuidance()
   const [open, setOpen] = useState(false)
   const [placement, setPlacement] = useState<{ top: number; left: number } | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -89,7 +89,6 @@ export function GuidancePin({ anchor, label }: { anchor: AnchorId; label?: strin
     }
   }, [open])
 
-  if (!enabled) return null
 
   const entries = entriesFor(corpus, anchor, context)
   if (entries.length === 0) return null

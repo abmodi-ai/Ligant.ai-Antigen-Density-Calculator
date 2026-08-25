@@ -464,46 +464,16 @@ details.options > div { padding-top: 12px; display: flex; flex-direction: column
   background: var(--surface);
   border-color: var(--border);
 }
+/* The suite's name, in the corner the guidance switch used to occupy. Achromatic
+   and quiet: it identifies the page rather than making a claim about it. */
+.suite-mark { white-space: nowrap; color: var(--text-secondary); }
+
 @media (max-width: 760px) {
   .masthead { flex-direction: column; gap: 16px; }
   .tool-nav { align-items: flex-start; }
 }
 
 /* ---------- guidance ---------- */
-
-.guidance-toggle { display: inline-flex; align-items: center; gap: 9px; }
-.guidance-offer { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
-
-.guidance-switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  background: transparent;
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  padding: 4px 11px 4px 6px;
-}
-.guidance-switch.on { color: var(--brand-teal); border-color: var(--brand-teal); }
-.guidance-switch-track {
-  width: 26px; height: 15px;
-  border-radius: 999px;
-  background: var(--neutral-300);
-  position: relative;
-  transition: background 120ms ease;
-  flex-shrink: 0;
-}
-.guidance-switch.on .guidance-switch-track { background: var(--brand-teal); }
-.guidance-switch-thumb {
-  position: absolute; top: 2px; left: 2px;
-  width: 11px; height: 11px;
-  border-radius: 50%;
-  background: var(--surface);
-  transition: transform 120ms ease;
-}
-.guidance-switch.on .guidance-switch-thumb { transform: translateX(11px); }
 
 .guidance-pin { position: relative; display: inline-flex; vertical-align: middle; margin-left: 5px; }
 .guidance-pin-button {

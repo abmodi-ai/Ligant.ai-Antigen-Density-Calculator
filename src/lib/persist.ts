@@ -44,3 +44,24 @@ export function restoreOptions<T extends object>(stored: unknown, defaults: T): 
 
   return restored as T
 }
+
+/**
+ * Write a document, or remove the key when there is nothing to write.
+ *
+ * "Clear stored data" removed the key and then reset the tool, and resetting
+ * the tool wrote the key straight back holding an empty document. A reader who
+ * checked afterwards found the key still there, which is not what the button
+ * says. Nothing of theirs was in it, but the claim was that it would be gone.
+ *
+ * The rule is that storage mirrors work in progress: no work, no key. It also
+ * means a visitor who reads the page and types nothing leaves with nothing
+ * written, which is the behaviour the privacy disclosure implies.
+ */
+export function persist(key: string, value: unknown, hasContent: boolean): void {
+  try {
+    if (hasContent) localStorage.setItem(key, JSON.stringify(value))
+    else localStorage.removeItem(key)
+  } catch {
+    // Storage unavailable. The tool remains fully functional without it.
+  }
+}

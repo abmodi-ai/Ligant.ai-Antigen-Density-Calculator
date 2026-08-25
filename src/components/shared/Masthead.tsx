@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import { LigantLockup } from '../LigantMark'
-import { GuidanceToggle } from '../guidance/GuidanceToggle'
 import { LISTED_TOOLS, TOOLS, type ToolId } from '../../lib/site'
 
 interface Props {
@@ -27,7 +26,13 @@ export function Masthead({ current, title, children }: Props) {
         <p>{children}</p>
       </div>
       <nav className="tool-nav" aria-label="Bench tools">
-        <GuidanceToggle />
+        {/*
+          The suite's name, where the guidance switch used to sit. The lockup on
+          the left names the company; this names what the company is offering
+          here, which is the half a visitor arriving on a shared link does not
+          otherwise get told.
+        */}
+        <span className="eyebrow suite-mark">Bench Tools</span>
         {offered.length > 1 && (
           <ul>
             {offered.map((tool) => (

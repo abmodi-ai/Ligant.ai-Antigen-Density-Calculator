@@ -139,11 +139,19 @@ for (const [name, path] of [['antigen density', '/'], ['cytotoxicity', '/cytotox
     // The disclosure is rendered by one shared component in both tools.
     hasPrivacy: /contacts no third party at all/i.test(document.body.innerText),
     hasClearStorage: !!document.body.innerText.match(/Clear stored data/),
+    hasSuiteMark: /bench tools/i.test(document.querySelector('.masthead')?.textContent ?? ''),
+    hasGuidanceSwitch: !!document.querySelector('[role="switch"]'),
   }))
   if (!structure.hasMain) uiFailures.push(`${name}: no main landmark`)
   if (!structure.hasSkipLink) uiFailures.push(`${name}: no skip link`)
   if (!structure.hasPrivacy) uiFailures.push(`${name}: privacy disclosure missing`)
   if (!structure.hasClearStorage) uiFailures.push(`${name}: no control to clear stored data`)
+  if (!structure.hasSuiteMark) uiFailures.push(`${name}: the masthead does not name the suite`)
+  // Guidance is on for everyone, so there is nothing to switch. A switch left
+  // rendering would offer to turn off something that no longer reads it.
+  if (structure.hasGuidanceSwitch) {
+    uiFailures.push(`${name}: a guidance switch is still rendered`)
+  }
 
   // An extreme value must coarsen the axis, not multiply it.
   const before = await page.evaluate(() => document.querySelectorAll('svg.chart line').length)
@@ -209,12 +217,9 @@ for (const [name, path] of [['antigen density', '/'], ['cytotoxicity', '/cytotox
   // Every guidance panel must be fully on screen. They are portalled out of the
   // card that holds them precisely because that card clips its overflow, which
   // once cut the panels off at the edges.
-  const guidanceSwitch = page.getByRole('switch', { name: /Guidance/i })
-  await guidanceSwitch.click()
-  await page.waitForTimeout(300)
   const pins = page.locator('.guidance-pin-button')
   const pinCount = await pins.count()
-  if (pinCount === 0) uiFailures.push(`${name}: guidance is on but no pins rendered`)
+  if (pinCount === 0) uiFailures.push(`${name}: no guidance pins rendered`)
   for (let i = 0; i < pinCount; i++) {
     const pin = pins.nth(i)
     await pin.scrollIntoViewIfNeeded().catch(() => {})
@@ -239,8 +244,6 @@ for (const [name, path] of [['antigen density', '/'], ['cytotoxicity', '/cytotox
     await page.keyboard.press('Escape')
     await page.waitForTimeout(60)
   }
-  await guidanceSwitch.click()
-  await page.waitForTimeout(200)
 
   // Narrowest common handset width.
   await page.setViewportSize({ width: 360, height: 900 })
@@ -704,9 +707,6 @@ await page.evaluate(() => localStorage.clear())
 // ---------------------------------------------------------------------------
 await page.reload({ waitUntil: 'networkidle' })
 await page.waitForTimeout(600)
-await page.getByRole('switch', { name: /Guidance/i }).click()
-await page.waitForTimeout(400)
-
 let opened = false
 const askPins = page.locator('.guidance-pin-button')
 for (let i = 0; i < (await askPins.count()); i++) {
@@ -797,6 +797,81 @@ else {
 await page.evaluate(() => localStorage.clear())
 
 // ---------------------------------------------------------------------------
+// Every key written is a key disclosed.
+//
+// The privacy claim is that a reader can see exactly what is kept in their
+// browser and clear it. That was enforced by nobody: the guidance preference
+// wrote `ligant.guidance.v1` and the disclosure listed only the tool's own
+// state key, so the one thing the claim guaranteed was the one thing not being
+// checked. Guidance no longer stores a preference, and this asserts the general
+// property rather than the particular fix.
+// ---------------------------------------------------------------------------
+for (const tool of TOOLS) {
+  await page.goto(ORIGIN + tool.path, { waitUntil: 'networkidle' })
+  await page.evaluate(() => localStorage.clear())
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.waitForTimeout(700)
+
+  // Use the tool the way a reader would, so anything written lazily is written.
+  await page.getByRole('button', { name: 'Load worked example' }).click().catch(() => {})
+  await page.waitForTimeout(500)
+  const anyPin = page.locator('.guidance-pin-button').first()
+  if ((await anyPin.count()) > 0) {
+    await anyPin.scrollIntoViewIfNeeded().catch(() => {})
+    await anyPin.click()
+    await page.waitForTimeout(300)
+    const askField = page.locator('.guidance-panel .ask-row input')
+    if ((await askField.count()) > 0) {
+      await askField.fill('what is this')
+      await page.locator('.guidance-panel .ask-row button').click()
+      await page.waitForTimeout(300)
+    }
+    await page.keyboard.press('Escape')
+  }
+  await page.waitForTimeout(400)
+
+  const storage = await page.evaluate(() => {
+    const written = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key) written.push(key)
+    }
+    const session = []
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i)
+      if (key) session.push(key)
+    }
+    const disclosed = [...document.querySelectorAll('code')].map((c) => c.textContent?.trim() ?? '')
+    return { written, session, disclosed }
+  })
+
+  const undisclosed = storage.written.filter((key) => !storage.disclosed.includes(key))
+  if (undisclosed.length > 0) {
+    uiFailures.push(`${tool.id}: writes ${undisclosed.join(', ')} without disclosing it`)
+  }
+  if (storage.session.length > 0) {
+    uiFailures.push(`${tool.id}: writes to session storage (${storage.session.join(', ')}), which nothing discloses`)
+  }
+
+  // Disclosed and erasable are two claims. This is the second.
+  await page.getByRole('button', { name: 'Clear stored data' }).click().catch(() => {})
+  await page.waitForTimeout(400)
+  const remaining = await page.evaluate(() => {
+    const left = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key) left.push(key)
+    }
+    return left
+  })
+  if (remaining.length > 0) {
+    uiFailures.push(`${tool.id}: clearing stored data left ${remaining.join(', ')} behind`)
+  }
+}
+
+await page.evaluate(() => localStorage.clear())
+
+// ---------------------------------------------------------------------------
 // A tool that is built, served, and offered to nobody.
 //
 // Unlisted is four things that have to agree: absent from the switcher, absent
@@ -877,9 +952,6 @@ await page.evaluate(() => localStorage.clear())
 // ---------------------------------------------------------------------------
 await page.goto(ORIGIN + '/cytotoxicity/', { waitUntil: 'networkidle' })
 await page.waitForTimeout(600)
-await page.getByRole('switch', { name: /Guidance/i }).click()
-await page.waitForTimeout(400)
-
 let cyOpened = false
 const cyPins = page.locator('.guidance-pin-button')
 for (let i = 0; i < (await cyPins.count()); i++) {
@@ -996,4 +1068,6 @@ console.log('that cannot support a figure reports itself, and withholds the figu
   'for it, at the card it belongs to; and an unlisted tool is absent from the\n' +
   'switcher and the sitemap, asks not to be indexed, and still works for anyone\n' +
   'holding its link; and what is wrong with one value is said at the field it\n' +
-  'was typed into, on inclusion rather than on what a row is called.')
+  'was typed into, on inclusion rather than on what a row is called; and every\n' +
+  'key written to a browser is disclosed on the page and removed by the control\n' +
+  'that offers to remove it.')

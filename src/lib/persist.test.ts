@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { restoreOptions } from './persist'
+import { describe, it, expect, beforeEach } from 'vitest'
+import { persist, restoreOptions } from './persist'
 import { DEFAULT_OPTIONS, captureCompatibilityFlags, type QuantifyOptions } from './quantify'
 import { DEFAULT_CYTOTOX_OPTIONS } from './cytotox'
 
@@ -103,5 +103,73 @@ describe('the defect this module exists to prevent', () => {
     for (const f of captureCompatibilityFlags('mouse', restored.antibodyHost)) {
       expect(f.message).not.toContain('undefined')
     }
+  })
+})
+
+/**
+ * A minimal `localStorage`, because the suite runs in node.
+ *
+ * Stubbed rather than pulled in with a DOM implementation: `persist` touches
+ * two methods, and a stub that implements exactly those two is a more honest
+ * description of what is being tested than a whole document would be.
+ */
+class MemoryStorage {
+  private items = new Map<string, string>()
+  get length() {
+    return this.items.size
+  }
+  getItem(key: string) {
+    return this.items.get(key) ?? null
+  }
+  setItem(key: string, value: string) {
+    this.items.set(key, value)
+  }
+  removeItem(key: string) {
+    this.items.delete(key)
+  }
+  clear() {
+    this.items.clear()
+  }
+}
+
+describe('persist', () => {
+  const key = 'test.state.v1'
+
+  beforeEach(() => {
+    ;(globalThis as { localStorage?: unknown }).localStorage = new MemoryStorage()
+  })
+
+  it('writes the document when there is work to keep', () => {
+    persist(key, { mfi: 2050 }, true)
+    expect(JSON.parse(localStorage.getItem(key) ?? 'null')).toEqual({ mfi: 2050 })
+  })
+
+  // "Clear stored data" removed the key and then reset the tool, and resetting
+  // the tool wrote the key straight back holding an empty document. The key was
+  // still there afterwards, which is not what the button says.
+  it('removes the key when there is nothing to keep', () => {
+    persist(key, { mfi: 2050 }, true)
+    persist(key, { mfi: null }, false)
+    expect(localStorage.getItem(key)).toBeNull()
+  })
+
+  it('writes nothing for a reader who has entered nothing', () => {
+    persist(key, { mfi: null }, false)
+    expect(localStorage.length).toBe(0)
+  })
+
+  it('survives storage being unavailable', () => {
+    // A private window, or a browser set to block site data. The tool keeps
+    // working; it simply does not remember.
+    ;(globalThis as { localStorage?: unknown }).localStorage = {
+      setItem() {
+        throw new Error('denied')
+      },
+      removeItem() {
+        throw new Error('denied')
+      },
+    }
+    expect(() => persist(key, { mfi: 2050 }, true)).not.toThrow()
+    expect(() => persist(key, { mfi: null }, false)).not.toThrow()
   })
 })

@@ -2,7 +2,16 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { AnchorId, GuidanceEntry, ToolContext } from '../../lib/guidance/types'
 import { buildIndex, search, type Match } from '../../lib/guidance/retrieval'
 
-const STORAGE_KEY = 'ligant.guidance.v1'
+/**
+ * A preference this component used to write, and now only clears.
+ *
+ * Guidance was opt in behind a switch in the masthead. It is always on, so
+ * there is no preference to keep, and the key is removed from anyone who still
+ * carries it. It was also the one key the privacy disclosure never listed,
+ * which the disclosure now cannot be wrong about: there is nothing here to
+ * list.
+ */
+const RETIRED_PREFERENCE_KEY = 'ligant.guidance.v1'
 
 /** One question and the passages retrieval returned for it. */
 export interface Exchange {
@@ -13,10 +22,6 @@ export interface Exchange {
 }
 
 interface GuidanceValue {
-  enabled: boolean
-  setEnabled: (on: boolean) => void
-  /** True until the reader has made a choice, so the offer can be shown once. */
-  undecided: boolean
   corpus: readonly GuidanceEntry[]
   context: ToolContext
   /** Questions asked at each card, in the order they were asked. */
@@ -27,17 +32,6 @@ interface GuidanceValue {
 
 const Ctx = createContext<GuidanceValue | null>(null)
 
-function loadPreference(): boolean | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw === 'on') return true
-    if (raw === 'off') return false
-  } catch {
-    // Storage unavailable. Guidance still works, it just will not be remembered.
-  }
-  return null
-}
-
 interface Props {
   corpus: readonly GuidanceEntry[]
   context: ToolContext
@@ -45,15 +39,15 @@ interface Props {
 }
 
 /**
- * Holds the guidance preference and the current tool snapshot.
+ * Holds the corpus and the current tool snapshot.
  *
- * The preference is shared across every tool in the suite, so a reader turns it
- * on once. It is off by default: a working scientist should not have to dismiss
- * anything, and the offer to turn it on is made once, quietly, in the masthead.
+ * Guidance is always available. It was behind a switch, defaulted off, on the
+ * reasoning that a working scientist should not have to dismiss anything. What
+ * the switch actually did was hide the explanations from every reader who did
+ * not already know they wanted them, which is the reader they were written for.
+ * A pin costs 16 pixels beside a label and answers nothing until it is asked.
  */
 export function GuidanceProvider({ corpus, context, children }: Props) {
-  const [stored, setStored] = useState<boolean | null>(loadPreference)
-
   // Questions live in memory for the session and are never written to storage.
   // A question can carry as much of a reader's work as the data does ("why is
   // my donor 4 keratinocyte sample below detection"), and the tool discloses
@@ -84,31 +78,25 @@ export function GuidanceProvider({ corpus, context, children }: Props) {
     })
   }, [])
 
-  const setEnabled = useCallback((on: boolean) => {
-    setStored(on)
+  // Nothing writes this any more, so a reader who once used the switch would
+  // otherwise keep a key no part of the interface accounts for.
+  useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, on ? 'on' : 'off')
+      localStorage.removeItem(RETIRED_PREFERENCE_KEY)
     } catch {
-      // Applies for this session regardless.
+      // Storage unavailable. Nothing was written in the first place.
     }
   }, [])
 
-  useEffect(() => {
-    document.documentElement.dataset.guidance = stored === true ? 'on' : 'off'
-  }, [stored])
-
   const value = useMemo<GuidanceValue>(
     () => ({
-      enabled: stored === true,
-      setEnabled,
-      undecided: stored === null,
       corpus,
       context,
       exchanges,
       ask,
       forget,
     }),
-    [stored, setEnabled, corpus, context, exchanges, ask, forget],
+    [corpus, context, exchanges, ask, forget],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
