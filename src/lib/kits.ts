@@ -93,3 +93,33 @@ export function standardsForKit(kit: BeadKit): BeadStandard[] {
     included: !BLANK_POPULATION.test(label),
   }))
 }
+
+/**
+ * Name for a population added after the kit's own rows, whether by the add
+ * button or by a paste running past the end of the table.
+ *
+ * A kit names its populations and the reader can rename them, so an added row
+ * continues the naming already in the table rather than introducing a second
+ * one beside it. Quantum Simply Cellular ran Blank, Population 1 to 4 and then
+ * offered "Standard 6", which appears in the residual strip and the CSV as
+ * though a different kind of row had been added.
+ *
+ * The count is per stem, not per table: an unnumbered row such as Blank is not
+ * a numbered population and does not advance the number.
+ */
+export function nextStandardLabel(standards: { label: string }[]): string {
+  const numbered = /^(.*\S)\s+(\d+)$/
+  const parsed = standards
+    .map((s) => numbered.exec(s.label.trim()))
+    .filter((m): m is RegExpExecArray => m !== null)
+
+  // The last numbered row decides the stem, so a table renamed part way through
+  // continues from what the reader last called a row rather than from the kit.
+  const stem = parsed.length > 0 ? parsed[parsed.length - 1][1] : null
+  if (stem === null) return `Population ${standards.length + 1}`
+
+  const highest = parsed
+    .filter((m) => m[1] === stem)
+    .reduce((max, m) => Math.max(max, Number(m[2])), 0)
+  return `${stem} ${highest + 1}`
+}
