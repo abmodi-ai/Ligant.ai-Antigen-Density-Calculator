@@ -618,6 +618,36 @@ details.options > div { padding-top: 12px; display: flex; flex-direction: column
 
 .ask-empty { color: var(--text-muted) !important; }
 
+/* ---------- what a paste was read as ---------- */
+
+.paste-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 16px 12px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--series-decision);
+  border-radius: 0 6px 6px 0;
+  background: var(--surface-sunken);
+}
+.paste-notice p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.paste-notice p + p { margin-top: 6px; }
+.paste-notice button {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  padding: 0 2px;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
 /* A match the reader can already see, pointed at rather than repeated. */
 .ask-seen {
   margin-top: 7px !important;

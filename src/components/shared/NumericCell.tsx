@@ -6,15 +6,18 @@
  * is handed to the table to fill down and across.
  */
 
-/** Parse a user-typed number, allowing thousands separators and exponents. */
-export function parseNum(raw: string): number | null {
-  const cleaned = raw.replace(/,/g, '').trim()
-  if (cleaned === '') return null
-  const v = Number(cleaned)
-  return Number.isFinite(v) ? v : null
-}
+import { parseNum, readPaste } from '../../lib/paste'
 
-/** Split a clipboard payload into a grid, accepting tab or comma separation. */
+export { parseNum }
+
+/**
+ * Split a clipboard payload into a grid, accepting tab or comma separation.
+ *
+ * Kept as the naive reading, and no longer used for pasting. `readPaste` in
+ * `lib/paste.ts` replaced it because splitting on every comma turned a
+ * thousands-formatted value into two cells. This remains only so the tests that
+ * pin the old behaviour have something to compare against.
+ */
 export function parseClipboardGrid(text: string): string[][] {
   return text
     .replace(/\r\n?/g, '\n')
@@ -26,12 +29,21 @@ export function parseClipboardGrid(text: string): string[][] {
 interface Props {
   value: number | null
   onChange: (v: number | null) => void
-  onPasteGrid: (grid: string[][]) => void
+  onPasteGrid: (grid: string[][], notices: string[]) => void
   placeholder?: string
   ariaLabel: string
+  /** True in a calibration table, where a pasted block has an expected shape. */
+  calibration?: boolean
 }
 
-export function NumericCell({ value, onChange, onPasteGrid, placeholder, ariaLabel }: Props) {
+export function NumericCell({
+  value,
+  onChange,
+  onPasteGrid,
+  placeholder,
+  ariaLabel,
+  calibration,
+}: Props) {
   return (
     <input
       type="text"
@@ -42,10 +54,14 @@ export function NumericCell({ value, onChange, onPasteGrid, placeholder, ariaLab
       aria-label={ariaLabel}
       onChange={(e) => onChange(parseNum(e.target.value))}
       onPaste={(e) => {
-        const grid = parseClipboardGrid(e.clipboardData.getData('text/plain'))
+        const { grid, notices } = readPaste(e.clipboardData.getData('text/plain'), {
+          calibration,
+        })
+        // A single value is left to ordinary input handling, which strips
+        // thousands separators on its own.
         if (grid.length > 1 || grid[0]?.length > 1) {
           e.preventDefault()
-          onPasteGrid(grid)
+          onPasteGrid(grid, notices)
         }
       }}
     />

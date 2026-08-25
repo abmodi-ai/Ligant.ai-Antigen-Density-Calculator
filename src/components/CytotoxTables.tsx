@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import type { DoseMatrix } from '../lib/cytotox'
 import { NumericCell, parseNum } from './shared/NumericCell'
+import { PasteNotices } from './shared/PasteNotices'
 import { GuidancePin } from './guidance/GuidancePin'
 
 interface Props {
@@ -24,6 +26,7 @@ function growRows(m: DoseMatrix, rows: number) {
 }
 
 export function CytotoxTables({ matrix, doseLabel, onChange }: Props) {
+  const [notices, setNotices] = useState<string[]>([])
   const columns = matrix.seriesNames.length
 
   /**
@@ -89,7 +92,10 @@ export function CytotoxTables({ matrix, doseLabel, onChange }: Props) {
                   value={dose}
                   ariaLabel={`${doseLabel} for row ${row + 1}`}
                   onChange={(v) => setDose(row, v)}
-                  onPasteGrid={(g) => pasteFrom(row, -1, g)}
+                  onPasteGrid={(g, n) => {
+                    setNotices(n)
+                    pasteFrom(row, -1, g)
+                  }}
                 />
               </td>
               {matrix.seriesNames.map((_, c) => (
@@ -98,7 +104,10 @@ export function CytotoxTables({ matrix, doseLabel, onChange }: Props) {
                     value={matrix.responses[row]?.[c] ?? null}
                     ariaLabel={`Response for ${matrix.seriesNames[c]} at row ${row + 1}`}
                     onChange={(v) => setResponse(row, c, v)}
-                    onPasteGrid={(g) => pasteFrom(row, c, g)}
+                    onPasteGrid={(g, n) => {
+                      setNotices(n)
+                      pasteFrom(row, c, g)
+                    }}
                   />
                 </td>
               ))}
@@ -121,6 +130,7 @@ export function CytotoxTables({ matrix, doseLabel, onChange }: Props) {
         </tbody>
       </table>
 
+      <PasteNotices notices={notices} onDismiss={() => setNotices([])} />
       <div className="table-foot">
         <div className="button-row">
           <button

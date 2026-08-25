@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import type { BeadStandard, Sample } from '../lib/quantify'
 import { NumericCell as NumCell, parseNum } from './shared/NumericCell'
+import { PasteNotices } from './shared/PasteNotices'
 import { GuidancePin } from './guidance/GuidancePin'
 
 export { parseNum, parseClipboardGrid } from './shared/NumericCell'
@@ -11,11 +13,14 @@ interface StandardsTableProps {
 }
 
 export function StandardsTable({ standards, assignedLabel, onChange }: StandardsTableProps) {
+  const [notices, setNotices] = useState<string[]>([])
+
   const update = (i: number, patch: Partial<BeadStandard>) =>
     onChange(standards.map((s, idx) => (idx === i ? { ...s, ...patch } : s)))
 
   /** Fill down and across from (row, col), growing the table if needed. */
-  const pasteFrom = (row: number, col: 0 | 1, grid: string[][]) => {
+  const pasteFrom = (row: number, col: 0 | 1, grid: string[][], from: string[]) => {
+    setNotices(from)
     const next = standards.map((s) => ({ ...s }))
     grid.forEach((cells, r) => {
       const target = row + r
@@ -77,7 +82,8 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
                   value={s.mfi}
                   ariaLabel={`MFI for ${s.label}`}
                   onChange={(v) => update(i, { mfi: v })}
-                  onPasteGrid={(g) => pasteFrom(i, 0, g)}
+                  calibration
+                  onPasteGrid={(g, n) => pasteFrom(i, 0, g, n)}
                 />
               </td>
               <td className="num">
@@ -85,7 +91,8 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
                   value={s.assigned}
                   ariaLabel={`Assigned value for ${s.label}`}
                   onChange={(v) => update(i, { assigned: v })}
-                  onPasteGrid={(g) => pasteFrom(i, 1, g)}
+                  calibration
+                  onPasteGrid={(g, n) => pasteFrom(i, 1, g, n)}
                 />
               </td>
               <td className="shrink">
@@ -101,6 +108,7 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
           ))}
         </tbody>
       </table>
+      <PasteNotices notices={notices} onDismiss={() => setNotices([])} />
       <div className="table-foot">
         <button
           onClick={() =>
@@ -131,10 +139,13 @@ interface SamplesTableProps {
 }
 
 export function SamplesTable({ samples, showControl, onChange }: SamplesTableProps) {
+  const [notices, setNotices] = useState<string[]>([])
+
   const update = (i: number, patch: Partial<Sample>) =>
     onChange(samples.map((s, idx) => (idx === i ? { ...s, ...patch } : s)))
 
-  const pasteFrom = (row: number, col: 0 | 1, grid: string[][]) => {
+  const pasteFrom = (row: number, col: 0 | 1, grid: string[][], from: string[]) => {
+    setNotices(from)
     const next = samples.map((s) => ({ ...s }))
     grid.forEach((cells, r) => {
       const target = row + r
@@ -184,7 +195,7 @@ export function SamplesTable({ samples, showControl, onChange }: SamplesTablePro
                   value={s.mfi}
                   ariaLabel={`Stained MFI for ${s.label}`}
                   onChange={(v) => update(i, { mfi: v })}
-                  onPasteGrid={(g) => pasteFrom(i, 0, g)}
+                  onPasteGrid={(g, n) => pasteFrom(i, 0, g, n)}
                 />
               </td>
               {showControl && (
@@ -194,7 +205,7 @@ export function SamplesTable({ samples, showControl, onChange }: SamplesTablePro
                     placeholder="isotype / FMO"
                     ariaLabel={`Control MFI for ${s.label}`}
                     onChange={(v) => update(i, { controlMfi: v })}
-                    onPasteGrid={(g) => pasteFrom(i, 1, g)}
+                    onPasteGrid={(g, n) => pasteFrom(i, 1, g, n)}
                   />
                 </td>
               )}
@@ -211,6 +222,7 @@ export function SamplesTable({ samples, showControl, onChange }: SamplesTablePro
           ))}
         </tbody>
       </table>
+      <PasteNotices notices={notices} onDismiss={() => setNotices([])} />
       <div className="table-foot">
         <button
           onClick={() =>

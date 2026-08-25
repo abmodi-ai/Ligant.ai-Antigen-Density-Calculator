@@ -454,6 +454,54 @@ try {
 await page.evaluate(() => localStorage.clear())
 
 // ---------------------------------------------------------------------------
+// Pasting a column of thousands-formatted values.
+//
+// The parser used to split on every comma in a line without a tab, so a pasted
+// column of 2,050 and 12,900 became two cells per row: 2 into the intensity and
+// 50 into the certified value, silently, all the way down. Typed input was
+// never affected, because typing strips separators, which is why it went
+// unnoticed. This drives the real path rather than the parser.
+// ---------------------------------------------------------------------------
+await page.evaluate(() => localStorage.clear())
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(600)
+await page.getByRole('button', { name: 'Clear all' }).click()
+await page.waitForTimeout(400)
+
+await page.evaluate(() => {
+  const cell = document.querySelector('input[aria-label^="MFI for"]')
+  cell.focus()
+  const data = new DataTransfer()
+  data.setData('text/plain', '2,050\n12,900\n39,500\n121,000')
+  cell.dispatchEvent(
+    new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }),
+  )
+})
+await page.waitForTimeout(500)
+
+const pasted = await page.evaluate(() => ({
+  mfi: [...document.querySelectorAll('input[aria-label^="MFI for"]')].map((i) => i.value),
+  assigned: [...document.querySelectorAll('input[aria-label^="Assigned value for"]')].map(
+    (i) => i.value,
+  ),
+  notice: document.querySelector('.paste-notice')?.innerText ?? '',
+}))
+const expectedMfi = ['2050', '12900', '39500', '121000']
+if (expectedMfi.some((value, i) => pasted.mfi[i] !== value)) {
+  uiFailures.push(
+    `antigen density: a pasted thousands-formatted column read as ${JSON.stringify(pasted.mfi.slice(0, 4))}, expected ${JSON.stringify(expectedMfi)}`,
+  )
+}
+if (pasted.assigned.slice(0, 4).some((value) => value !== '')) {
+  uiFailures.push('antigen density: a single pasted column spilled into the certified value column')
+}
+if (!/thousands separators/i.test(pasted.notice)) {
+  uiFailures.push('antigen density: the reader was not told how the commas in their paste were read')
+}
+
+await page.evaluate(() => localStorage.clear())
+
+// ---------------------------------------------------------------------------
 // Asking a question at a card.
 //
 // Every answer is a passage already in the page, so the assertions are about
@@ -604,4 +652,5 @@ console.log('raising a flag the user did not earn; an invalidated calibration re
 console.log('figure it invalidates; a question the corpus cannot answer is declined rather')
 console.log('than approximated, every answer carries the title of the passage it came from,')
 console.log('and nothing the reader types reaches storage; and the CSV export carries a')
-console.log('machine-readable status.')
+console.log('machine-readable status; and a pasted column of thousands-formatted values')
+console.log('reads as the numbers it was written as.')
