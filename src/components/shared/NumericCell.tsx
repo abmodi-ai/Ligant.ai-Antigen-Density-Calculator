@@ -41,13 +41,6 @@ interface Props {
    * Nothing here prevents entry, and nothing here is red.
    */
   issue?: Severity | null
-  /**
-   * Told when this field gains and loses focus, so the table can hold a
-   * warning back until the reader has stopped typing in it. Inserting a row
-   * mid-keystroke pushes every row below it down, and the field someone is
-   * about to type into moves out from under the cursor.
-   */
-  onEditing?: (editing: boolean) => void
 }
 
 export function NumericCell({
@@ -58,7 +51,6 @@ export function NumericCell({
   ariaLabel,
   calibration,
   issue,
-  onEditing,
 }: Props) {
   const className =
     [value !== null ? 'filled' : '', issue ? `cell-${issue}` : ''].filter(Boolean).join(' ') ||
@@ -73,8 +65,6 @@ export function NumericCell({
       placeholder={placeholder}
       aria-label={ariaLabel}
       onChange={(e) => onChange(parseNum(e.target.value))}
-      onFocus={() => onEditing?.(true)}
-      onBlur={() => onEditing?.(false)}
       onPaste={(e) => {
         const { grid, notices } = readPaste(e.clipboardData.getData('text/plain'), {
           calibration,

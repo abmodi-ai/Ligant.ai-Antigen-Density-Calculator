@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { checkStandardConsistency, type BeadStandard, type Sample } from '../lib/quantify'
 import { nextId, nextStandardLabel } from '../lib/kits'
-import { checkAssigned, checkControl, checkMfi, type FieldIssue } from '../lib/validate'
+import { checkAssigned, checkControl, checkMfi } from '../lib/validate'
 import { NumericCell as NumCell, parseNum } from './shared/NumericCell'
 import { PasteNotices } from './shared/PasteNotices'
+import { RowNotes, type RowNote } from './shared/RowNotes'
 import { GuidancePin } from './guidance/GuidancePin'
 
 export { parseNum, parseClipboardGrid } from './shared/NumericCell'
@@ -16,11 +17,11 @@ interface StandardsTableProps {
 
 export function StandardsTable({ standards, assignedLabel, onChange }: StandardsTableProps) {
   const [notices, setNotices] = useState<string[]>([])
-  // The row being typed in. Its warning waits until the reader leaves it: a
-  // live pass caught the row below moving out from under the cursor part way
-  // through entering four values, because inserting the warning reflows the
-  // table. Nothing is suppressed, only deferred to the moment it is useful.
-  const [editing, setEditing] = useState<string | null>(null)
+
+  // Everything the table has to say about its rows, gathered while rendering
+  // them and shown in one block underneath. See RowNotes for why it is not said
+  // in the row itself.
+  const notes: RowNote[] = []
 
   // Named at the row it belongs to, at the moment it is entered. R squared can
   // say the table is wrong; only this can say which population.
@@ -91,10 +92,18 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
               started: s.mfi !== null && anyComplete,
             })
             const outlier = consistency.wholeTable ? undefined : outlierFor.get(s.id)
-            const fieldIssues =
-              editing === s.id
-                ? []
-                : [mfiIssue, assignedIssue].filter((issue): issue is FieldIssue => issue !== null)
+            const name = s.label || `Standard ${i + 1}`
+            for (const issue of [mfiIssue, assignedIssue]) {
+              if (issue) notes.push({ row: name, ...issue })
+            }
+            if (outlier) {
+              notes.push({
+                row: name,
+                severity: 'error',
+                message: outlier.message,
+                remedy: outlier.remedy,
+              })
+            }
             return [
               <tr
                 key={s.id}
@@ -126,8 +135,7 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
                     ariaLabel={`MFI for ${s.label}`}
                     onChange={(v) => update(i, { mfi: v })}
                     calibration
-                    issue={editing === s.id ? null : mfiIssue?.severity}
-                    onEditing={(on) => setEditing(on ? s.id : null)}
+                    issue={mfiIssue?.severity}
                     onPasteGrid={(g, n) => pasteFrom(i, 0, g, n)}
                   />
                 </td>
@@ -151,20 +159,6 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
                   </button>
                 </td>
               </tr>,
-              outlier || fieldIssues.length > 0 ? (
-                <tr className="row-flag" key={`${s.id}-flag`}>
-                  <td colSpan={5}>
-                    {fieldIssues.map((issue, n) => (
-                      <p key={n}>{issue.message}</p>
-                    ))}
-                    {outlier && (
-                      <p>
-                        <strong>{outlier.message}</strong> <span>{outlier.remedy}</span>
-                      </p>
-                    )}
-                  </td>
-                </tr>
-              ) : null,
             ]
           })}
           {consistency.wholeTable && (
@@ -184,6 +178,7 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
           )}
         </tbody>
       </table>
+      <RowNotes notes={notes} />
       <PasteNotices notices={notices} onDismiss={() => setNotices([])} />
       <div className="table-foot">
         <button
@@ -216,7 +211,7 @@ interface SamplesTableProps {
 
 export function SamplesTable({ samples, showControl, onChange }: SamplesTableProps) {
   const [notices, setNotices] = useState<string[]>([])
-  const [editing, setEditing] = useState<string | null>(null)
+  const notes: RowNote[] = []
 
   const update = (i: number, patch: Partial<Sample>) =>
     onChange(samples.map((s, idx) => (idx === i ? { ...s, ...patch } : s)))
@@ -262,11 +257,10 @@ export function SamplesTable({ samples, showControl, onChange }: SamplesTablePro
           {samples.flatMap((s, i) => {
             const mfiIssue = checkMfi(s.mfi)
             const controlIssue = showControl ? checkControl(s.controlMfi, s.mfi) : null
-            const issues =
-              editing === s.id
-                ? []
-                : [mfiIssue, controlIssue].filter((issue): issue is FieldIssue => issue !== null)
-            const span = showControl ? 4 : 3
+            const name = s.label || `Sample ${i + 1}`
+            for (const issue of [mfiIssue, controlIssue]) {
+              if (issue) notes.push({ row: name, ...issue })
+            }
             return [
               <tr key={s.id}>
                 <td>
@@ -282,8 +276,7 @@ export function SamplesTable({ samples, showControl, onChange }: SamplesTablePro
                     value={s.mfi}
                     ariaLabel={`Stained MFI for ${s.label}`}
                     onChange={(v) => update(i, { mfi: v })}
-                    issue={editing === s.id ? null : mfiIssue?.severity}
-                    onEditing={(on) => setEditing(on ? s.id : null)}
+                    issue={mfiIssue?.severity}
                     onPasteGrid={(g, n) => pasteFrom(i, 0, g, n)}
                   />
                 </td>
@@ -309,19 +302,11 @@ export function SamplesTable({ samples, showControl, onChange }: SamplesTablePro
                   </button>
                 </td>
               </tr>,
-              issues.length > 0 ? (
-                <tr className="row-flag" key={`${s.id}-flag`}>
-                  <td colSpan={span}>
-                    {issues.map((issue, n) => (
-                      <p key={n}>{issue.message}</p>
-                    ))}
-                  </td>
-                </tr>
-              ) : null,
             ]
           })}
         </tbody>
       </table>
+      <RowNotes notes={notes} />
       <PasteNotices notices={notices} onDismiss={() => setNotices([])} />
       <div className="table-foot">
         <button

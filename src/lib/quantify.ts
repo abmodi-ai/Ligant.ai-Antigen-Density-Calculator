@@ -329,7 +329,7 @@ export function fitStandardCurve(standards: BeadStandard[]): CurveResult | { err
   if (curvature && curvature.p < CURVATURE_ALPHA) {
     flags.push({
       level: 'warning',
-      message: `The standard is not straight in log-log space. Its local slope runs from ${curvature.slopeAtLow.toFixed(2)} at the low end to ${curvature.slopeAtHigh.toFixed(2)} at the high end, a drift of ${Math.abs(curvature.slopeDrift).toFixed(2)} across the calibrated range (quadratic term p = ${curvature.p < 0.001 ? '< 0.001' : curvature.p.toFixed(3)}).`,
+      message: `The standard is not straight in log-log space. Its local slope runs from ${curvature.slopeAtLow.toFixed(2)} at the low end to ${curvature.slopeAtHigh.toFixed(2)} at the high end, a drift of ${Math.abs(curvature.slopeDrift).toFixed(2)} across the calibrated range (quadratic term ${curvature.p < 0.001 ? 'p < 0.001' : `p = ${curvature.p.toFixed(3)}`}).`,
       remedy:
         'A curved standard biases every value converted through it, and the bias changes sign across the range. Neither the slope nor R² reveals it, because a symmetric bend leaves the overall slope at unity and most of a parabola over this range is line. Look for detector non-linearity: lower the voltage if the brightest population approaches the top of the scale, confirm compensation was applied identically to beads and cells, and check that no population is off-scale at either end.',
     })
@@ -463,12 +463,21 @@ export function checkStandardConsistency(
 }
 
 /** Ratios span orders of magnitude, so they are read at two significant figures. */
+/**
+ * A ratio of certified value to intensity, at whatever magnitude it lands.
+ *
+ * Two decimal places collapsed a small ratio to "0.00", which reads as zero
+ * rather than as a number the reader can compare against the one beside it,
+ * and exponential notation put "1.2e+3" into a sentence someone reads at a
+ * bench. Significant figures rather than decimal places, and a thousands
+ * separator instead of an exponent.
+ */
 function formatRatio(v: number): string {
   if (!Number.isFinite(v)) return 'n/a'
-  if (v >= 1000) return v.toExponential(1)
-  if (v >= 100) return v.toFixed(0)
-  if (v >= 10) return v.toFixed(1)
-  return v.toFixed(2)
+  if (v >= 1000) return Math.round(v).toLocaleString('en-GB')
+  if (v >= 1) return Number(v.toPrecision(3)).toString()
+  // Below one, keep two significant figures so 0.0034 stays 0.0034.
+  return Number(v.toPrecision(2)).toString()
 }
 
 /**
@@ -480,7 +489,8 @@ function formatRatio(v: number): string {
 function formatFactor(v: number): string {
   if (!Number.isFinite(v)) return 'n/a'
   const rounded = Number(v.toPrecision(2))
-  if (rounded >= 1000) return rounded.toExponential(1)
+  // "about 1,200 times", not "about 1.2e+3 times".
+  if (rounded >= 1000) return Math.round(rounded).toLocaleString('en-GB')
   return String(rounded)
 }
 
