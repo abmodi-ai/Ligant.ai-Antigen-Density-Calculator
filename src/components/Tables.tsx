@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { checkStandardConsistency, type BeadStandard, type Sample } from '../lib/quantify'
+import { nextId, nextStandardLabel } from '../lib/kits'
 import { checkAssigned, checkControl, checkMfi, type FieldIssue } from '../lib/validate'
 import { NumericCell as NumCell, parseNum } from './shared/NumericCell'
 import { PasteNotices } from './shared/PasteNotices'
@@ -44,8 +45,11 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
       const target = row + r
       while (next.length <= target) {
         next.push({
-          id: `bead-p-${next.length}-${target}`,
-          label: `Standard ${next.length + 1}`,
+          // nextId rather than a positional key: a second paste that grew the
+          // table from the same length would otherwise mint the id a deleted
+          // row had already used.
+          id: nextId('bead'),
+          label: nextStandardLabel(next),
           mfi: null,
           assigned: null,
           included: true,
@@ -187,8 +191,8 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
             onChange([
               ...standards,
               {
-                id: `bead-add-${standards.length}-${Date.now()}`,
-                label: `Standard ${standards.length + 1}`,
+                id: nextId('bead'),
+                label: nextStandardLabel(standards),
                 mfi: null,
                 assigned: null,
                 included: true,
@@ -224,7 +228,9 @@ export function SamplesTable({ samples, showControl, onChange }: SamplesTablePro
       const target = row + r
       while (next.length <= target) {
         next.push({
-          id: `sample-p-${next.length}-${target}`,
+          // Positional ids repeat once rows have been deleted, which collides
+          // with a row still in the table. Minted ids cannot.
+          id: nextId('sample'),
           label: `Sample ${next.length + 1}`,
           mfi: null,
           controlMfi: null,
@@ -323,7 +329,7 @@ export function SamplesTable({ samples, showControl, onChange }: SamplesTablePro
             onChange([
               ...samples,
               {
-                id: `sample-add-${samples.length}-${Date.now()}`,
+                id: nextId('sample'),
                 label: `Sample ${samples.length + 1}`,
                 mfi: null,
                 controlMfi: null,

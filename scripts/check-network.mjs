@@ -1042,6 +1042,67 @@ for (const tool of TOOLS) {
 
 await page.evaluate(() => localStorage.clear())
 
+// ---------------------------------------------------------------------------
+// A row added to the table is a row of the same table.
+//
+// Quantum Simply Cellular names its populations Blank and Population 1 to 4,
+// and the add button offered "Standard 6": a second naming scheme inside one
+// table, carried from there into the residual strip and the CSV as though a
+// different kind of row had been added. The number counts numbered
+// populations, so the blank does not advance it.
+//
+// The share of gross is asserted at the same card, because it was rounded to
+// whole percent: a background of 24.5% printed as "25% of gross" beside no
+// background flag, stating the threshold that governs that flag as met and
+// then ignored. One decimal place everywhere, matching the flag text.
+// ---------------------------------------------------------------------------
+await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' })
+await page.evaluate(() => localStorage.clear())
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(700)
+await page.getByRole('button', { name: 'Load worked example' }).click()
+await page.waitForTimeout(500)
+await page.getByRole('button', { name: '+ Add population' }).click()
+await page.waitForTimeout(500)
+
+const labels = await page.evaluate(() => {
+  const table = [...document.querySelectorAll('table')].find((t) =>
+    t.querySelector('caption')?.textContent?.includes('Calibration bead standards'),
+  )
+  if (!table) return null
+  // By the label each row's name field carries: the value cells are text
+  // inputs too, so the column has to be named rather than counted.
+  return [...table.querySelectorAll('tbody input[aria-label^="Label for standard"]')].map(
+    (el) => el.value,
+  )
+})
+if (!labels || labels.length === 0) {
+  uiFailures.push('antigen density: the standards table did not render its populations')
+} else if (labels[labels.length - 1] !== 'Population 5') {
+  uiFailures.push(
+    `antigen density: a population added to ${labels.slice(0, -1).join(', ')} is called ` +
+      `"${labels[labels.length - 1]}" rather than continuing the kit's own naming`,
+  )
+}
+
+const shares = await page.evaluate(() =>
+  [...document.querySelectorAll('.result-card')]
+    .flatMap((card) => (card.textContent ?? '').match(/[\d.]+% of gross/g) ?? []),
+)
+if (shares.length === 0) {
+  uiFailures.push('antigen density: no result disclosed its background as a share of gross')
+}
+for (const share of shares) {
+  if (!/\d\.\d% of gross/.test(share)) {
+    uiFailures.push(
+      `antigen density: background is disclosed as "${share}", rounded to the same whole ` +
+        'percent as the threshold that decides whether it is flagged',
+    )
+  }
+}
+
+await page.evaluate(() => localStorage.clear())
+
 const fontsApplied = await page.evaluate(async () => {
   await document.fonts.ready
   return {
@@ -1101,6 +1162,8 @@ console.log('that cannot support a figure reports itself, and withholds the figu
   'fitting perfectly; and a reason not to report reads and looks different from a\n' +
   'caveat, and carries no band or interpretation; and the exported figure carries\n' +
   'its own fit statistics and names its samples; and the results rail is not\n' +
-  'sticky where there is only one column; and every\n' +
+  'sticky where there is only one column; and a population added to the table\n' +
+  'continues the naming the kit uses, with its background disclosed to the decimal\n' +
+  'place the threshold is judged on; and every\n' +
   'key written to a browser is disclosed on the page and removed by the control\n' +
   'that offers to remove it.')

@@ -65,9 +65,14 @@ export function FlagList({ flags }: { flags: Flag[] }) {
 }
 
 /** Background as a share of gross, the diagnostic that decides how much the
- *  extrapolated control matters. Shown on every card, not only when flagged. */
+ *  extrapolated control matters. Shown on every card, not only when flagged.
+ *
+ *  One decimal place at every magnitude, matching the flag text. Rounding to
+ *  whole percent printed a background of 24.5% as "25% of gross" on a card
+ *  carrying no background flag, which is the threshold that governs that flag
+ *  reading as met and ignored. */
 function backgroundShare(fraction: number): string {
-  return `${(fraction * 100).toFixed(fraction < 0.1 ? 1 : 0)}% of gross`
+  return `${(fraction * 100).toFixed(1)}% of gross`
 }
 
 interface Props {
