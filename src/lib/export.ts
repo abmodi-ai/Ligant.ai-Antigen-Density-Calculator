@@ -107,6 +107,8 @@ export function downloadCsv(filename: string, rows: (string | number | null)[][]
 
 export interface ExportPayload {
   kitName: string
+  /** Which lot the certified values came from, where the reader recorded one. */
+  lotId: string
   assignedLabel: string
   options: QuantifyOptions
   standards: BeadStandard[]
@@ -129,6 +131,10 @@ export function exportResultsCsv(payload: ExportPayload, filename: string) {
 
   rows.push(csvRow(['SETTINGS']))
   rows.push(csvRow(['Calibration kit', payload.kitName]))
+  // "not recorded" rather than an empty cell. The minimum a reported density
+  // should carry leads with the lot, and a blank reads as a field that does not
+  // exist rather than as the omission it is.
+  rows.push(csvRow(['Bead lot', payload.lotId.trim() || 'not recorded']))
   rows.push(csvRow(['Standard chemistry', options.standardKind === 'abc' ? 'Certified ABC beads' : 'Certified PE molecules per bead']))
   rows.push(csvRow(['Fluorophore:protein ratio', options.standardKind === 'pe-molecules' ? options.fpRatio : 'n/a']))
   rows.push(csvRow(['Background subtraction', options.backgroundMode]))

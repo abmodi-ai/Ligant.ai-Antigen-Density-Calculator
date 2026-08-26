@@ -20,6 +20,8 @@ interface Props {
   samples: PlottedSample[]
   assignedLabel: string
   confidenceLevel: number
+  /** The bead lot, where one was recorded. Empty is the ordinary case. */
+  lotId: string
 }
 
 interface Hover {
@@ -29,7 +31,7 @@ interface Hover {
   lines: string[]
 }
 
-export function StandardCurve({ curve, samples, assignedLabel, confidenceLevel }: Props) {
+export function StandardCurve({ curve, samples, assignedLabel, confidenceLevel, lotId }: Props) {
   const [hover, setHover] = useState<Hover | null>(null)
 
   const geom = useMemo(() => {
@@ -160,6 +162,12 @@ export function StandardCurve({ curve, samples, assignedLabel, confidenceLevel }
               `intercept ${curve.fit.intercept.toFixed(3)}`,
               `R²      ${formatR2(curve.fit.r2)}`,
               `n       ${curve.fit.n}`,
+              // Where one was recorded. The figure is what ends up in a
+              // manuscript, and a lot identifier that lives only in the CSV is
+              // separated from the plot the first time someone drops the image
+              // into a document. Truncated rather than allowed to run off the
+              // plot area, since it is free text.
+              ...(lotId.trim() ? [`lot     ${lotId.trim().slice(0, 24)}`] : []),
             ].map((line, i) => (
               <text key={`fit${i}`} x={M.left + 10} y={M.top + 15 + i * 13}>
                 {line}

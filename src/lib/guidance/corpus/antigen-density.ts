@@ -73,6 +73,26 @@ export const ANTIGEN_DENSITY_GUIDANCE: GuidanceEntry[] = [
     ],
   },
   {
+    id: 'ad.lot.why',
+    anchor: 'ad.lot',
+    kind: 'definition',
+    title: 'Why record the bead lot?',
+    body: [
+      {
+        kind: 'p',
+        text: 'Because it is the only defence against the one failure this tool cannot detect. Assigned values are certified per manufacturing lot and differ between lots of the same product. A fit built from the wrong lot\u2019s certificate is a straight line through consistent numbers: the slope is near one, the residuals are small, and every check here is satisfied. The result is wrong by whatever the two lots differ by, and nothing in the arithmetic can see it.',
+      },
+      {
+        kind: 'p',
+        text: 'Nothing computes from what you type here. It is a label, carried into the exported figure and into the settings block of the exported CSV, so that a density and the provenance of the ruler that produced it stay together. Where it is left empty the export says so rather than leaving a blank.',
+      },
+      {
+        kind: 'note',
+        text: 'The lot is on the vial and on the certificate of analysis that shipped with it. Transcribe both the lot and its assigned values from the same document, at the same time.',
+      },
+    ],
+  },
+  {
     id: 'ad.control.what',
     anchor: 'ad.control',
     kind: 'definition',

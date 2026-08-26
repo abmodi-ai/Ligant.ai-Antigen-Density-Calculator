@@ -1601,6 +1601,92 @@ if (/^[\d,]/.test(impossible.density)) {
 
 await page.evaluate(() => localStorage.clear())
 
+// ---------------------------------------------------------------------------
+// The one thing no arithmetic here can check, written down.
+//
+// Assigned values are certified per manufacturing lot. A fit built from another
+// lot's certificate is a straight line through consistent numbers: the slope is
+// near one, the residuals are small, every check in this file is satisfied, and
+// the result is wrong by whatever the two lots differ by. Provenance is the only
+// mitigation, and the tool had nowhere to put it: the field did not exist and
+// the word "lot" appeared nowhere in the export.
+//
+// Asserted on both artefacts, because a lot identifier that reaches the CSV and
+// not the figure is separated from the plot the first time someone drops the
+// image into a manuscript.
+// ---------------------------------------------------------------------------
+await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' })
+await page.evaluate(() => localStorage.clear())
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(700)
+await page.getByRole('button', { name: 'Load worked example' }).click()
+await page.waitForTimeout(500)
+
+const csvFor = async (label) => {
+  try {
+    const [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: 8000 }),
+      page.getByRole('button', { name: 'Export CSV' }).click(),
+    ])
+    return await readFile(await download.path(), 'utf8')
+  } catch (e) {
+    uiFailures.push(`antigen density: CSV export failed ${label} (${String(e).slice(0, 60)})`)
+    return ''
+  }
+}
+
+// Unrecorded, which is the state the worked example ships in. A blank cell
+// would read as a field that does not exist rather than as the omission it is.
+const csvBlank = await csvFor('with no lot recorded')
+if (csvBlank && !/^Bead lot,not recorded$/m.test(csvBlank)) {
+  const line = (csvBlank.match(/^Bead lot.*$/m) ?? ['(no Bead lot row at all)'])[0]
+  uiFailures.push(`antigen density: with no lot recorded the CSV says "${line}"`)
+}
+
+const LOT = 'A21-0934'
+await page.fill('#lot', LOT)
+await page.waitForTimeout(500)
+
+const csvLot = await csvFor('with a lot recorded')
+if (csvLot && !csvLot.includes(`Bead lot,${LOT}`)) {
+  uiFailures.push('antigen density: a recorded bead lot does not reach the exported CSV')
+}
+
+const onFigure = await page.evaluate(
+  (lot) => (document.querySelector('#standard-curve-svg')?.textContent ?? '').includes(lot),
+  LOT,
+)
+if (!onFigure) {
+  uiFailures.push(
+    'antigen density: a recorded bead lot does not reach the exported figure, so a plot dropped ' +
+      'into a manuscript carries no provenance for the ruler that produced it',
+  )
+}
+
+// It is transcribed from a vial, so losing it on reload would mean transcribing
+// it again, which is how a field stops being filled in.
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(700)
+const restoredLot = await page.evaluate(() => document.querySelector('#lot')?.value ?? '')
+if (restoredLot !== LOT) {
+  uiFailures.push(`antigen density: the bead lot restored as "${restoredLot}" rather than "${LOT}"`)
+}
+
+// A label alone is not work in progress. Typing only a lot must leave storage
+// untouched, the same rule sample labels already follow, and the same rule the
+// privacy disclosure implies.
+await page.getByRole('button', { name: 'Clear all' }).click()
+await page.waitForTimeout(400)
+await page.evaluate(() => localStorage.clear())
+await page.fill('#lot', 'B02-1177')
+await page.waitForTimeout(600)
+const wroteOnLotAlone = await page.evaluate(() => localStorage.getItem('adc.state.v1') !== null)
+if (wroteOnLotAlone) {
+  uiFailures.push('antigen density: typing only a bead lot wrote a document to browser storage')
+}
+
+await page.evaluate(() => localStorage.clear())
+
 const fontsApplied = await page.evaluate(async () => {
   await document.fonts.ready
   return {

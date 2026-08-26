@@ -36,6 +36,17 @@ const STORAGE_KEY = 'adc.state.v1'
 
 interface PersistedState {
   kitId: string
+  /**
+   * Which lot of beads the certified values were transcribed from.
+   *
+   * Free text and optional, because it is a label on a vial rather than
+   * anything the arithmetic can use or check. It exists because lot mismatch is
+   * the one failure class no software can detect: assigned values are issued
+   * per manufacturing lot, and a fit built from another lot's certificate is
+   * wrong in a way that leaves every diagnostic here satisfied. Provenance is
+   * the only mitigation, and provenance nobody wrote down is not provenance.
+   */
+  lotId: string
   standards: BeadStandard[]
   samples: Sample[]
   options: QuantifyOptions
@@ -45,6 +56,10 @@ interface PersistedState {
 function demoState(): PersistedState {
   return {
     kitId: 'qsc-mouse',
+    // Left empty deliberately. A lot number invented for a demonstration is
+    // exactly the kind of provenance a hurried reader transcribes, and an empty
+    // one shows what the export does with an unrecorded lot.
+    lotId: '',
     standards: [
       { id: 'd0', label: 'Blank', mfi: 210, assigned: null, included: false },
       { id: 'd1', label: 'Population 1', mfi: 2_050, assigned: 8_300, included: true },
@@ -64,6 +79,7 @@ function demoState(): PersistedState {
 function emptyState(kit: BeadKit): PersistedState {
   return {
     kitId: kit.id,
+    lotId: '',
     standards: standardsForKit(kit),
     samples: [
       { id: 'e1', label: 'Sample 1', mfi: null, controlMfi: null },
@@ -81,6 +97,7 @@ function loadState(): PersistedState {
       if (parsed.standards?.length && parsed.options) {
         return {
           kitId: typeof parsed.kitId === 'string' ? parsed.kitId : BEAD_KITS[0].id,
+          lotId: typeof parsed.lotId === 'string' ? parsed.lotId : '',
           standards: parsed.standards,
           samples: parsed.samples ?? [],
           // Settings written before an option existed have no key for it, so
@@ -101,7 +118,7 @@ export default function App() {
   const [undoState, setUndoState] = useState<PersistedState | null>(null)
 
   const kit = BEAD_KITS.find((k) => k.id === state.kitId) ?? BEAD_KITS[0]
-  const { standards, samples, options } = state
+  const { standards, samples, options, lotId } = state
 
   // A table with no number in it is not work in progress, so nothing is kept.
   // Labels alone do not count: they arrive with the empty document.
@@ -207,9 +224,21 @@ export default function App() {
                 </select>
               </div>
               <p className="hint" style={{ marginTop: 9 }}>{kit.note}</p>
+              <div className="field" style={{ marginTop: 10 }}>
+                <label htmlFor="lot">Bead lot<GuidancePin anchor="ad.lot" /></label>
+                <input
+                  id="lot"
+                  type="text"
+                  value={lotId}
+                  placeholder="from the vial or certificate, optional"
+                  onChange={(e) => setState((st) => ({ ...st, lotId: e.target.value }))}
+                />
+              </div>
               <p className="hint" style={{ marginTop: 7 }}>
                 <strong>Assigned values are lot-specific.</strong> Transcribe them from the vial or the
-                lot certificate of analysis. No assigned values are hard-coded in this tool.
+                lot certificate of analysis. No assigned values are hard-coded in this tool. Recording
+                which lot they came from is the only mitigation for the one failure this tool cannot
+                detect, and it travels with the export.
               </p>
             </div>
             <StandardsTable
@@ -430,6 +459,7 @@ export default function App() {
                   samples={entries}
                   assignedLabel={isPe ? 'PE molecules per bead' : 'ABC (antibody binding capacity)'}
                   confidenceLevel={options.confidenceLevel}
+                  lotId={lotId}
                 />
                 <div className="fit-stats">
                   <span>Slope <b>{curve.fit.slope.toFixed(3)}</b></span>
@@ -472,6 +502,7 @@ export default function App() {
                     exportResultsCsv(
                       {
                         kitName: kit.name,
+                        lotId,
                         assignedLabel: kit.assignedLabel,
                         options,
                         standards,
