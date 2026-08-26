@@ -8,8 +8,12 @@
  *
  * The address and the email are plain text and a mailto link. Nothing here
  * contacts anything: a mailto is handled by the reader's own mail client and
- * fires no request, so the privacy guarantee is untouched.
+ * fires no request, so the privacy guarantee is untouched. The repository link
+ * is the same: an anchor a reader may choose to follow, not a resource this
+ * page loads.
  */
+import { REPO_URL } from '../../lib/site'
+
 export function SiteFooter() {
   return (
     <footer className="site-footer">
@@ -17,7 +21,12 @@ export function SiteFooter() {
         <div className="footer-prose">
           <p>
             Ligant Bench Tools are free and open source under Apache 2.0, for research and
-            educational use. They run entirely in your browser: no data is transmitted.
+            educational use. The source is at{' '}
+            <a href={REPO_URL} rel="noopener noreferrer">
+              {REPO_URL.replace('https://', '')}
+            </a>
+            , so every figure on this page can be traced to the code that produced it. They run
+            entirely in your browser: no data is transmitted.
           </p>
           <p>
             These tools are standalone calculators. Ligant's enterprise platform adds reference
@@ -40,8 +49,8 @@ export function SiteFooter() {
       </div>
 
       <p className="footer-licence">
-        Licensed under the Apache License, Version 2.0. You may obtain a copy of the License in the
-        <code>LICENSE</code> file distributed with this software. Unless required by applicable law
+        Licensed under the Apache License, Version 2.0. You may obtain a copy of the License in the{' '}
+        <code>LICENSE</code> file at the repository above. Unless required by applicable law
         or agreed to in writing, software distributed under the License is distributed on an "AS
         IS" basis, without warranties or conditions of any kind, either express or implied.{' '}
         <strong>Research use only. Not for clinical or diagnostic decision-making.</strong>

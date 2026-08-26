@@ -9,6 +9,17 @@
 
 export const SITE_URL = 'https://benchtools.ligant.ai'
 
+/**
+ * Where the source actually is.
+ *
+ * The footer asserted Apache 2.0 and pointed at a LICENSE file "distributed
+ * with this software" without saying where that software could be found. A
+ * licence assertion a reader cannot check is not verifiable, which puts it in
+ * the same category as any other unbacked claim on the page. It lives here so
+ * the footer and the README cannot drift apart.
+ */
+export const REPO_URL = 'https://github.com/abmodi-ai/Ligant.ai-Antigen-Density-Calculator'
+
 export interface Tool {
   id: string
   /** Label in the tool switcher. */

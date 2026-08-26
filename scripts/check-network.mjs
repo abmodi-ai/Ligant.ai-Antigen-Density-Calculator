@@ -1476,6 +1476,43 @@ if (!dominant || !material) {
 
 await page.evaluate(() => localStorage.clear())
 
+// ---------------------------------------------------------------------------
+// A licence claim a reader can check.
+//
+// The footer asserted Apache 2.0 and referred to a LICENSE file "distributed
+// with this software" while offering no way to reach that software. A reviewer
+// put it in the same category as any other unbacked claim on the page, which is
+// right: an assertion nobody can verify is worth what an assertion nobody can
+// verify is worth.
+//
+// The link is an anchor rather than a resource, so nothing here loads from it.
+// The foreign-request guard at the top of this file is what proves that.
+// ---------------------------------------------------------------------------
+await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' })
+await page.waitForTimeout(400)
+
+const REPO_URL = (readFileSync('src/lib/site.ts', 'utf8').match(/REPO_URL\s*=\s*['"]([^'"]+)['"]/) ?? [])[1]
+if (!REPO_URL) {
+  uiFailures.push('antigen density: REPO_URL is not defined in src/lib/site.ts')
+} else {
+  const footer = await page.evaluate((repo) => {
+    const el = document.querySelector('.site-footer')
+    if (!el) return null
+    return {
+      claimsOpenSource: /open source/i.test(el.textContent ?? ''),
+      linksRepo: [...el.querySelectorAll('a')].some((a) => a.getAttribute('href') === repo),
+    }
+  }, REPO_URL)
+  if (!footer) {
+    uiFailures.push('antigen density: the page has no footer')
+  } else if (footer.claimsOpenSource && !footer.linksRepo) {
+    uiFailures.push(
+      'antigen density: the footer claims the tool is open source and does not link the source, ' +
+        'so a reader has no way to check the licence it asserts',
+    )
+  }
+}
+
 const fontsApplied = await page.evaluate(async () => {
   await document.fonts.ready
   return {
