@@ -151,3 +151,42 @@ describe('quadraticCurvature', () => {
     }
   })
 })
+
+describe('the quadratic term on a design that is not symmetric', () => {
+  // A bead standard is log-spaced: dim populations sit close together and the
+  // bright one sits far out. The centred x is therefore skewed, and the third
+  // moment s3 that couples the linear and quadratic coefficients is large.
+  //
+  // Every fixture here used to be symmetric, where s3 is zero and the coupling
+  // costs nothing, so nothing caught a linear coefficient taken as t1 / s2. The
+  // reference values below come from solving the three by three normal
+  // equations independently rather than from this implementation.
+  const MFI = [1_800, 3_100, 5_400, 9_800, 28_000, 240_000]
+  const ABC = [7_200, 12_800, 22_500, 41_000, 122_000, 980_000]
+  const xs = MFI.map((v) => Math.log10(v))
+  const ys = ABC.map((v) => Math.log10(v))
+
+  it('matches an independent solve of the normal equations', () => {
+    const c = quadraticCurvature(xs, ys)
+    expect(c).not.toBeNull()
+    // The uncorrected form returned -0.012472741623 here, out by 45 percent.
+    expect(c?.quadratic).toBeCloseTo(-0.022659962718, 11)
+  })
+
+  it('reports the local slopes the corrected coefficient implies', () => {
+    const c = quadraticCurvature(xs, ys)
+    expect(c?.slopeAtLow).toBeCloseTo(1.053141700883, 10)
+    expect(c?.slopeAtHigh).toBeCloseTo(0.956839635784, 10)
+    expect(c?.slopeDrift).toBeCloseTo(-0.096302065099, 10)
+  })
+
+  it('recovers a quadratic it was given exactly, skew and all', () => {
+    // The strongest statement available: fit a curve with no noise in it and
+    // the coefficients must come back as they went in, which a biased estimator
+    // cannot do on a skewed design at any sample size.
+    const skewed = [0, 0.4, 0.9, 1.6, 3.1, 7.4]
+    const exact = skewed.map((x) => 2.5 - 1.25 * x + 0.375 * x * x)
+    const c = quadraticCurvature(skewed, exact)
+    expect(c?.quadratic).toBeCloseTo(0.375, 10)
+  })
+})

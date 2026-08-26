@@ -16,6 +16,7 @@ import {
   type QuantifyOptions,
 } from './quantify'
 import { BEAD_KITS } from './kits'
+import { tCritical } from './stats'
 import { MFI_IMPOSSIBLE } from './validate'
 
 /**
@@ -1174,5 +1175,116 @@ describe('a standard containing a number no instrument produced', () => {
       DEMO_BEADS.map((b) => (b.id === 'd4' ? { ...b, mfi: 1e300, included: false } : b)),
     )
     expect(c.flags.some((f) => f.message.includes('cytometer reports'))).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Nothing but the fit reaches a reported number.
+//
+// This file, and the calibration core beside it, carry a dozen named
+// thresholds: what counts as a material background, where a slope stops being
+// near unity, which R squared is acceptable, what magnitude is impossible.
+// Every one of them decides what the tool SAYS. None of them may touch what it
+// COMPUTES, or the reported density would be a function of this project's
+// opinions rather than of the reader's data.
+//
+// Asserted by recomputing every reported quantity from the fitted parameters
+// alone, in the open, and requiring bit equality. Any threshold that leaked
+// into the arithmetic would break it. The reference expressions below are the
+// whole method: a referee can read them without reading the implementation.
+// ---------------------------------------------------------------------------
+describe('the reported numbers are a function of the fit and nothing else', () => {
+  const c = curve(DEMO_BEADS)
+  const { slope, intercept, residualSE, n, meanX, sxx, df } = c.fit
+
+  /** The calibration, written out. */
+  const abcAt = (mfi: number) => 10 ** (slope * Math.log10(mfi) + intercept)
+
+  it.each(['cd19', 'her2', 'keratinocyte'] as const)(
+    'reproduces every quantity reported for %s',
+    (key) => {
+      const s = DEMO_SAMPLES[key]
+      const r = quantifySample(s, c, DEMO_OPTIONS)
+
+      const gross = abcAt(s.mfi as number)
+      const background = abcAt(s.controlMfi as number)
+      const net = gross - background
+
+      expect(r.grossAbc).toBe(gross)
+      expect(r.controlAbc).toBe(background)
+      expect(r.netAbc).toBe(net)
+      expect(r.backgroundFraction).toBe(background / gross)
+
+      // The interval is the mean-response half-width at the stained reading,
+      // applied as a multiplicative factor because the fit is in log space.
+      const x0 = Math.log10(s.mfi as number)
+      const se = residualSE * Math.sqrt(1 / n + (x0 - meanX) ** 2 / sxx)
+      const factor = 10 ** (tCritical(DEMO_OPTIONS.confidenceLevel, df) * se)
+      expect(r.lower).toBe(net / factor)
+      expect(r.upper).toBe(net * factor)
+
+      // The only hard-coded multiplier that reaches a reported figure, and the
+      // interface labels it as an assumption rather than a measurement.
+      expect(r.sitesLow).toBe(net)
+      expect(r.sitesHigh).toBe(net * 2)
+    },
+  )
+
+  it('reproduces a monovalent result, where that multiplier is one', () => {
+    const r = quantifySample(DEMO_SAMPLES.cd19, c, { ...DEMO_OPTIONS, valency: 'monovalent' })
+    expect(r.sitesHigh).toBe(r.netAbc)
+  })
+
+  // Across magnitudes, not only across the worked example. Every threshold in
+  // this codebase governs a range, so an invariant tested only where the demo
+  // happens to sit would miss a clamp at either end: a plausibility ceiling
+  // pinning large results, a floor lifting small ones, a range guard rounding
+  // an extrapolated value back inside the beads.
+  it.each([
+    ['far below the lowest bead', 300, 210],
+    ['inside the calibrated range', 20_000, 900],
+    ['above the highest bead', 400_000, 1_000],
+    ['past the plausibility ceiling', 6_500_000, 1_200],
+  ] as const)('holds %s', (_where, mfi, controlMfi) => {
+    const r = quantifySample({ id: 'x', label: 'x', mfi, controlMfi }, c, DEMO_OPTIONS)
+    const net = abcAt(mfi) - abcAt(controlMfi)
+    expect(r.grossAbc).toBe(abcAt(mfi))
+    expect(r.controlAbc).toBe(abcAt(controlMfi))
+    expect(r.netAbc).toBe(net)
+    expect(r.sitesHigh).toBe(net * 2)
+    const x0 = Math.log10(mfi)
+    const se = residualSE * Math.sqrt(1 / n + (x0 - meanX) ** 2 / sxx)
+    const factor = 10 ** (tCritical(DEMO_OPTIONS.confidenceLevel, df) * se)
+    expect(r.lower).toBe(net / factor)
+    expect(r.upper).toBe(net * factor)
+  })
+
+  it('holds for a result smaller than any threshold in the file', () => {
+    // Below the assigned-value floor, below the lowest bead, below the density
+    // band boundaries. Nothing here may lift it to meet any of them.
+    const r = quantifySample({ id: 'x', label: 'x', mfi: 20, controlMfi: null }, c, DEMO_OPTIONS)
+    expect(r.netAbc).toBe(abcAt(20))
+    expect(r.netAbc as number).toBeLessThan(100)
+    expect(r.sitesLow).toBe(abcAt(20))
+    expect(r.controlAbc).toBeNull()
+  })
+
+  it('divides by the F/P ratio the reader supplied, and by nothing else', () => {
+    const fpRatio = 3.4
+    const pe = quantifySample(DEMO_SAMPLES.cd19, c, {
+      ...DEMO_OPTIONS,
+      standardKind: 'pe-molecules',
+      fpRatio,
+    })
+    expect(pe.grossAbc).toBe(abcAt(DEMO_SAMPLES.cd19.mfi as number) / fpRatio)
+  })
+
+  it.each([0.9, 0.95, 0.99] as const)('holds at every confidence level offered (%s)', (level) => {
+    const r = quantifySample(DEMO_SAMPLES.her2, c, { ...DEMO_OPTIONS, confidenceLevel: level })
+    const x0 = Math.log10(DEMO_SAMPLES.her2.mfi as number)
+    const se = residualSE * Math.sqrt(1 / n + (x0 - meanX) ** 2 / sxx)
+    const factor = 10 ** (tCritical(level, df) * se)
+    expect(r.lower).toBe((r.netAbc as number) / factor)
+    expect(r.upper).toBe((r.netAbc as number) * factor)
   })
 })
