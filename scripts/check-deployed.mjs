@@ -29,7 +29,7 @@
  */
 
 import { chromium } from 'playwright'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 
 const CHROME = process.env.CHROME_PATH
 
@@ -119,6 +119,24 @@ page.on('response', (r) => {
   }
 })
 
+/**
+ * Do the thing, and say so if it could not be done.
+ *
+ * These steps were written to swallow their own failures, on the reasoning that
+ * the check is about network traffic rather than about the interface. That was
+ * wrong in a way that only showed up when a deploy needed defending: a page that
+ * rendered nothing at all would click nothing, fail nothing, and pass. A check
+ * that cannot tell a working deployment from a blank one cannot be cited as
+ * evidence that a deployment worked.
+ */
+async function step(what, action) {
+  try {
+    await action()
+  } catch (error) {
+    failures.push(`could not ${what}: ${String(error).split('\n')[0]}`)
+  }
+}
+
 // --- the session the review captured, end to end ---
 const response = await page.goto(target, { waitUntil: 'networkidle' })
 if (!response || !response.ok()) {
@@ -126,20 +144,32 @@ if (!response || !response.ok()) {
 }
 if (served === null && response) served = response.headers()
 
-await page.getByRole('button', { name: 'Load worked example' }).click().catch(() => {})
+await step('load the worked example', () =>
+  page.getByRole('button', { name: 'Load worked example' }).click({ timeout: 15000 }),
+)
 await page.waitForTimeout(600)
 
 // Editing, because a keystroke is where a beacon that samples interaction
 // would fire, and a page-load capture alone would miss it.
-const firstMfi = page.locator('input[aria-label^="Stained MFI"]').first()
-await firstMfi.fill('12345').catch(() => {})
+await step('edit a sample reading', () =>
+  page.locator('input[aria-label^="Stained MFI"]').first().fill('12345', { timeout: 15000 }),
+)
 await page.waitForTimeout(600)
 
+// The figure the edit produces. A deployment that serves the shell but not the
+// application would get this far on markup alone.
+await step('read back a computed density', async () => {
+  const value = await page.locator('.result-card .hero .value').first().innerText({ timeout: 15000 })
+  if (!/\d/.test(value)) throw new Error(`the result card reads "${value}"`)
+})
+
 for (const name of ['Export SVG', 'Export CSV']) {
-  await Promise.all([
-    page.waitForEvent('download').catch(() => {}),
-    page.getByRole('button', { name }).click().catch(() => {}),
-  ])
+  await step(`export ${name.split(' ')[1]}`, () =>
+    Promise.all([
+      page.waitForEvent('download', { timeout: 15000 }),
+      page.getByRole('button', { name }).click({ timeout: 15000 }),
+    ]),
+  )
   await page.waitForTimeout(400)
 }
 await page.waitForTimeout(800)
@@ -181,6 +211,40 @@ const offOrigin = referenced.filter((ref) => {
 })
 
 await browser.close()
+
+/**
+ * Is the page being served the build that was just uploaded?
+ *
+ * Nothing here asked that, so a deploy that silently did not take would have
+ * passed every assertion below while serving the previous release. Asked when
+ * a red run had to be told apart from a failed deploy, which is the moment the
+ * omission mattered.
+ *
+ * Vite content-hashes the entry assets, so their filenames are the build's
+ * identity and there is no version string to remember to bump. Skipped when
+ * dist/ is absent, since this can be pointed at a URL from anywhere.
+ */
+const built = existsSync('dist/index.html')
+  ? [...new Set(readFileSync('dist/index.html', 'utf8').match(/\/assets\/[A-Za-z0-9._-]+/g) ?? [])]
+  : []
+const servedPaths = new Set(
+  referenced.map((ref) => {
+    try {
+      return new URL(ref, target).pathname
+    } catch {
+      return ref
+    }
+  }),
+)
+const missing = built.filter((asset) => !servedPaths.has(asset))
+if (built.length === 0 && existsSync('dist/index.html')) {
+  failures.push('dist/index.html references no hashed assets, so the build cannot be identified')
+} else if (missing.length > 0) {
+  failures.push(
+    `the deployed page does not reference ${missing.join(', ')} from this build, so it is serving ` +
+      'something else. The upload may not have taken, or the edge may be caching the previous one.',
+  )
+}
 
 // --- assertions ---
 
