@@ -112,6 +112,14 @@ export const SHARED_GUIDANCE: GuidanceEntry[] = [
         kind: 'p',
         text: 'This is enforced rather than promised. The security policy permits connections to this origin only, and the build fails if a full session in a real browser produces a single request that leaves it.',
       },
+      {
+        // Added after a reviewer captured a beacon on the deployed site that no
+        // check here could have seen. Everything above is about the build; the
+        // edge sits between the build and the reader, and the claim has to
+        // cover that gap or stop being made.
+        kind: 'p',
+        text: 'That check is on the build. The same session is run against this site as it is actually served, after every deploy, and fails if the page reaches another origin or if the policy arrives weakened. An origin introduced between the build and your browser is caught rather than assumed absent.',
+      },
     ],
   },
 ]

@@ -215,7 +215,8 @@ ever":
   values currently on screen, and is removed by a button. Enter nothing and
   nothing is written.
 
-**This is enforced, not promised.** Two checks run in CI on every commit:
+**This is enforced, not promised.** Three checks run, two on every commit and
+one on every deploy:
 
 - `npm run check:privacy` fails the build on any external origin in the policy,
   the entry document or the bundle, and on any network primitive in the source.
@@ -225,7 +226,16 @@ ever":
   storage is disclosed on the page and removed by the control that offers to
   remove it.
 
-String analysis is the early gate. The runtime assertion is the guarantee.
+- `npm run check:deployed` runs that same session against the deployed URL after
+  every deploy. It fails on any request that leaves the origin, on any external
+  resource referenced by the served document even where the policy blocks it,
+  and on any header from `public/_headers` that arrives missing or widened.
+
+String analysis is the early gate. The runtime assertion against the build is
+the guarantee about what was built. The assertion against the deployed URL is
+the only one of the three that can see what a host inserts after the build, and
+it exists because a reviewer found a Cloudflare Web Analytics beacon on the
+served page that neither of the other two could have caught.
 
 If you would rather not trust a website at all, `npm run build:single` emits one
 self-contained HTML file with everything inlined. It works from a local disk

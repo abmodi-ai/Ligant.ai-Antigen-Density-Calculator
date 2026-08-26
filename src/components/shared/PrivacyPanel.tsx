@@ -30,6 +30,12 @@ export function PrivacyPanel({ storageKeys, onClearStorage }: Props) {
         this origin only, and the build fails if any external origin is introduced or if a full
         session in a real browser produces a single request that leaves it.
       </p>
+      <p>
+        That check is on the build. The same session is run against this site as it is actually
+        served, after every deploy, and fails if the page reaches another origin or if the policy
+        arrives weakened. An origin introduced between the build and your browser is caught rather
+        than assumed absent.
+      </p>
       <p>Stored in this browser, and nowhere else:</p>
       <ul>
         {storageKeys.map((key) => (
