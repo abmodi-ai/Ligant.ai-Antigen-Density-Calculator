@@ -1361,6 +1361,121 @@ for (const share of shares) {
 
 await page.evaluate(() => localStorage.clear())
 
+// ---------------------------------------------------------------------------
+// A verdict is withheld where the measurement cannot support one.
+//
+// At 74.6% background the card reported a clean five-figure density, put a
+// "High" chip beside the sample name and printed "Full effector response is
+// expected. On normal tissue, this density represents a substantial on-target
+// off-tumour risk." underneath it. The caveat naming the background fraction
+// was present and had always been present, at the foot of the card. A reader
+// met the biological verdict and the safety claim first.
+//
+// The number was never the defect. Asserted here rather than only in the unit
+// tests, because what changed is what the reader meets and in what order, and
+// that is not visible from the flag level alone.
+// ---------------------------------------------------------------------------
+await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' })
+await page.evaluate(() => {
+  localStorage.setItem(
+    'adc.state.v1',
+    JSON.stringify({
+      kitId: 'qsc-mouse',
+      standards: [
+        { id: 'd0', label: 'Blank', mfi: 210, assigned: null, included: false },
+        { id: 'd1', label: 'Population 1', mfi: 2050, assigned: 8300, included: true },
+        { id: 'd2', label: 'Population 2', mfi: 12900, assigned: 51000, included: true },
+        { id: 'd3', label: 'Population 3', mfi: 39500, assigned: 175000, included: true },
+        { id: 'd4', label: 'Population 4', mfi: 121000, assigned: 512000, included: true },
+      ],
+      samples: [
+        // 74.6% background, both readings inside the calibrated range so no
+        // range guard fires, and 43.4%, which stays a caveat on a reportable
+        // figure. One card of each on screen at once.
+        { id: 's1', label: 'Dominant background', mfi: 20000, controlMfi: 15000 },
+        { id: 's2', label: 'Material background', mfi: 5000, controlMfi: 2200 },
+      ],
+      options: {
+        standardKind: 'abc',
+        fpRatio: 1,
+        backgroundMode: 'abc',
+        valency: 'bivalent',
+        antibodyHost: 'mouse',
+        saturationConfirmed: true,
+        confidenceLevel: 0.95,
+      },
+    }),
+  )
+})
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(700)
+
+const verdicts = await page.evaluate(() =>
+  [...document.querySelectorAll('.result-card')].map((card) => {
+    const critical = card.querySelector('.flag-critical')
+    const hero = card.querySelector('.hero')
+    const position = (el) => (el ? el.getBoundingClientRect().top + window.scrollY : null)
+    return {
+      name: card.querySelector('.result-name span')?.textContent ?? '',
+      value: card.querySelector('.hero .value')?.textContent ?? '',
+      chip: card.querySelector('.band-chip')?.textContent?.trim() ?? null,
+      interpretation: [...card.querySelectorAll('dt')].some(
+        (dt) => dt.textContent === 'Interpretation',
+      ),
+      criticalText: critical?.textContent ?? null,
+      criticalAboveValue:
+        critical && hero ? position(critical) < position(hero) : null,
+    }
+  }),
+)
+const dominant = verdicts.find((v) => v.name === 'Dominant background')
+const material = verdicts.find((v) => v.name === 'Material background')
+if (!dominant || !material) {
+  uiFailures.push('antigen density: the two background cards did not render')
+} else {
+  // The figure stays. Withholding it would say "below detection", which is a
+  // different and untrue claim about this measurement.
+  if (!/^\d/.test(dominant.value)) {
+    uiFailures.push(
+      `antigen density: at 74.6% background the card shows "${dominant.value}" rather than the ` +
+        'figure, which overstates what is wrong with it',
+    )
+  }
+  if (dominant.chip !== null) {
+    uiFailures.push(
+      `antigen density: at 74.6% background the card still carries the "${dominant.chip}" band ` +
+        'chip, applying a verdict to a figure that is mostly control signal',
+    )
+  }
+  if (dominant.interpretation) {
+    uiFailures.push(
+      'antigen density: at 74.6% background the card still prints the band interpretation, ' +
+        'which is a claim about effector response and about on-target off-tumour risk',
+    )
+  }
+  if (!dominant.criticalText?.includes('Do not report')) {
+    uiFailures.push('antigen density: at 74.6% background nothing tells the reader not to report it')
+  }
+  if (dominant.criticalAboveValue !== true) {
+    uiFailures.push(
+      'antigen density: at 74.6% background the reason not to report the figure renders below ' +
+        'the figure, so the reader meets the number first',
+    )
+  }
+  // The tier below is unchanged, and the check is only meaningful if it is.
+  if (material.chip === null || !material.interpretation) {
+    uiFailures.push(
+      'antigen density: at 43% background the band and its interpretation were withheld too, so ' +
+        'the tier boundary is not where it is supposed to be',
+    )
+  }
+  if (material.criticalText !== null) {
+    uiFailures.push('antigen density: at 43% background a caveat was escalated to a critical')
+  }
+}
+
+await page.evaluate(() => localStorage.clear())
+
 const fontsApplied = await page.evaluate(async () => {
   await document.fonts.ready
   return {
@@ -1419,7 +1534,9 @@ console.log('that cannot support a figure reports itself, and withholds the figu
   'reader to leave the row; and the answer is reachable on a phone without\n' +
   'scrolling past the method; and a\n' +
   'standard whose certified values are its own intensities is refused despite\n' +
-  'fitting perfectly; and a reason not to report reads and looks different from a\n' +
+  'fitting perfectly; and a reason not to report is met before the figure it is\n' +
+  'about, and withholds the band and the interpretation beside it; and a reason\n' +
+  'not to report reads and looks different from a\n' +
   'caveat, and carries no band or interpretation; and the exported figure carries\n' +
   'its own fit statistics and names its samples; and the results rail is not\n' +
   'sticky where there is only one column; and a population added to the table\n' +
