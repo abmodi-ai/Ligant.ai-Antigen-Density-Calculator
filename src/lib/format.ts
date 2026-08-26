@@ -39,7 +39,10 @@ const SCIENTIFIC_ABOVE = 1e9
 export function formatNumber(v: number): string {
   if (!Number.isFinite(v)) return 'n/a'
   if (Math.abs(v) >= SCIENTIFIC_ABOVE) return v.toExponential(2)
-  if (v >= 10_000) return Math.round(v).toLocaleString('en-US')
+  // On the rounded value, not the raw one. A confidence bound of 9,999.6 is
+  // below the grouping threshold and rounds to five digits, so it printed as
+  // "10000" beside an upper bound of "13,259" on the same line.
+  if (Math.round(v) >= 10_000) return Math.round(v).toLocaleString('en-US')
   if (v >= 100) return v.toFixed(0)
   if (v >= 10) return v.toFixed(1)
   return v.toFixed(2)
