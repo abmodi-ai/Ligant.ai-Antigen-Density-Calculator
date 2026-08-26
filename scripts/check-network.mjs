@@ -1687,6 +1687,217 @@ if (wroteOnLotAlone) {
 
 await page.evaluate(() => localStorage.clear())
 
+// ---------------------------------------------------------------------------
+// A paste says what it did not cover.
+//
+// Pasting a four population standard over a six population one overwrote the
+// first four and left the last two holding values from the previous standard,
+// still ticked and still in the fit: one calibration built from two unrelated
+// datasets. The ratio consistency check named the two rows downstream, so no
+// bad number was reported, but re-pasting a corrected standard over an earlier
+// one is an ordinary thing to do and the contamination was silent at the moment
+// it happened.
+//
+// The decision block is asserted rather than the truncation, because neither
+// outcome is chosen for the reader. Clearing rows would discard values they
+// typed; keeping them silently is the defect.
+// ---------------------------------------------------------------------------
+await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' })
+await page.evaluate(() => localStorage.clear())
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(600)
+
+/** Seed a six population standard, then paste a four population one over it. */
+const seedAndPaste = async (rows) => {
+  await page.evaluate(() => {
+    localStorage.setItem(
+      'adc.state.v1',
+      JSON.stringify({
+        kitId: 'qsc-mouse',
+        lotId: '',
+        standards: [
+          { id: 'p1', label: 'Population 1', mfi: 900, assigned: 3000, included: true },
+          { id: 'p2', label: 'Population 2', mfi: 4000, assigned: 15000, included: true },
+          { id: 'p3', label: 'Population 3', mfi: 16000, assigned: 62000, included: true },
+          { id: 'p4', label: 'Population 4', mfi: 52000, assigned: 210000, included: true },
+          { id: 'p5', label: 'Population 5', mfi: 88000, assigned: 360000, included: true },
+          { id: 'p6', label: 'Population 6', mfi: 140000, assigned: 600000, included: true },
+        ],
+        samples: [{ id: 's1', label: 'Sample 1', mfi: 8900, controlMfi: 240 }],
+        options: {
+          standardKind: 'abc',
+          fpRatio: 1,
+          backgroundMode: 'abc',
+          valency: 'bivalent',
+          antibodyHost: 'mouse',
+          saturationConfirmed: true,
+          confidenceLevel: 0.95,
+        },
+      }),
+    )
+  })
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.waitForTimeout(700)
+  await page.evaluate((text) => {
+    const cell = document.querySelector('input[aria-label^="MFI for"]')
+    cell.focus()
+    const data = new DataTransfer()
+    data.setData('text/plain', text)
+    cell.dispatchEvent(
+      new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }),
+    )
+  }, rows)
+  await page.waitForTimeout(500)
+}
+
+const decision = () =>
+  page.evaluate(() => {
+    const el = document.querySelector('.paste-decision')
+    return {
+      text: el?.innerText ?? '',
+      buttons: [...(el?.querySelectorAll('button') ?? [])].map((b) => b.textContent ?? ''),
+      rows: document.querySelectorAll('input[aria-label^="MFI for"]').length,
+      dismissable: (el?.querySelectorAll('button[aria-label^="Dismiss"]') ?? []).length > 0,
+    }
+  })
+
+const SHORT = '2050\t8300\n12900\t51000\n39500\t175000\n121000\t512000'
+await seedAndPaste(SHORT)
+const left = await decision()
+if (!left.text) {
+  uiFailures.push(
+    'antigen density: four populations pasted over six left two holding the previous standard ' +
+      'and said nothing about it',
+  )
+} else {
+  for (const name of ['Population 5', 'Population 6']) {
+    if (!left.text.includes(name)) {
+      uiFailures.push(`antigen density: the paste decision does not name ${name}`)
+    }
+  }
+  if (!/still in the fit/i.test(left.text)) {
+    uiFailures.push('antigen density: the paste decision does not say the rows are still in the fit')
+  }
+  if (left.buttons.length !== 2) {
+    uiFailures.push(
+      `antigen density: the paste decision offers ${left.buttons.length} action(s), so the ` +
+        'decision is not actually the reader\'s to make',
+    )
+  }
+  if (left.dismissable) {
+    uiFailures.push(
+      'antigen density: the paste decision can be dismissed without deciding, which puts the ' +
+        'table back where it started',
+    )
+  }
+}
+
+/** Click, and record the failure rather than taking the whole run down. */
+const clickOrReport = async (name) => {
+  try {
+    await page.getByRole('button', { name, exact: true }).click({ timeout: 5000 })
+    await page.waitForTimeout(400)
+    return true
+  } catch (e) {
+    uiFailures.push(`antigen density: could not press "${name}" (${String(e).split('\n')[0].slice(0, 70)})`)
+    return false
+  }
+}
+
+// Removing leaves the four that were pasted.
+await clickOrReport('Remove them')
+const removed = await decision()
+if (removed.rows !== 4) {
+  uiFailures.push(`antigen density: removing the rows a paste left behind gave ${removed.rows} rows, expected 4`)
+}
+if (removed.text) {
+  uiFailures.push('antigen density: the paste decision survives the reader acting on it')
+}
+
+// Keeping leaves the table alone and stops asking.
+await seedAndPaste(SHORT)
+await clickOrReport('Keep them')
+const kept = await decision()
+if (kept.rows !== 6) {
+  uiFailures.push(`antigen density: keeping the rows a paste left behind gave ${kept.rows} rows, expected 6`)
+}
+if (kept.text) {
+  uiFailures.push('antigen density: the paste decision keeps asking after the reader has decided')
+}
+
+// A paste that covers the table has nothing to decide.
+await seedAndPaste(
+  SHORT + '\n150000\t640000\n180000\t760000',
+)
+const covered = await decision()
+if (covered.text) {
+  uiFailures.push('antigen density: a paste covering every row still asked what to do about rows beyond it')
+}
+
+// The same paste over the samples table, which is the worse of the two. A
+// stale standard is caught downstream by the ratio consistency check; a stale
+// sample is quantified and reported like any other, and nothing catches it.
+await page.evaluate(() => {
+  localStorage.setItem(
+    'adc.state.v1',
+    JSON.stringify({
+      kitId: 'qsc-mouse',
+      lotId: '',
+      standards: [
+        { id: 'd1', label: 'Population 1', mfi: 2050, assigned: 8300, included: true },
+        { id: 'd2', label: 'Population 2', mfi: 12900, assigned: 51000, included: true },
+        { id: 'd3', label: 'Population 3', mfi: 39500, assigned: 175000, included: true },
+        { id: 'd4', label: 'Population 4', mfi: 121000, assigned: 512000, included: true },
+      ],
+      samples: [
+        { id: 'a', label: 'Sample 1', mfi: 8900, controlMfi: 240 },
+        { id: 'b', label: 'Sample 2', mfi: 12000, controlMfi: 250 },
+        { id: 'c', label: 'Sample 3', mfi: 30000, controlMfi: 260 },
+        { id: 'd', label: 'Sample 4', mfi: 45000, controlMfi: 270 },
+      ],
+      options: {
+        standardKind: 'abc',
+        fpRatio: 1,
+        backgroundMode: 'abc',
+        valency: 'bivalent',
+        antibodyHost: 'mouse',
+        saturationConfirmed: true,
+        confidenceLevel: 0.95,
+      },
+    }),
+  )
+})
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(700)
+await page.evaluate(() => {
+  const cell = document.querySelector('input[aria-label^="Stained MFI for"]')
+  cell.focus()
+  const data = new DataTransfer()
+  data.setData('text/plain', '5000\n7000')
+  cell.dispatchEvent(
+    new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }),
+  )
+})
+await page.waitForTimeout(500)
+
+const staleSamples = await page.evaluate(
+  () => document.querySelector('.paste-decision')?.innerText ?? '',
+)
+if (!staleSamples) {
+  uiFailures.push(
+    'antigen density: two samples pasted over four left two from the previous run being ' +
+      'quantified and reported, and said nothing about it',
+  )
+} else if (!staleSamples.includes('Sample 3') || !staleSamples.includes('Sample 4')) {
+  uiFailures.push('antigen density: the sample paste decision does not name the rows it is about')
+} else if (!/density is reported/i.test(staleSamples)) {
+  uiFailures.push(
+    'antigen density: the sample paste decision does not say the stale rows are being reported',
+  )
+}
+
+await page.evaluate(() => localStorage.clear())
+
 const fontsApplied = await page.evaluate(async () => {
   await document.fonts.ready
   return {

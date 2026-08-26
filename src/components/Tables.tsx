@@ -5,6 +5,7 @@ import { checkAssigned, checkControl, checkMfi } from '../lib/validate'
 import { NumericCell as NumCell, parseNum } from './shared/NumericCell'
 import { PasteNotices } from './shared/PasteNotices'
 import { RowNotes, type RowNote } from './shared/RowNotes'
+import { PasteDecision, nameList } from './shared/PasteDecision'
 import { GuidancePin } from './guidance/GuidancePin'
 
 export { parseNum, parseClipboardGrid } from './shared/NumericCell'
@@ -17,6 +18,9 @@ interface StandardsTableProps {
 
 export function StandardsTable({ standards, assignedLabel, onChange }: StandardsTableProps) {
   const [notices, setNotices] = useState<string[]>([])
+  // Where the last pasted block ended, so the rows it did not reach can be
+  // named. Null once the reader has decided, or once nothing is left to decide.
+  const [pastedTo, setPastedTo] = useState<number | null>(null)
 
   // Everything the table has to say about its rows, gathered while rendering
   // them and shown in one block underneath. See RowNotes for why it is not said
@@ -55,6 +59,7 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
   /** Fill down and across from (row, col), growing the table if needed. */
   const pasteFrom = (row: number, col: 0 | 1, grid: string[][], from: string[]) => {
     setNotices(from)
+    setPastedTo(row + grid.length - 1)
     const next = standards.map((s) => ({ ...s }))
     grid.forEach((cells, r) => {
       const target = row + r
@@ -79,6 +84,15 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
     })
     onChange(next)
   }
+
+  // Rows the paste did not reach that still carry values. Recomputed rather
+  // than remembered, so the block disappears the moment the reader empties or
+  // deletes those rows by any other route.
+  const leftBehind =
+    pastedTo === null
+      ? []
+      : standards.filter((s, i) => i > pastedTo && (s.mfi !== null || s.assigned !== null))
+  const pastedRows = pastedTo === null ? 0 : pastedTo + 1
 
   return (
     <>
@@ -178,6 +192,21 @@ export function StandardsTable({ standards, assignedLabel, onChange }: Standards
         </tbody>
       </table>
       <RowNotes notes={notes} />
+      {leftBehind.length > 0 && (
+        <PasteDecision
+          message={
+            `${pastedRows} populations were pasted over a table of ${standards.length}. ` +
+            `${nameList(leftBehind.map((s) => s.label || 'an unnamed population'))} still ` +
+            `${leftBehind.length === 1 ? 'holds its previous values' : 'hold their previous values'}` +
+            `${leftBehind.some((s) => s.included) ? ' and are still in the fit.' : '.'}`
+          }
+          onRemove={() => {
+            setPastedTo(null)
+            onChange(standards.filter((_, i) => i <= (pastedTo as number)))
+          }}
+          onKeep={() => setPastedTo(null)}
+        />
+      )}
       <PasteNotices notices={notices} onDismiss={() => setNotices([])} />
       <div className="table-foot">
         <button
@@ -210,6 +239,10 @@ interface SamplesTableProps {
 
 export function SamplesTable({ samples, showControl, onChange }: SamplesTableProps) {
   const [notices, setNotices] = useState<string[]>([])
+  // Same defect as the standards table, and worse here. A stale standard is
+  // caught downstream by the ratio consistency check; a stale sample is
+  // quantified and reported like any other, and nothing catches it at all.
+  const [pastedTo, setPastedTo] = useState<number | null>(null)
   const notes: RowNote[] = []
 
   const update = (i: number, patch: Partial<Sample>) =>
@@ -217,6 +250,7 @@ export function SamplesTable({ samples, showControl, onChange }: SamplesTablePro
 
   const pasteFrom = (row: number, col: 0 | 1, grid: string[][], from: string[]) => {
     setNotices(from)
+    setPastedTo(row + grid.length - 1)
     const next = samples.map((s) => ({ ...s }))
     grid.forEach((cells, r) => {
       const target = row + r
@@ -239,6 +273,12 @@ export function SamplesTable({ samples, showControl, onChange }: SamplesTablePro
     })
     onChange(next)
   }
+
+  const leftBehind =
+    pastedTo === null
+      ? []
+      : samples.filter((s, i) => i > pastedTo && (s.mfi !== null || s.controlMfi !== null))
+  const pastedRows = pastedTo === null ? 0 : pastedTo + 1
 
   return (
     <>
@@ -306,6 +346,21 @@ export function SamplesTable({ samples, showControl, onChange }: SamplesTablePro
         </tbody>
       </table>
       <RowNotes notes={notes} />
+      {leftBehind.length > 0 && (
+        <PasteDecision
+          message={
+            `${pastedRows} samples were pasted over a table of ${samples.length}. ` +
+            `${nameList(leftBehind.map((s) => s.label || 'an unnamed sample'))} still ` +
+            `${leftBehind.length === 1 ? 'holds its previous readings' : 'hold their previous readings'}` +
+            ', and a density is reported for each.'
+          }
+          onRemove={() => {
+            setPastedTo(null)
+            onChange(samples.filter((_, i) => i <= (pastedTo as number)))
+          }}
+          onKeep={() => setPastedTo(null)}
+        />
+      )}
       <PasteNotices notices={notices} onDismiss={() => setNotices([])} />
       <div className="table-foot">
         <button
