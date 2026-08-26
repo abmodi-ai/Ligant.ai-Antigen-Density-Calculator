@@ -46,7 +46,7 @@ const SITE_URL = (() => {
  */
 const REPO_URL = (() => {
   const source = readFileSync('src/lib/site.ts', 'utf8')
-  return (source.match(/REPO_URL\s*=\s*['"]([^'"]+)['"]/) ?? [])[1] ?? null
+  return (source.match(/REPO_URL(?::[^=]+)?=\s*['"]([^'"]+)['"]/) ?? [])[1] ?? null
 })()
 
 // CSP tokens that are keywords or schemes rather than remote origins.
@@ -181,6 +181,6 @@ if (failures.length > 0) {
 }
 
 console.log(
-  'Privacy check passed: no external origin, no network primitive, and no embedded URL other ' +
-    'than the repository the footer links.',
+  'Privacy check passed: no external origin, no network primitive, and no embedded URL' +
+    (REPO_URL ? ' other than the repository the footer links.' : '.'),
 )

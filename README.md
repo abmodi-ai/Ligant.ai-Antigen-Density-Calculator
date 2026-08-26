@@ -8,10 +8,7 @@ Free, open source, and built by [Ligant](https://ligant.ai) and A.B. Modi for
 cell therapy researchers. It runs entirely in the browser. Nothing you enter
 ever leaves your computer.
 
-Live at **[benchtools.ligant.ai](https://benchtools.ligant.ai)**. Source at
-**[github.com/abmodi-ai/Ligant.ai-Antigen-Density-Calculator](https://github.com/abmodi-ai/Ligant.ai-Antigen-Density-Calculator)**,
-linked from the footer of the tool itself so the licence on the page can be
-checked by the reader it is addressed to.
+Live at **[benchtools.ligant.ai](https://benchtools.ligant.ai)**.
 
 ## Why this exists
 
@@ -280,8 +277,7 @@ so where those would change the answer.
 
 ## Licence
 
-Apache License 2.0. See [`LICENSE`](LICENSE), and the footer of the tool, which
-links here.
+Apache License 2.0. See `LICENSE`.
 
 Apache-2.0 rather than MIT because it grants an express patent licence, which
 matters for a measurement tool published by a company. Copyright 2026 Ligant AI

@@ -1477,38 +1477,54 @@ if (!dominant || !material) {
 await page.evaluate(() => localStorage.clear())
 
 // ---------------------------------------------------------------------------
-// A licence claim a reader can check.
+// A licence claim and the source that backs it, or neither.
 //
-// The footer asserted Apache 2.0 and referred to a LICENSE file "distributed
-// with this software" while offering no way to reach that software. A reviewer
-// put it in the same category as any other unbacked claim on the page, which is
-// right: an assertion nobody can verify is worth what an assertion nobody can
-// verify is worth.
+// The footer asserts Apache 2.0 and refers to a LICENSE file "distributed with
+// this software" while offering no way to reach that software. A reviewer put it
+// in the same category as any other claim a reader cannot check, which is right:
+// an assertion nobody can verify is worth what an assertion nobody can verify is
+// worth.
 //
-// The link is an anchor rather than a resource, so nothing here loads from it.
-// The foreign-request guard at the top of this file is what proves that.
+// It cannot be fixed by linking the development repository, which is private, so
+// REPO_URL is null and this asserts the only thing that is true today: the
+// footer links nowhere. Setting REPO_URL is what turns on the stronger
+// assertion, so the claim and its evidence can never be separated once there is
+// evidence to point at.
+//
+// Either way the link is an anchor rather than a resource. The foreign-request
+// guard at the top of this file is what proves nothing is loaded from it.
 // ---------------------------------------------------------------------------
 await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' })
 await page.waitForTimeout(400)
 
-const REPO_URL = (readFileSync('src/lib/site.ts', 'utf8').match(/REPO_URL\s*=\s*['"]([^'"]+)['"]/) ?? [])[1]
-if (!REPO_URL) {
-  uiFailures.push('antigen density: REPO_URL is not defined in src/lib/site.ts')
-} else {
-  const footer = await page.evaluate((repo) => {
-    const el = document.querySelector('.site-footer')
-    if (!el) return null
-    return {
-      claimsOpenSource: /open source/i.test(el.textContent ?? ''),
-      linksRepo: [...el.querySelectorAll('a')].some((a) => a.getAttribute('href') === repo),
-    }
-  }, REPO_URL)
-  if (!footer) {
-    uiFailures.push('antigen density: the page has no footer')
-  } else if (footer.claimsOpenSource && !footer.linksRepo) {
+const repoDeclaration = readFileSync('src/lib/site.ts', 'utf8').match(
+  /REPO_URL(?::[^=]+)?=\s*(?:null|['"]([^'"]+)['"])/,
+)
+const footer = await page.evaluate(() => {
+  const el = document.querySelector('.site-footer')
+  if (!el) return null
+  return {
+    claimsOpenSource: /open source/i.test(el.textContent ?? ''),
+    links: [...el.querySelectorAll('a')].map((a) => a.getAttribute('href') ?? ''),
+  }
+})
+if (!repoDeclaration) {
+  uiFailures.push('antigen density: REPO_URL is not declared in src/lib/site.ts')
+} else if (!footer) {
+  uiFailures.push('antigen density: the page has no footer')
+} else if (repoDeclaration[1]) {
+  if (footer.claimsOpenSource && !footer.links.includes(repoDeclaration[1])) {
     uiFailures.push(
       'antigen density: the footer claims the tool is open source and does not link the source, ' +
         'so a reader has no way to check the licence it asserts',
+    )
+  }
+} else {
+  const external = footer.links.filter((href) => /^https?:/i.test(href))
+  if (external.length > 0) {
+    uiFailures.push(
+      `antigen density: no repository is configured and the footer links ${external.join(', ')}, ` +
+        'which is a claim pointing somewhere a reader cannot be sent',
     )
   }
 }

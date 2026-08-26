@@ -10,15 +10,21 @@
 export const SITE_URL = 'https://benchtools.ligant.ai'
 
 /**
- * Where the source actually is.
+ * Where the source is, once there is somewhere to send a reader.
  *
- * The footer asserted Apache 2.0 and pointed at a LICENSE file "distributed
- * with this software" without saying where that software could be found. A
- * licence assertion a reader cannot check is not verifiable, which puts it in
- * the same category as any other unbacked claim on the page. It lives here so
- * the footer and the README cannot drift apart.
+ * The footer asserts Apache 2.0 and points at a LICENSE file "distributed with
+ * this software" without saying where that software can be found. A licence
+ * assertion a reader cannot check is not verifiable, which is what a reviewer
+ * called blocking, and it stays open until this is set.
+ *
+ * Null rather than the development repository, which is private and staying
+ * private: a link nobody can open is worse than no link, because it converts an
+ * unbacked claim into a broken one. Typed with the absence so a consumer has to
+ * handle it rather than rendering an empty href, and asserted in
+ * scripts/check-network.mjs in both states: with no URL the footer must link
+ * nothing, and with one it must link it.
  */
-export const REPO_URL = 'https://github.com/abmodi-ai/Ligant.ai-Antigen-Density-Calculator'
+export const REPO_URL: string | null = null
 
 export interface Tool {
   id: string
