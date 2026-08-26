@@ -17,6 +17,15 @@ export const SHARED_GUIDANCE: GuidanceEntry[] = [
         text: 'It does not include measurement variability in the sample itself. Estimating that needs replicates, and reporting it from a single run would overstate precision.',
       },
       {
+        // The half that was missing. The interval is evaluated at the stained
+        // reading and applied to the net, so the control's own mapping
+        // contributes nothing to it. Immaterial where the background is small,
+        // and the point at which a reader should stop reading a narrow interval
+        // as reassurance is exactly where the background is not.
+        kind: 'p',
+        text: 'It also does not include uncertainty in the mapping of the control reading. The background is subtracted as a point value, so the interval describes the position of the calibration curve rather than the full uncertainty of the difference. Where background is a small fraction of gross density the two are close. As the background fraction rises the interval becomes an approximation, and may be either narrower or wider than a fully propagated interval.',
+      },
+      {
         kind: 'note',
         text: 'Raising the level from 95 to 99 percent widens the interval. It does not make the estimate better, only the claim more cautious.',
       },
