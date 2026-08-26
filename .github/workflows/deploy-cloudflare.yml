@@ -117,3 +117,28 @@ jobs:
             --project-name "$PROJECT_NAME" \
             --branch "${{ steps.target.outputs.branch }}" \
             --commit-dirty=true
+
+      # The privacy claim is about what the browser does on the deployed site,
+      # and until now nothing tested that. npm run check:network drives the same
+      # application from a local server reading dist/ off disk, so it cannot see
+      # anything the edge injects after the build, nor whether the headers in
+      # public/_headers reach the browser at all. A scientific review found a
+      # Cloudflare Web Analytics beacon in a capture of the live site that no
+      # check here could have caught.
+      #
+      # Production only. A preview deployment answers on a per-deployment
+      # hostname that this does not resolve, and the claim being defended is
+      # about the origin readers actually visit.
+      - name: Verify the deployed site
+        if: steps.creds.outputs.ready == 'true' && steps.target.outputs.branch == github.event.repository.default_branch
+        run: |
+          npx playwright install --with-deps chromium
+          # Pages serves the new deployment within seconds, but not always by
+          # the time wrangler returns. Three attempts, then it is a real failure.
+          for attempt in 1 2 3; do
+            if node scripts/check-deployed.mjs; then exit 0; fi
+            echo "Attempt $attempt failed; retrying in 15s."
+            sleep 15
+          done
+          echo "The deployed site did not pass verification." >> "$GITHUB_STEP_SUMMARY"
+          exit 1

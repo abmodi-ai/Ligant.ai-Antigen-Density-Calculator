@@ -110,8 +110,14 @@ export function Results({ entries, valency, confidenceLevel, saturationConfirmed
         // interpretation sentence, so "do not report this figure" sat directly
         // above "cytotoxicity is frequently achievable", applying a verdict to
         // a number the reader had just been told not to use.
-        const sampleCritical = result.flags.some((f) => f.level === 'critical')
-        const reportable = valid && !sampleCritical
+        // Split by severity, because the two belong in different places on the
+        // card. A reason not to report the figure has to reach the reader
+        // before the figure does, which is where the calibration criticals
+        // already sit. A caveat on a figure the reader may report belongs after
+        // it, where it has always been.
+        const sampleCriticals = result.flags.filter((f) => f.level === 'critical')
+        const sampleWarnings = result.flags.filter((f) => f.level !== 'critical')
+        const reportable = valid && sampleCriticals.length === 0
         const band = result.netAbc !== null && reportable ? bandFor(result.netAbc) : null
         return (
           <div className="result-card" key={sample.id}>
@@ -126,6 +132,7 @@ export function Results({ entries, valency, confidenceLevel, saturationConfirmed
             </div>
 
             <FlagList flags={result.calibrationFlags} />
+            <FlagList flags={sampleCriticals} />
 
             {!valid ? (
               <>
@@ -205,7 +212,7 @@ export function Results({ entries, valency, confidenceLevel, saturationConfirmed
               </>
             )}
 
-            <FlagList flags={result.flags} />
+            <FlagList flags={sampleWarnings} />
           </div>
         )
       })}

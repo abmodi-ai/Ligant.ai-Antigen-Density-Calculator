@@ -15,6 +15,7 @@ import {
   type CurveResult,
   type QuantifyOptions,
 } from './quantify'
+import { BEAD_KITS } from './kits'
 
 /**
  * Beads on an exact power law: ABC = 10 * MFI, so log-log slope is exactly 1.
@@ -362,9 +363,13 @@ describe('background as a fraction of gross', () => {
   })
 
   it('warns without escalating when a material background is inside the range', () => {
-    // Control at 3,000 is inside the calibrated bracket, so the arithmetic is
-    // sound even though the background dominates.
-    const r = quantifySample({ id: 'x', label: 'x', mfi: 5_000, controlMfi: 3_000 }, c, DEMO_OPTIONS)
+    // Control at 2,200 is inside the calibrated bracket, so the arithmetic is
+    // sound, and at 43% of gross the background qualifies the figure without
+    // being it. This case read 3,000 until the dominant-background tier landed,
+    // at which point 59% of gross stopped being a caveat and became a critical.
+    const r = quantifySample({ id: 'x', label: 'x', mfi: 5_000, controlMfi: 2_200 }, c, DEMO_OPTIONS)
+    expect(r.backgroundFraction as number).toBeGreaterThan(0.25)
+    expect(r.backgroundFraction as number).toBeLessThan(0.5)
     const flag = r.flags.find((f) => f.message.includes('of gross density'))
     expect(flag?.level).toBe('warning')
   })
@@ -898,5 +903,173 @@ describe('a message that does not name what the caller already names', () => {
       // The label is still carried, so a caller can name the row itself.
       expect(outlier.label).toBeTruthy()
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Section 8 of the independent scientific review of 26 August 2026, in which
+// the whole pipeline was reimplemented in Python/SciPy from the four bead pairs
+// and compared against the rendered output. Every figure below was verified
+// there before it was written here.
+//
+// These are pinned against the behaviour that was reviewed, deliberately ahead
+// of the changes the same review asks for. A fixture written after the change
+// it is meant to guard asserts nothing.
+// ---------------------------------------------------------------------------
+
+describe('independently reimplemented regression vectors', () => {
+  const c = curve(DEMO_BEADS)
+
+  it('recovers the fit from four populations, the blank excluded', () => {
+    expect(c.fit.slope).toBeCloseTo(1.017382, 6)
+    expect(c.fit.intercept).toBeCloseTo(0.544992, 6)
+    expect(c.fit.r2).toBeCloseTo(0.999485, 6)
+    expect(c.fit.n).toBe(4)
+    expect(c.mfiRange).toEqual([2_050, 121_000])
+  })
+
+  it('places each population where the reimplementation placed it', () => {
+    const percent = c.residuals.map((r) => Number(r.percent.toFixed(1)))
+    expect(percent).toEqual([1.1, -4.4, 5.1, -1.6])
+  })
+
+  it.each([
+    ['cd19', 36_562, 926, 35_636],
+    ['her2', 263_442, 1_201, 262_241],
+    ['keratinocyte', 1_636, 1_004, 632],
+  ] as const)('resolves %s to gross, background and net', (key, gross, background, net) => {
+    const r = quantifySample(DEMO_SAMPLES[key], c, DEMO_OPTIONS)
+    expect(Math.round(r.grossAbc as number)).toBe(gross)
+    expect(Math.round(r.controlAbc as number)).toBe(background)
+    expect(Math.round(r.netAbc as number)).toBe(net)
+  })
+
+  // The interval is the one place a reviewer's arithmetic and ours could agree
+  // on a density and still disagree on what is claimed about it, so both
+  // selectable levels are pinned rather than only the default.
+  it.each([
+    ['cd19', 0.95, 31_662, 40_110],
+    ['her2', 0.95, 229_145, 300_116],
+    ['keratinocyte', 0.95, 474, 842],
+    ['cd19', 0.99, 27_128, 46_812],
+    ['her2', 0.99, 192_111, 357_970],
+    ['keratinocyte', 0.99, 325, 1_226],
+  ] as const)('brackets %s at %s with the reviewed interval', (key, level, lower, upper) => {
+    const r = quantifySample(DEMO_SAMPLES[key], c, { ...DEMO_OPTIONS, confidenceLevel: level })
+    expect(Math.round(r.lower as number)).toBe(lower)
+    expect(Math.round(r.upper as number)).toBe(upper)
+  })
+})
+
+describe('guard behaviour the review asked to be pinned as behaviour', () => {
+  const c = curve(DEMO_BEADS)
+  const sample = (mfi: number, controlMfi: number | null) => ({
+    id: 'x',
+    label: 'x',
+    mfi,
+    controlMfi,
+  })
+
+  it('reports no density for any sample when the beads cannot capture the antibody', () => {
+    // The shipped kit's own capture host, rather than a literal, so the fixture
+    // stays about the anti-Mouse beads the review actually loaded.
+    const kit = BEAD_KITS.find((k) => k.id === 'qsc-mouse')
+    expect(kit?.captureHost).toBe('mouse')
+    const mismatch = captureCompatibilityFlags(kit?.captureHost ?? null, 'human')
+    expect(mismatch.some((f) => f.level === 'critical')).toBe(true)
+    for (const s of Object.values(DEMO_SAMPLES)) {
+      const r = quantifyWithCalibration(s, c, DEMO_OPTIONS, mismatch)
+      expect(calibrationValid(r)).toBe(false)
+    }
+  })
+
+  it('refuses to fit two populations', () => {
+    const two = fitStandardCurve(DEMO_BEADS.map((b, i) => ({ ...b, included: i === 1 || i === 2 })))
+    expect('error' in two).toBe(true)
+  })
+
+  it('says below detection, with the transposition hint, when the columns are swapped', () => {
+    const r = quantifySample(sample(8_900, 12_000), c, DEMO_OPTIONS)
+    expect(r.netAbc).toBeNull()
+    expect(r.flags.some((f) => f.remedy?.includes('transposed'))).toBe(true)
+  })
+
+  it('refuses to report a sample below the calibrated range', () => {
+    const r = quantifySample(sample(420, 260), c, DEMO_OPTIONS)
+    expect(r.sampleInRange).toBe(false)
+    expect(resultStatus(r.flags)).toBe('do_not_report')
+  })
+
+  it('blocks at 90.3% background and reports at 89.8%', () => {
+    const blocked = quantifySample(sample(100_000, 90_500), c, DEMO_OPTIONS)
+    expect(blocked.backgroundFraction as number).toBeGreaterThan(0.9)
+    expect(blocked.netAbc).toBeNull()
+
+    const reported = quantifySample(sample(100_000, 90_000), c, DEMO_OPTIONS)
+    expect(reported.backgroundFraction as number).toBeLessThan(0.9)
+    expect(reported.netAbc).not.toBeNull()
+  })
+
+  it('is byte identical over ten runs of the same input', () => {
+    const runs = Array.from({ length: 10 }, () =>
+      JSON.stringify(Object.values(DEMO_SAMPLES).map((s) => quantifySample(s, c, DEMO_OPTIONS))),
+    )
+    expect(new Set(runs).size).toBe(1)
+  })
+})
+
+describe('the 50 to 90 percent background band', () => {
+  const c = curve(DEMO_BEADS)
+  const at = (mfi: number, controlMfi: number) =>
+    quantifySample({ id: 'x', label: 'x', mfi, controlMfi }, c, DEMO_OPTIONS)
+
+  // Both cases were reported with a warning and a density band beside them
+  // until the dominant-background tier landed. The number was never wrong: the
+  // card asserted a biological verdict on it, which is what changed.
+  it('is critical at 74.6%, and still reports the figure', () => {
+    const r = at(20_000, 15_000)
+    expect(r.backgroundFraction as number).toBeCloseTo(0.746, 3)
+    expect(Math.round(r.netAbc as number)).toBe(21_143)
+    expect(resultStatus(r.flags)).toBe('do_not_report')
+  })
+
+  it('is critical at 89.8%, one tenth below the detection floor', () => {
+    const r = at(100_000, 90_000)
+    expect(r.backgroundFraction as number).toBeCloseTo(0.898, 3)
+    expect(Math.round(r.netAbc as number)).toBe(43_551)
+    expect(resultStatus(r.flags)).toBe('do_not_report')
+    // Distinct from the floor above it, which withholds the figure entirely.
+    expect(r.netAbc).not.toBeNull()
+  })
+
+  it('says why no band is shown, in terms of the two numbers on screen', () => {
+    const flag = at(20_000, 15_000).flags.find((f) => f.level === 'critical')
+    expect(flag?.message).toContain('74.6% of gross density')
+    expect(flag?.message).toContain('smaller than the background subtracted to obtain it')
+    expect(flag?.remedy).toContain('No density band is shown')
+  })
+
+  // At b/g = 0.5 the net equals the background exactly, which is the whole
+  // reason the threshold sits there. Bracketed either side rather than asserted
+  // at a value no float lands on.
+  it('turns over between 49% and 51% background', () => {
+    const below = at(10_000, 4_800)
+    const above = at(10_000, 5_200)
+    expect(below.backgroundFraction as number).toBeLessThan(0.5)
+    expect(above.backgroundFraction as number).toBeGreaterThan(0.5)
+    expect(resultStatus(below.flags)).toBe('caution')
+    expect(resultStatus(above.flags)).toBe('do_not_report')
+  })
+
+  // The out-of-range control already raises a critical naming this same
+  // fraction. A second one would repeat the number and add no fact, so the
+  // worked example's keratinocyte keeps exactly the flags it was reviewed with.
+  it('does not double-report a dominant background the range guard already named', () => {
+    const kera = quantifySample(DEMO_SAMPLES.keratinocyte, c, DEMO_OPTIONS)
+    expect(kera.backgroundFraction as number).toBeGreaterThan(0.5)
+    expect(kera.controlInRange).toBe(false)
+    const background = kera.flags.filter((f) => f.message.includes('of gross density'))
+    expect(background).toHaveLength(1)
+    expect(background[0].message).toContain('lies below the calibrated range')
   })
 })

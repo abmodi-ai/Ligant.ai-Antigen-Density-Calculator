@@ -35,6 +35,20 @@ const SITE_URL = (() => {
   return match[1]
 })()
 
+/**
+ * The repository, which the footer links so the licence claim can be checked.
+ *
+ * Read from the same module rather than written out here, so this cannot be
+ * used to wave through some other github.com URL: only the exact configured
+ * value passes. An href is an address a reader may choose to follow, not a
+ * resource the page loads, and the runtime checks are what establish that
+ * nothing is fetched from it.
+ */
+const REPO_URL = (() => {
+  const source = readFileSync('src/lib/site.ts', 'utf8')
+  return (source.match(/REPO_URL(?::[^=]+)?=\s*['"]([^'"]+)['"]/) ?? [])[1] ?? null
+})()
+
 // CSP tokens that are keywords or schemes rather than remote origins.
 const CSP_SAFE = new Set([
   "'self'", "'none'", "'unsafe-inline'", "'wasm-unsafe-eval'", "'strict-dynamic'",
@@ -147,6 +161,8 @@ if (existsSync('dist')) {
       if (INERT_URLS.some((inert) => url.startsWith(inert))) continue
       // Our own origin, in canonical links, social metadata and the sitemap.
       if (SITE_URL && url.startsWith(SITE_URL)) continue
+      // The repository the footer links, and only that exact URL.
+      if (REPO_URL && url === REPO_URL) continue
       fail('bundle', `${file} embeds ${url.slice(0, 80)}`)
     }
   }
@@ -164,4 +180,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('Privacy check passed: no external origin, no network primitive, no embedded URL.')
+console.log(
+  'Privacy check passed: no external origin, no network primitive, and no embedded URL' +
+    (REPO_URL ? ' other than the repository the footer links.' : '.'),
+)

@@ -558,6 +558,18 @@ function mfiToAbc(mfi: number, curve: CurveResult, options: QuantifyOptions): nu
 const MATERIAL_BACKGROUND = 0.25
 
 /**
+ * The fraction at which the background stops qualifying the result and starts
+ * being it. This one is not a convention: at b/g = 0.5 the net equals the
+ * background exactly, so the reported density is the same size as the quantity
+ * subtracted to obtain it. That is the natural place to stop asserting a
+ * biological verdict on a measurement.
+ *
+ * Read as net to background, the three thresholds are 3:1 at 0.25, 1:1 here,
+ * and 1:9 at the detection floor.
+ */
+const DOMINANT_BACKGROUND = 0.5
+
+/**
  * Above this fraction the specific signal is what is left over after almost all
  * of the gross has been subtracted away, and the reported value rests entirely
  * on the difference between two numbers of similar size. Reported as below
@@ -678,6 +690,24 @@ export function quantifySample(
         message: `Background is ${(backgroundFraction * 100).toFixed(1)}% of gross density, and the control MFI (${formatNumber(controlMfi as number)}) lies below the calibrated range (${formatNumber(minMfi)}–${formatNumber(maxMfi)}).`,
         remedy:
           'Most of this result is an extrapolated quantity subtracted from a measured one. Add a bead population dim enough to bracket the control, or acquire the control under conditions that bring it into range. Do not report this figure.',
+      })
+    } else if (backgroundFraction >= DOMINANT_BACKGROUND) {
+      // Critical rather than a heavier warning, because the mechanism that
+      // withholds the band chip and the interpretation sentence is the critical
+      // level itself. The defect this closes was never a missing caveat: the
+      // warning below has always fired here. It was that a warning left the
+      // card asserting "full effector response is expected" beside a figure
+      // that is mostly control signal. Severity is decided here and rendering
+      // obeys it, so Results has nothing to special-case.
+      //
+      // Only where the control is inside the range. Outside it the branch above
+      // already raises a critical that names this same fraction, and a second
+      // one would repeat the number without adding a fact.
+      flags.push({
+        level: 'critical',
+        message: `Background accounts for ${(backgroundFraction * 100).toFixed(1)}% of gross density. The value below is smaller than the background subtracted to obtain it.`,
+        remedy:
+          'No density band is shown, because the measurement does not support a verdict on effector response. The figure is displayed for diagnostic purposes only. Before reporting it, confirm the control is appropriate for this panel, an FMO rather than an isotype, and raise specific signal rather than refining the arithmetic: check antibody concentration, fluorophore brightness, and whether the target is expressed on this population at all.',
       })
     } else {
       flags.push({

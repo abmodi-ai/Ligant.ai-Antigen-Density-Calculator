@@ -26,10 +26,20 @@ export function Method({ storageKeys, onClearStorage }: Props) {
 
         <h3>Interpretation of the confidence interval</h3>
         <p>
-          The reported interval is the confidence interval on the fitted mean response at the sample
-          MFI. It quantifies uncertainty in <em>the position of the calibration curve</em> and
-          excludes measurement variability in the sample itself, which requires replicate
-          acquisition to estimate. Including it here would overstate precision.
+          The reported interval is the confidence interval on the fitted mean response of the
+          calibration line, evaluated at the stained reading and carried through to the reported
+          density. It excludes two sources of uncertainty.
+        </p>
+        <p>
+          It excludes measurement variability in the sample itself, which requires replicate
+          acquisition to estimate. It also excludes uncertainty in the mapping of the control
+          reading: the background is subtracted as a point value, so the interval describes the
+          position of the calibration curve rather than the full uncertainty of the difference.
+        </p>
+        <p>
+          Where background is a small fraction of gross density the two are close. As the background
+          fraction rises the interval becomes an approximation, and may be either narrower or wider
+          than a fully propagated interval.
         </p>
 
         <h3>Limitations</h3>

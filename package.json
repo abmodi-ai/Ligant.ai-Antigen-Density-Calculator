@@ -15,6 +15,7 @@
     "check:style": "node scripts/check-style.mjs",
     "check:privacy": "node scripts/check-privacy.mjs",
     "check:network": "node scripts/check-network.mjs",
+    "check:deployed": "node scripts/check-deployed.mjs",
     "verify": "npm run check:style && npm run check:privacy && tsc -b && npm test && npm run build && npm run check:network"
   },
   "dependencies": {

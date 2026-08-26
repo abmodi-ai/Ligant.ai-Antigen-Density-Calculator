@@ -50,3 +50,15 @@ describe('formatNumber', () => {
     expect(formatNumber(NaN)).toBe('n/a')
   })
 })
+
+describe('a number that reaches the grouping threshold by rounding', () => {
+  // Found in a screenshot of a result card: "95% CI 10000 - 13,259". The lower
+  // bound was 9,999.6, which fails the grouping test and then rounds past it.
+  it('groups a value that rounds to five digits', () => {
+    expect(formatNumber(9_999.6)).toBe('10,000')
+  })
+
+  it('leaves a value that rounds to four digits alone', () => {
+    expect(formatNumber(9_999.4)).toBe('9999')
+  })
+})
