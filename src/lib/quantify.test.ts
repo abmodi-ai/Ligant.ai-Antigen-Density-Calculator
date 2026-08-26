@@ -16,6 +16,7 @@ import {
   type QuantifyOptions,
 } from './quantify'
 import { BEAD_KITS } from './kits'
+import { MFI_IMPOSSIBLE } from './validate'
 
 /**
  * Beads on an exact power law: ABC = 10 * MFI, so log-log slope is exactly 1.
@@ -1071,5 +1072,107 @@ describe('the 50 to 90 percent background band', () => {
     const background = kera.flags.filter((f) => f.message.includes('of gross density'))
     expect(background).toHaveLength(1)
     expect(background[0].message).toContain('lies below the calibrated range')
+  })
+})
+
+describe('a standard containing a number no instrument produced', () => {
+  // On the brightest population, so the intensities still rise with the
+  // certified values and the monotonicity check stays quiet. The flag then has
+  // to be doing the work on its own rather than riding alongside another
+  // critical that would have invalidated the curve anyway.
+  const withMfi = (mfi: number): BeadStandard[] =>
+    DEMO_BEADS.map((b) => (b.id === 'd4' ? { ...b, mfi } : b))
+
+  // The reported case reconstructed. An impossible intensity whose certified
+  // value sits on the fitted line leaves slope and R squared perfect, so every
+  // other check on this curve is satisfied and says nothing. It is the case
+  // this flag exists for: without it the standard is unremarkable.
+  const ON_LINE_ASSIGNED = 10 ** (1.017382 * 300 + 0.544992)
+
+  it('is the only thing that notices a value sitting exactly on the line', () => {
+    const c = curve(
+      DEMO_BEADS.map((b) =>
+        b.id === 'd4' ? { ...b, mfi: 1e300, assigned: ON_LINE_ASSIGNED } : b,
+      ),
+    )
+    expect(c.fit.r2).toBeCloseTo(1, 6)
+    expect(c.fit.slope).toBeCloseTo(1.017, 3)
+    const critical = c.flags.filter((f) => f.level === 'critical')
+    expect(critical).toHaveLength(1)
+    expect(critical[0].message).toContain('cytometer reports')
+    const r = quantifyWithCalibration(DEMO_SAMPLES.cd19, c, DEMO_OPTIONS)
+    expect(calibrationValid(r)).toBe(false)
+  })
+
+  it('invalidates the calibration rather than cautioning about the row', () => {
+    // The reported case. Three row advisories were correct and none of them
+    // could reach the verdict, which read "Calibration valid. Slope 1.00,
+    // R squared > 0.9999" over a standard levered by 1e300.
+    const c = curve(withMfi(1e300))
+    expect(c.flags.some((f) => f.message.includes('cytometer reports'))).toBe(true)
+    const r = quantifyWithCalibration(DEMO_SAMPLES.cd19, c, DEMO_OPTIONS)
+    expect(calibrationValid(r)).toBe(false)
+  })
+
+  it('leads with it, because the verdict shows the first invalidating flag', () => {
+    const c = curve(withMfi(1e300))
+    expect(c.flags[0].level).toBe('critical')
+    expect(c.flags[0].message).toContain('Population 4')
+    expect(c.flags[0].message).toContain('intensity')
+    expect(c.flags[0].message).toContain('not a measurement')
+  })
+
+  it('leads with it even where the standard is wrong in other ways too', () => {
+    // A stray paste into a middle population breaks the ordering as well. The
+    // impossible value is still the first thing said, because it is the one
+    // fact that explains the rest.
+    const c = curve(DEMO_BEADS.map((b) => (b.id === 'd2' ? { ...b, mfi: 1e300 } : b)))
+    expect(c.flags[0].level).toBe('critical')
+    expect(c.flags[0].message).toContain('Population 2')
+  })
+
+  it('catches a certified value no bead could carry', () => {
+    const c = curve(DEMO_BEADS.map((b) => (b.id === 'd4' ? { ...b, assigned: 1e12 } : b)))
+    expect(c.flags[0].level).toBe('critical')
+    expect(c.flags[0].message).toContain('certified value')
+  })
+
+  it('says it once, naming every population it is about', () => {
+    const c = curve(
+      DEMO_BEADS.map((b) => (b.id === 'd3' || b.id === 'd4' ? { ...b, mfi: 1e300 } : b)),
+    )
+    const mine = c.flags.filter((f) => f.message.includes('cytometer reports'))
+    expect(mine).toHaveLength(1)
+    expect(mine[0].message).toContain('Population 3')
+    expect(mine[0].message).toContain('Population 4')
+    expect(mine[0].message).toContain('hold values')
+  })
+
+  // The tier below is untouched. A standard that is merely implausible still
+  // fits, still reports, and still carries its caveat.
+  //
+  // Every population scaled rather than one moved: shifting a single reading
+  // that far wrecks the fit, so a curve built that way is refused for its R
+  // squared and proves nothing about this threshold. A scale factor changes the
+  // intercept and leaves the slope, the scatter and the fit untouched, which
+  // leaves the advisory tier as the only thing that has anything to say.
+  it('leaves an implausible but possible standard fitting', () => {
+    const c = curve(DEMO_BEADS.map((b) => ({ ...b, mfi: b.mfi === null ? null : b.mfi * 400 })))
+    expect(c.mfiRange[1]).toBeGreaterThan(1e7)
+    expect(c.mfiRange[1]).toBeLessThan(MFI_IMPOSSIBLE)
+    expect(c.flags.some((f) => f.level === 'critical')).toBe(false)
+    const r = quantifyWithCalibration(
+      { id: 'x', label: 'x', mfi: 8_900 * 400, controlMfi: 240 * 400 },
+      c,
+      DEMO_OPTIONS,
+    )
+    expect(calibrationValid(r)).toBe(true)
+  })
+
+  it('ignores a population the reader has already unticked', () => {
+    const c = curve(
+      DEMO_BEADS.map((b) => (b.id === 'd4' ? { ...b, mfi: 1e300, included: false } : b)),
+    )
+    expect(c.flags.some((f) => f.message.includes('cytometer reports'))).toBe(false)
   })
 })

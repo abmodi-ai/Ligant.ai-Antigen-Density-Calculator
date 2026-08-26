@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { checkAssigned, checkControl, checkMfi } from './validate'
+import {
+  ASSIGNED_IMPOSSIBLE,
+  MFI_IMPOSSIBLE,
+  checkAssigned,
+  checkControl,
+  checkMfi,
+} from './validate'
 
 describe('checkMfi', () => {
   it('says nothing about an ordinary bead intensity', () => {
@@ -92,5 +98,37 @@ describe('checkControl', () => {
     expect(checkControl(310, null)).toBeNull()
     expect(checkControl(null, 12_900)).toBeNull()
     expect(checkControl(0, 12_900)).toBeNull()
+  })
+})
+
+describe('a magnitude that is impossible rather than implausible', () => {
+  // The tier above the advisory one, and deliberately far above it. An earlier
+  // review wanted the 1e7 ceiling called impossible and was refused, because
+  // 1e7 is a number a scale could carry. These are numbers no scale can.
+  it('marks an intensity past 32 bit full scale as an error, not a caution', () => {
+    expect(checkMfi(MFI_IMPOSSIBLE)?.severity).toBe('error')
+    expect(checkMfi(1e300)?.severity).toBe('error')
+  })
+
+  it('leaves the implausible tier where it was', () => {
+    expect(checkMfi(5.1e7)?.severity).toBe('warning')
+    expect(checkMfi(MFI_IMPOSSIBLE - 1)?.severity).toBe('warning')
+  })
+
+  it('says why, in terms a reader can act on rather than a bound', () => {
+    expect(checkMfi(1e300)?.message).toContain('pasted exponent')
+    // No exponent in the sentence: the tool writes numbers the way a reader
+    // says them, and there is no way to say this one.
+    expect(checkMfi(1e300)?.message).not.toMatch(/e\+\d/)
+  })
+
+  it('marks a certified value past any bead capacity as an error', () => {
+    expect(checkAssigned(ASSIGNED_IMPOSSIBLE, { included: true })?.severity).toBe('error')
+    expect(checkAssigned(1e300, { included: true })?.severity).toBe('error')
+    expect(checkAssigned(5.1e7, { included: true })?.severity).toBe('warning')
+  })
+
+  it('still says nothing about a population left out of the fit', () => {
+    expect(checkAssigned(1e300, { included: false })).toBeNull()
   })
 })

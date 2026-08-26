@@ -1529,6 +1529,78 @@ if (!repoDeclaration) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// The headline agrees with the rows beneath it.
+//
+// A standard containing 1e300 produced three correct row advisories under a
+// verdict reading "Calibration valid. Slope 1.00, R² > 0.9999". Both halves
+// were behaving as written: checkMfi returns a field issue, and the verdict
+// reads curve flags, which a field issue is not and never becomes. So the one
+// thing the reader looks at first was the one thing that had not been told.
+//
+// Asserted here rather than only in the unit tests, because what was wrong was
+// which of two correct mechanisms the reader met.
+// ---------------------------------------------------------------------------
+await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' })
+await page.evaluate(() => {
+  localStorage.setItem(
+    'adc.state.v1',
+    JSON.stringify({
+      kitId: 'qsc-mouse',
+      standards: [
+        { id: 'd0', label: 'Blank', mfi: 210, assigned: null, included: false },
+        { id: 'd1', label: 'Population 1', mfi: 2050, assigned: 8300, included: true },
+        { id: 'd2', label: 'Population 2', mfi: 12900, assigned: 51000, included: true },
+        { id: 'd3', label: 'Population 3', mfi: 39500, assigned: 175000, included: true },
+        // The certified value sits on the fitted line, which is the reported
+        // case: slope and R squared stay perfect, so every other check on this
+        // curve is satisfied and the impossible intensity is the only fault.
+        { id: 'd4', label: 'Population 4', mfi: 1e300, assigned: 5.748995914281287e305, included: true },
+      ],
+      samples: [{ id: 's1', label: 'CD19 (NALM-6)', mfi: 8900, controlMfi: 240 }],
+      options: {
+        standardKind: 'abc',
+        fpRatio: 1,
+        backgroundMode: 'abc',
+        valency: 'bivalent',
+        antibodyHost: 'mouse',
+        saturationConfirmed: true,
+        confidenceLevel: 0.95,
+      },
+    }),
+  )
+})
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(700)
+
+const impossible = await page.evaluate(() => {
+  const verdict = document.querySelector('.verdict')
+  return {
+    verdict: verdict?.textContent ?? '',
+    valid: verdict?.classList.contains('verdict-valid') ?? false,
+    density: document.querySelector('.result-card .hero .value')?.textContent ?? '',
+  }
+})
+if (/Calibration valid/i.test(impossible.verdict) || impossible.valid) {
+  uiFailures.push(
+    `antigen density: a standard containing 1e300 reports "${impossible.verdict.trim().slice(0, 80)}"`,
+  )
+}
+if (!/not usable/i.test(impossible.verdict)) {
+  uiFailures.push(
+    'antigen density: a population holding a value no instrument produces does not make the ' +
+      'calibration unusable',
+  )
+}
+if (/^[\d,]/.test(impossible.density)) {
+  uiFailures.push(
+    `antigen density: a density of ${impossible.density} is reported from a calibration levered ` +
+      'by an impossible intensity',
+  )
+}
+
+await page.evaluate(() => localStorage.clear())
+
 const fontsApplied = await page.evaluate(async () => {
   await document.fonts.ready
   return {
