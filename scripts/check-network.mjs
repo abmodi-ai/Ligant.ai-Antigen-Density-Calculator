@@ -424,6 +424,13 @@ try {
   if (!/^Curvature/m.test(csv)) {
     uiFailures.push('antigen density: CSV export says nothing about curvature, tested or not')
   }
+  // Where the populations sit, not only how well they fit. An even ladder has a
+  // skew of zero and no shipped kit provides one, so a reader comparing two
+  // standards has no way to see that difference from R squared alone.
+  if (!/^Design skew of log10\(MFI\),-0\.30/m.test(csv)) {
+    const line = (csv.match(/^Design skew.*$/m) ?? ['(no Design skew row at all)'])[0]
+    uiFailures.push(`antigen density: the CSV reports the design skew as "${line}"`)
+  }
 } catch (e) {
   uiFailures.push(`antigen density: CSV export failed (${String(e).slice(0, 70)})`)
 }
@@ -1528,6 +1535,375 @@ if (!repoDeclaration) {
     )
   }
 }
+
+// ---------------------------------------------------------------------------
+// The headline agrees with the rows beneath it.
+//
+// A standard containing 1e300 produced three correct row advisories under a
+// verdict reading "Calibration valid. Slope 1.00, R² > 0.9999". Both halves
+// were behaving as written: checkMfi returns a field issue, and the verdict
+// reads curve flags, which a field issue is not and never becomes. So the one
+// thing the reader looks at first was the one thing that had not been told.
+//
+// Asserted here rather than only in the unit tests, because what was wrong was
+// which of two correct mechanisms the reader met.
+// ---------------------------------------------------------------------------
+await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' })
+await page.evaluate(() => {
+  localStorage.setItem(
+    'adc.state.v1',
+    JSON.stringify({
+      kitId: 'qsc-mouse',
+      standards: [
+        { id: 'd0', label: 'Blank', mfi: 210, assigned: null, included: false },
+        { id: 'd1', label: 'Population 1', mfi: 2050, assigned: 8300, included: true },
+        { id: 'd2', label: 'Population 2', mfi: 12900, assigned: 51000, included: true },
+        { id: 'd3', label: 'Population 3', mfi: 39500, assigned: 175000, included: true },
+        // The certified value sits on the fitted line, which is the reported
+        // case: slope and R squared stay perfect, so every other check on this
+        // curve is satisfied and the impossible intensity is the only fault.
+        { id: 'd4', label: 'Population 4', mfi: 1e300, assigned: 5.748995914281287e305, included: true },
+      ],
+      samples: [{ id: 's1', label: 'CD19 (NALM-6)', mfi: 8900, controlMfi: 240 }],
+      options: {
+        standardKind: 'abc',
+        fpRatio: 1,
+        backgroundMode: 'abc',
+        valency: 'bivalent',
+        antibodyHost: 'mouse',
+        saturationConfirmed: true,
+        confidenceLevel: 0.95,
+      },
+    }),
+  )
+})
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(700)
+
+const impossible = await page.evaluate(() => {
+  const verdict = document.querySelector('.verdict')
+  return {
+    verdict: verdict?.textContent ?? '',
+    valid: verdict?.classList.contains('verdict-valid') ?? false,
+    density: document.querySelector('.result-card .hero .value')?.textContent ?? '',
+  }
+})
+if (/Calibration valid/i.test(impossible.verdict) || impossible.valid) {
+  uiFailures.push(
+    `antigen density: a standard containing 1e300 reports "${impossible.verdict.trim().slice(0, 80)}"`,
+  )
+}
+if (!/not usable/i.test(impossible.verdict)) {
+  uiFailures.push(
+    'antigen density: a population holding a value no instrument produces does not make the ' +
+      'calibration unusable',
+  )
+}
+if (/^[\d,]/.test(impossible.density)) {
+  uiFailures.push(
+    `antigen density: a density of ${impossible.density} is reported from a calibration levered ` +
+      'by an impossible intensity',
+  )
+}
+
+await page.evaluate(() => localStorage.clear())
+
+// ---------------------------------------------------------------------------
+// The one thing no arithmetic here can check, written down.
+//
+// Assigned values are certified per manufacturing lot. A fit built from another
+// lot's certificate is a straight line through consistent numbers: the slope is
+// near one, the residuals are small, every check in this file is satisfied, and
+// the result is wrong by whatever the two lots differ by. Provenance is the only
+// mitigation, and the tool had nowhere to put it: the field did not exist and
+// the word "lot" appeared nowhere in the export.
+//
+// Asserted on both artefacts, because a lot identifier that reaches the CSV and
+// not the figure is separated from the plot the first time someone drops the
+// image into a manuscript.
+// ---------------------------------------------------------------------------
+await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' })
+await page.evaluate(() => localStorage.clear())
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(700)
+await page.getByRole('button', { name: 'Load worked example' }).click()
+await page.waitForTimeout(500)
+
+const csvFor = async (label) => {
+  try {
+    const [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: 8000 }),
+      page.getByRole('button', { name: 'Export CSV' }).click(),
+    ])
+    return await readFile(await download.path(), 'utf8')
+  } catch (e) {
+    uiFailures.push(`antigen density: CSV export failed ${label} (${String(e).slice(0, 60)})`)
+    return ''
+  }
+}
+
+// Unrecorded, which is the state the worked example ships in. A blank cell
+// would read as a field that does not exist rather than as the omission it is.
+const csvBlank = await csvFor('with no lot recorded')
+if (csvBlank && !/^Bead lot,not recorded$/m.test(csvBlank)) {
+  const line = (csvBlank.match(/^Bead lot.*$/m) ?? ['(no Bead lot row at all)'])[0]
+  uiFailures.push(`antigen density: with no lot recorded the CSV says "${line}"`)
+}
+
+const LOT = 'A21-0934'
+await page.fill('#lot', LOT)
+await page.waitForTimeout(500)
+
+const csvLot = await csvFor('with a lot recorded')
+if (csvLot && !csvLot.includes(`Bead lot,${LOT}`)) {
+  uiFailures.push('antigen density: a recorded bead lot does not reach the exported CSV')
+}
+
+const onFigure = await page.evaluate(
+  (lot) => (document.querySelector('#standard-curve-svg')?.textContent ?? '').includes(lot),
+  LOT,
+)
+if (!onFigure) {
+  uiFailures.push(
+    'antigen density: a recorded bead lot does not reach the exported figure, so a plot dropped ' +
+      'into a manuscript carries no provenance for the ruler that produced it',
+  )
+}
+
+// It is transcribed from a vial, so losing it on reload would mean transcribing
+// it again, which is how a field stops being filled in.
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(700)
+const restoredLot = await page.evaluate(() => document.querySelector('#lot')?.value ?? '')
+if (restoredLot !== LOT) {
+  uiFailures.push(`antigen density: the bead lot restored as "${restoredLot}" rather than "${LOT}"`)
+}
+
+// A label alone is not work in progress. Typing only a lot must leave storage
+// untouched, the same rule sample labels already follow, and the same rule the
+// privacy disclosure implies.
+await page.getByRole('button', { name: 'Clear all' }).click()
+await page.waitForTimeout(400)
+await page.evaluate(() => localStorage.clear())
+await page.fill('#lot', 'B02-1177')
+await page.waitForTimeout(600)
+const wroteOnLotAlone = await page.evaluate(() => localStorage.getItem('adc.state.v1') !== null)
+if (wroteOnLotAlone) {
+  uiFailures.push('antigen density: typing only a bead lot wrote a document to browser storage')
+}
+
+await page.evaluate(() => localStorage.clear())
+
+// ---------------------------------------------------------------------------
+// A paste says what it did not cover.
+//
+// Pasting a four population standard over a six population one overwrote the
+// first four and left the last two holding values from the previous standard,
+// still ticked and still in the fit: one calibration built from two unrelated
+// datasets. The ratio consistency check named the two rows downstream, so no
+// bad number was reported, but re-pasting a corrected standard over an earlier
+// one is an ordinary thing to do and the contamination was silent at the moment
+// it happened.
+//
+// The decision block is asserted rather than the truncation, because neither
+// outcome is chosen for the reader. Clearing rows would discard values they
+// typed; keeping them silently is the defect.
+// ---------------------------------------------------------------------------
+await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' })
+await page.evaluate(() => localStorage.clear())
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(600)
+
+/** Seed a six population standard, then paste a four population one over it. */
+const seedAndPaste = async (rows) => {
+  await page.evaluate(() => {
+    localStorage.setItem(
+      'adc.state.v1',
+      JSON.stringify({
+        kitId: 'qsc-mouse',
+        lotId: '',
+        standards: [
+          { id: 'p1', label: 'Population 1', mfi: 900, assigned: 3000, included: true },
+          { id: 'p2', label: 'Population 2', mfi: 4000, assigned: 15000, included: true },
+          { id: 'p3', label: 'Population 3', mfi: 16000, assigned: 62000, included: true },
+          { id: 'p4', label: 'Population 4', mfi: 52000, assigned: 210000, included: true },
+          { id: 'p5', label: 'Population 5', mfi: 88000, assigned: 360000, included: true },
+          { id: 'p6', label: 'Population 6', mfi: 140000, assigned: 600000, included: true },
+        ],
+        samples: [{ id: 's1', label: 'Sample 1', mfi: 8900, controlMfi: 240 }],
+        options: {
+          standardKind: 'abc',
+          fpRatio: 1,
+          backgroundMode: 'abc',
+          valency: 'bivalent',
+          antibodyHost: 'mouse',
+          saturationConfirmed: true,
+          confidenceLevel: 0.95,
+        },
+      }),
+    )
+  })
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.waitForTimeout(700)
+  await page.evaluate((text) => {
+    const cell = document.querySelector('input[aria-label^="MFI for"]')
+    cell.focus()
+    const data = new DataTransfer()
+    data.setData('text/plain', text)
+    cell.dispatchEvent(
+      new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }),
+    )
+  }, rows)
+  await page.waitForTimeout(500)
+}
+
+const decision = () =>
+  page.evaluate(() => {
+    const el = document.querySelector('.paste-decision')
+    return {
+      text: el?.innerText ?? '',
+      buttons: [...(el?.querySelectorAll('button') ?? [])].map((b) => b.textContent ?? ''),
+      rows: document.querySelectorAll('input[aria-label^="MFI for"]').length,
+      dismissable: (el?.querySelectorAll('button[aria-label^="Dismiss"]') ?? []).length > 0,
+    }
+  })
+
+const SHORT = '2050\t8300\n12900\t51000\n39500\t175000\n121000\t512000'
+await seedAndPaste(SHORT)
+const left = await decision()
+if (!left.text) {
+  uiFailures.push(
+    'antigen density: four populations pasted over six left two holding the previous standard ' +
+      'and said nothing about it',
+  )
+} else {
+  for (const name of ['Population 5', 'Population 6']) {
+    if (!left.text.includes(name)) {
+      uiFailures.push(`antigen density: the paste decision does not name ${name}`)
+    }
+  }
+  if (!/still in the fit/i.test(left.text)) {
+    uiFailures.push('antigen density: the paste decision does not say the rows are still in the fit')
+  }
+  if (left.buttons.length !== 2) {
+    uiFailures.push(
+      `antigen density: the paste decision offers ${left.buttons.length} action(s), so the ` +
+        'decision is not actually the reader\'s to make',
+    )
+  }
+  if (left.dismissable) {
+    uiFailures.push(
+      'antigen density: the paste decision can be dismissed without deciding, which puts the ' +
+        'table back where it started',
+    )
+  }
+}
+
+/** Click, and record the failure rather than taking the whole run down. */
+const clickOrReport = async (name) => {
+  try {
+    await page.getByRole('button', { name, exact: true }).click({ timeout: 5000 })
+    await page.waitForTimeout(400)
+    return true
+  } catch (e) {
+    uiFailures.push(`antigen density: could not press "${name}" (${String(e).split('\n')[0].slice(0, 70)})`)
+    return false
+  }
+}
+
+// Removing leaves the four that were pasted.
+await clickOrReport('Remove them')
+const removed = await decision()
+if (removed.rows !== 4) {
+  uiFailures.push(`antigen density: removing the rows a paste left behind gave ${removed.rows} rows, expected 4`)
+}
+if (removed.text) {
+  uiFailures.push('antigen density: the paste decision survives the reader acting on it')
+}
+
+// Keeping leaves the table alone and stops asking.
+await seedAndPaste(SHORT)
+await clickOrReport('Keep them')
+const kept = await decision()
+if (kept.rows !== 6) {
+  uiFailures.push(`antigen density: keeping the rows a paste left behind gave ${kept.rows} rows, expected 6`)
+}
+if (kept.text) {
+  uiFailures.push('antigen density: the paste decision keeps asking after the reader has decided')
+}
+
+// A paste that covers the table has nothing to decide.
+await seedAndPaste(
+  SHORT + '\n150000\t640000\n180000\t760000',
+)
+const covered = await decision()
+if (covered.text) {
+  uiFailures.push('antigen density: a paste covering every row still asked what to do about rows beyond it')
+}
+
+// The same paste over the samples table, which is the worse of the two. A
+// stale standard is caught downstream by the ratio consistency check; a stale
+// sample is quantified and reported like any other, and nothing catches it.
+await page.evaluate(() => {
+  localStorage.setItem(
+    'adc.state.v1',
+    JSON.stringify({
+      kitId: 'qsc-mouse',
+      lotId: '',
+      standards: [
+        { id: 'd1', label: 'Population 1', mfi: 2050, assigned: 8300, included: true },
+        { id: 'd2', label: 'Population 2', mfi: 12900, assigned: 51000, included: true },
+        { id: 'd3', label: 'Population 3', mfi: 39500, assigned: 175000, included: true },
+        { id: 'd4', label: 'Population 4', mfi: 121000, assigned: 512000, included: true },
+      ],
+      samples: [
+        { id: 'a', label: 'Sample 1', mfi: 8900, controlMfi: 240 },
+        { id: 'b', label: 'Sample 2', mfi: 12000, controlMfi: 250 },
+        { id: 'c', label: 'Sample 3', mfi: 30000, controlMfi: 260 },
+        { id: 'd', label: 'Sample 4', mfi: 45000, controlMfi: 270 },
+      ],
+      options: {
+        standardKind: 'abc',
+        fpRatio: 1,
+        backgroundMode: 'abc',
+        valency: 'bivalent',
+        antibodyHost: 'mouse',
+        saturationConfirmed: true,
+        confidenceLevel: 0.95,
+      },
+    }),
+  )
+})
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(700)
+await page.evaluate(() => {
+  const cell = document.querySelector('input[aria-label^="Stained MFI for"]')
+  cell.focus()
+  const data = new DataTransfer()
+  data.setData('text/plain', '5000\n7000')
+  cell.dispatchEvent(
+    new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }),
+  )
+})
+await page.waitForTimeout(500)
+
+const staleSamples = await page.evaluate(
+  () => document.querySelector('.paste-decision')?.innerText ?? '',
+)
+if (!staleSamples) {
+  uiFailures.push(
+    'antigen density: two samples pasted over four left two from the previous run being ' +
+      'quantified and reported, and said nothing about it',
+  )
+} else if (!staleSamples.includes('Sample 3') || !staleSamples.includes('Sample 4')) {
+  uiFailures.push('antigen density: the sample paste decision does not name the rows it is about')
+} else if (!/density is reported/i.test(staleSamples)) {
+  uiFailures.push(
+    'antigen density: the sample paste decision does not say the stale rows are being reported',
+  )
+}
+
+await page.evaluate(() => localStorage.clear())
 
 const fontsApplied = await page.evaluate(async () => {
   await document.fonts.ready

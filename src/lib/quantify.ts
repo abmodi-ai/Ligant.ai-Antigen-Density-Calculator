@@ -26,6 +26,7 @@ import {
 } from './stats'
 import type { Flag, FlagLevel } from './flags'
 import { formatNumber } from './format'
+import { ASSIGNED_IMPOSSIBLE, MFI_IMPOSSIBLE } from './validate'
 
 export type { Flag, FlagLevel }
 
@@ -220,8 +221,39 @@ export function fitStandardCurve(standards: BeadStandard[]): CurveResult | { err
 
   const flags: Flag[] = []
 
-  // Before anything is said about the shape of this curve, whether it is a
-  // curve at all.
+  // Before anything is said about the shape of this curve, whether its numbers
+  // came off an instrument at all.
+  //
+  // checkMfi already marks a cell holding 1e300, and that marking has no route
+  // to the verdict: CalibrationVerdict reads curve flags, and a FieldIssue is
+  // not one. So a standard containing 1e300 produced three correct row
+  // advisories underneath a headline reading "Calibration valid. Slope 1.00,
+  // R squared > 0.9999". The value is finite and positive, so it passes the
+  // filter above and levers the very fit that headline is describing.
+  //
+  // This is not the earlier request to call 1e7 critical, which was refused and
+  // stays refused. These thresholds sit orders of magnitude higher, where a
+  // number cannot have an instrument or a certificate behind it, so refusing it
+  // discards no reading anyone could have taken.
+  const impossible = usable.flatMap((s) => {
+    const label = s.label || 'An unnamed population'
+    if ((s.mfi as number) >= MFI_IMPOSSIBLE) return [`${label} (intensity ${formatNumber(s.mfi as number)})`]
+    if ((s.assigned as number) >= ASSIGNED_IMPOSSIBLE) {
+      return [`${label} (certified value ${formatNumber(s.assigned as number)})`]
+    }
+    return []
+  })
+  if (impossible.length > 0) {
+    const one = impossible.length === 1
+    flags.push({
+      level: 'critical',
+      message: `${impossible.join(', ')} ${one ? 'holds a value' : 'hold values'} beyond anything a cytometer reports or a certificate of analysis lists, so ${one ? 'it is not a measurement' : 'they are not measurements'}.`,
+      remedy:
+        'A value this size is a transcription artefact rather than a reading: a pasted exponent, a formula result, or a cell carried over from another sheet. The fit is levered by it, so nothing derived from this calibration can be reported until it is corrected or the population is unticked.',
+    })
+  }
+
+  // Then whether it is a curve at all.
   //
   // A reader who pastes a two column block in which both columns are the same
   // intensities gets a calibration that looks better than any real one: slope

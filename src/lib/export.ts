@@ -107,6 +107,8 @@ export function downloadCsv(filename: string, rows: (string | number | null)[][]
 
 export interface ExportPayload {
   kitName: string
+  /** Which lot the certified values came from, where the reader recorded one. */
+  lotId: string
   assignedLabel: string
   options: QuantifyOptions
   standards: BeadStandard[]
@@ -129,6 +131,10 @@ export function exportResultsCsv(payload: ExportPayload, filename: string) {
 
   rows.push(csvRow(['SETTINGS']))
   rows.push(csvRow(['Calibration kit', payload.kitName]))
+  // "not recorded" rather than an empty cell. The minimum a reported density
+  // should carry leads with the lot, and a blank reads as a field that does not
+  // exist rather than as the omission it is.
+  rows.push(csvRow(['Bead lot', payload.lotId.trim() || 'not recorded']))
   rows.push(csvRow(['Standard chemistry', options.standardKind === 'abc' ? 'Certified ABC beads' : 'Certified PE molecules per bead']))
   rows.push(csvRow(['Fluorophore:protein ratio', options.standardKind === 'pe-molecules' ? options.fpRatio : 'n/a']))
   rows.push(csvRow(['Background subtraction', options.backgroundMode]))
@@ -144,6 +150,11 @@ export function exportResultsCsv(payload: ExportPayload, filename: string) {
   rows.push(csvRow(['R squared', curve.fit.r2]))
   rows.push(csvRow(['Residual standard error', curve.fit.residualSE]))
   rows.push(csvRow(['Populations used (n)', curve.fit.n]))
+  // Where the populations sit, not how well they fit. Reported because the
+  // design's skew is a real property of a standard that R squared says nothing
+  // about, and because it governs how strongly the terms of the curvature test
+  // are coupled. Zero is an evenly spaced ladder, which is a construction.
+  rows.push(csvRow(['Design skew of log10(MFI)', curve.fit.skew]))
   rows.push(csvRow(['Degrees of freedom', curve.fit.df]))
   rows.push(csvRow(['MFI range', `${curve.mfiRange[0]} to ${curve.mfiRange[1]}`]))
   if (curve.curvature) {

@@ -151,3 +151,135 @@ describe('quadraticCurvature', () => {
     }
   })
 })
+
+describe('the quadratic term on a design that is not symmetric', () => {
+  // Unevenly spaced in log space, which is what a shipped kit gives: dim
+  // populations close together and the bright one far out. Even log spacing
+  // would make the centred x symmetric and s3 zero, which is exactly the
+  // property every fixture here used to share and real data never has.
+  //
+  // With s3 zero the coupling between the linear and quadratic coefficients
+  // vanishes, so nothing caught a linear coefficient taken as t1 / s2. The
+  // reference values below come from solving the three by three normal
+  // equations independently rather than from this implementation.
+  const MFI = [1_800, 3_100, 5_400, 9_800, 28_000, 240_000]
+  const ABC = [7_200, 12_800, 22_500, 41_000, 122_000, 980_000]
+  const xs = MFI.map((v) => Math.log10(v))
+  const ys = ABC.map((v) => Math.log10(v))
+
+  it('matches an independent solve of the normal equations', () => {
+    const c = quadraticCurvature(xs, ys)
+    expect(c).not.toBeNull()
+    // The uncorrected form returned -0.012472741623 here, out by 45 percent.
+    expect(c?.quadratic).toBeCloseTo(-0.022659962718, 11)
+  })
+
+  it('reports the local slopes the corrected coefficient implies', () => {
+    const c = quadraticCurvature(xs, ys)
+    expect(c?.slopeAtLow).toBeCloseTo(1.053141700883, 10)
+    expect(c?.slopeAtHigh).toBeCloseTo(0.956839635784, 10)
+    expect(c?.slopeDrift).toBeCloseTo(-0.096302065099, 10)
+  })
+
+  it('recovers a quadratic it was given exactly, skew and all', () => {
+    // The strongest statement available: fit a curve with no noise in it and
+    // the coefficients must come back as they went in, which a biased estimator
+    // cannot do on a skewed design at any sample size.
+    const skewed = [0, 0.4, 0.9, 1.6, 3.1, 7.4]
+    const exact = skewed.map((x) => 2.5 - 1.25 * x + 0.375 * x * x)
+    const c = quadraticCurvature(skewed, exact)
+    expect(c?.quadratic).toBeCloseTo(0.375, 10)
+  })
+})
+
+describe('what the correction does and does not change', () => {
+  // The question a referee asks first: does fixing the estimator invalidate
+  // anything already published? Only where s3 is non-zero. On an evenly
+  // log-spaced design the two estimators are the same expression, so any result
+  // computed on such a design stands unaltered.
+  const evenlyLogSpaced = [3, 3.6, 4.2, 4.8, 5.4, 6.0]
+
+  const s3Of = (xs: number[]) => {
+    const mean = xs.reduce((a, b) => a + b, 0) / xs.length
+    return xs.reduce((a, x) => a + (x - mean) ** 3, 0)
+  }
+
+  it('confirms an evenly log-spaced ladder is symmetric, which is the premise', () => {
+    expect(s3Of(evenlyLogSpaced)).toBeCloseTo(0, 12)
+  })
+
+  it('agrees with the uncorrected estimator wherever s3 is zero', () => {
+    const ys = evenlyLogSpaced.map((x) => 0.5 + 1.02 * x - 0.031 * x * x + (x > 4.5 ? 0.004 : -0.004))
+    const c = quadraticCurvature(evenlyLogSpaced, ys)
+
+    // The uncorrected estimator, written out, so the equivalence is visible
+    // rather than argued.
+    const n = evenlyLogSpaced.length
+    const mean = evenlyLogSpaced.reduce((a, b) => a + b, 0) / n
+    const z = evenlyLogSpaced.map((x) => x - mean)
+    const s2 = z.reduce((a, v) => a + v * v, 0)
+    const s3 = z.reduce((a, v) => a + v ** 3, 0)
+    const s4 = z.reduce((a, v) => a + v ** 4, 0)
+    const t0 = ys.reduce((a, y) => a + y, 0)
+    const t1 = z.reduce((a, v, i) => a + v * ys[i], 0)
+    const t2 = z.reduce((a, v, i) => a + v * v * ys[i], 0)
+    const uncorrectedLinear = t1 / s2
+    const uncorrected = (t2 - (s2 * t0) / n - s3 * uncorrectedLinear) / (s4 - (s2 * s2) / n)
+
+    expect(c?.quadratic).toBeCloseTo(uncorrected, 12)
+  })
+
+  // The real standard this tool ships with. Four populations, so the curvature
+  // test never runs on it, but its skew is worth recording: it is the number
+  // that shows an even ladder is a construction rather than a description.
+  it('records the skew of the shipped worked example', () => {
+    const worked = [2050, 12900, 39500, 121000].map((v) => Math.log10(v))
+    expect(s3Of(worked)).toBeCloseTo(-0.340045, 5)
+    expect(quadraticCurvature(worked, worked.map((x) => x))).not.toBeNull()
+  })
+})
+
+describe('the bounded iteration counts cannot bind in practice', () => {
+  // studentTInv bisects a [0, 1e4] bracket. If a wanted quantile sat above the
+  // upper end it would silently return the end itself, so the claim that this
+  // is safe has to be shown rather than asserted.
+  it.each([0.9, 0.95, 0.99])('leaves orders of magnitude of headroom at %s', (level) => {
+    for (const df of [1, 2, 3, 4, 6, 10, 30, 100, 1000]) {
+      const t = tCritical(level, df)
+      expect(t).toBeGreaterThan(0)
+      // The worst case in this table is df = 1 at 99 percent, near 64.
+      expect(t).toBeLessThan(100)
+    }
+  })
+
+  it('is still far inside the bracket at a level the interface does not offer', () => {
+    // 99.9 percent on one degree of freedom, well beyond anything selectable.
+    expect(tCritical(0.999, 1)).toBeLessThan(1_000)
+  })
+})
+
+describe('the design skew reported with the fit', () => {
+  const fitOf = (mfi: number[]) =>
+    linearRegression(
+      mfi.map((v) => Math.log10(v)),
+      mfi.map((v, i) => Math.log10(v) * 1.02 + 0.5 + (i % 2 ? 0.01 : -0.01)),
+    )
+
+  it('is zero for an evenly spaced ladder, which no kit ships', () => {
+    expect(fitOf([1e3, 1e4, 1e5, 1e6]).skew).toBeCloseTo(0, 12)
+  })
+
+  it('is the value the shipped worked example actually has', () => {
+    expect(fitOf([2050, 12900, 39500, 121000]).skew).toBeCloseTo(-0.3039, 4)
+  })
+
+  it('leans positive where the bright population sits far out', () => {
+    expect(fitOf([1800, 3100, 5400, 9800, 28000, 240000]).skew).toBeCloseTo(0.8169, 4)
+  })
+
+  it('is dimensionless, so scaling every intensity leaves it alone', () => {
+    const base = fitOf([2050, 12900, 39500, 121000]).skew
+    const scaled = fitOf([2050, 12900, 39500, 121000].map((v) => v * 1000)).skew
+    expect(scaled).toBeCloseTo(base, 12)
+  })
+})

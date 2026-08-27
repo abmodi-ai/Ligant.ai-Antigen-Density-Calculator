@@ -73,6 +73,26 @@ export const ANTIGEN_DENSITY_GUIDANCE: GuidanceEntry[] = [
     ],
   },
   {
+    id: 'ad.lot.why',
+    anchor: 'ad.lot',
+    kind: 'definition',
+    title: 'Why record the bead lot?',
+    body: [
+      {
+        kind: 'p',
+        text: 'Because it is the only defence against the one failure this tool cannot detect. Assigned values are certified per manufacturing lot and differ between lots of the same product. A fit built from the wrong lot\u2019s certificate is a straight line through consistent numbers: the slope is near one, the residuals are small, and every check here is satisfied. The result is wrong by whatever the two lots differ by, and nothing in the arithmetic can see it.',
+      },
+      {
+        kind: 'p',
+        text: 'Nothing computes from what you type here. It is a label, carried into the exported figure and into the settings block of the exported CSV, so that a density and the provenance of the ruler that produced it stay together. Where it is left empty the export says so rather than leaving a blank.',
+      },
+      {
+        kind: 'note',
+        text: 'The lot is on the vial and on the certificate of analysis that shipped with it. Transcribe both the lot and its assigned values from the same document, at the same time.',
+      },
+    ],
+  },
+  {
     id: 'ad.control.what',
     anchor: 'ad.control',
     kind: 'definition',
@@ -121,6 +141,10 @@ export const ANTIGEN_DENSITY_GUIDANCE: GuidanceEntry[] = [
       {
         kind: 'p',
         text: 'The calibration counts *antibody molecules bound*, so where the detection antibody binds with both arms, the number of antigen sites can be up to twice the number of antibodies. That is why the result is reported as a range rather than a single figure, and why the range is labelled as inferred: the tool has not measured how many arms were engaged, and neither have you.',
+      },
+      {
+        kind: 'note',
+        text: 'The range bounds the sites that were engaged, and it bounds them from below. An epitope that was masked, already occupied, or internalised binds nothing and is counted nowhere, so the total antigen on the cell can exceed the top of the range by any amount. Twice the measured value is not a ceiling on antigen.',
       },
     ],
   },

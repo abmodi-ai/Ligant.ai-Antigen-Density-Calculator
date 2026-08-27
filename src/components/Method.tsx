@@ -47,7 +47,10 @@ export function Method({ storageKeys, onClearStorage }: Props) {
           <li>
             <strong>ABC is not equivalent to antigen copy number.</strong> Epitope accessibility,
             binding valency, conjugate performance, and antigen internalisation intervene between
-            the two quantities.
+            the two quantities. The inferred site range bounds the sites the antibody
+            <em>engaged</em>, and it bounds them from below: an epitope that was masked, already
+            occupied, or internalised contributes nothing to the measurement, so the total antigen
+            on the cell may exceed the top of that range by any amount.
           </li>
           <li>
             <strong>Beads and cells require identical acquisition conditions.</strong> Detector
