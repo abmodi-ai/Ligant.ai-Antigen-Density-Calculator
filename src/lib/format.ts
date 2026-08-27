@@ -28,6 +28,22 @@ export function formatR2(v: number): string {
 export const SCIENTIFIC_ABOVE = 1e9
 
 /**
+ * Below this, two decimal places are not enough to say anything.
+ *
+ * The mirror of the defect fixed at the top end, and it read worse. Every
+ * magnitude under 0.005 collapsed to "0.00", so a standard refused for holding
+ * 1e-250 said "Population 1 (intensity 0.00) holds a value beyond anything a
+ * cytometer reports", which is a contradiction on its face and gives a reader
+ * no way to find the cell. 0.0001 and 1e-250 rendered identically.
+ *
+ * Significant figures rather than fixed places below here, so 0.0034 stays
+ * 0.0034 and 1e-250 stays 1e-250. No separate exponential threshold is needed:
+ * a JavaScript number renders itself exponentially below 1e-6, which is exactly
+ * where a decimal form stops being readable anyway.
+ */
+const SIGNIFICANT_BELOW = 0.01
+
+/**
  * Human readable, with the precision the magnitude warrants.
  *
  * Lives here rather than with the calibration core so that anything writing a
@@ -45,5 +61,12 @@ export function formatNumber(v: number): string {
   if (Math.round(v) >= 10_000) return Math.round(v).toLocaleString('en-US')
   if (v >= 100) return v.toFixed(0)
   if (v >= 10) return v.toFixed(1)
+  // Zero is genuinely zero and says so. Anything else this small is a value the
+  // reader has to be able to find, so it keeps its figures rather than its
+  // decimal places.
+  const magnitude = Math.abs(v)
+  if (magnitude > 0 && magnitude < SIGNIFICANT_BELOW) {
+    return Number(v.toPrecision(3)).toString()
+  }
   return v.toFixed(2)
 }

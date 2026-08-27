@@ -62,3 +62,45 @@ describe('a number that reaches the grouping threshold by rounding', () => {
     expect(formatNumber(9_999.4)).toBe('9999')
   })
 })
+
+describe('a number too small for two decimal places', () => {
+  // The mirror of the defect fixed at the top end, and it read worse. A
+  // standard refused for holding 1e-250 said "Population 1 (intensity 0.00)
+  // holds a value outside anything a cytometer reports", which contradicts
+  // itself and gives the reader no way to find the cell. 0.0001 and 1e-250
+  // rendered identically.
+  it.each([
+    [0.0034, '0.0034'],
+    [0.0001, '0.0001'],
+    [0.00999, '0.00999'],
+    [1e-12, '1e-12'],
+    [1e-250, '1e-250'],
+  ])('renders %s as something a reader can act on', (input, expected) => {
+    expect(formatNumber(input)).toBe(expected)
+  })
+
+  it('leaves zero saying zero, which is the one honest 0.00', () => {
+    expect(formatNumber(0)).toBe('0.00')
+  })
+
+  // The property, rather than the examples. Anything that renders as 0.00 when
+  // it is not zero is a value the reader cannot find and cannot correct.
+  it('never collapses a non-zero value to zero, at any magnitude', () => {
+    for (let exponent = 0; exponent >= -300; exponent -= 1) {
+      for (const mantissa of [1, 2.5, 9.87]) {
+        const v = mantissa * 10 ** exponent
+        if (v === 0) continue
+        expect(formatNumber(v)).not.toBe('0.00')
+        expect(formatNumber(-v)).not.toBe('0.00')
+        expect(formatNumber(v)).not.toBe('-0.00')
+      }
+    }
+  })
+
+  it('leaves the magnitudes two decimal places already suited', () => {
+    expect(formatNumber(0.05)).toBe('0.05')
+    expect(formatNumber(0.5)).toBe('0.50')
+    expect(formatNumber(2.5)).toBe('2.50')
+    expect(formatNumber(9.99)).toBe('9.99')
+  })
+})

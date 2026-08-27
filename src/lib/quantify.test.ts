@@ -1394,3 +1394,37 @@ describe('no row note is longer than a reader will read', () => {
     }
   })
 })
+
+describe('the flags that name an offending value can be acted on', () => {
+  // The refusal messages printed the offending intensity as 0.00, so the one
+  // that said the value lay outside anything a cytometer reports contradicted
+  // itself, and 0.0001 and 1e-250 read identically. A message that names a
+  // value the reader cannot find in their table does half its job.
+  const withMfi = (mfi: number) => DEMO_BEADS.map((b) => (b.id === 'd1' ? { ...b, mfi } : b))
+  const messages = (mfi: number) => {
+    const r = fitStandardCurve(withMfi(mfi))
+    return 'error' in r ? [] : r.flags.map((f) => f.message)
+  }
+
+  it.each([
+    [1e-250, '1e-250'],
+    [1e-12, '1e-12'],
+    [0.0001, '0.0001'],
+  ])('prints %s as itself rather than as zero', (mfi, rendered) => {
+    const said = messages(mfi).join(' ')
+    expect(said).toContain(rendered)
+    expect(said).not.toMatch(/intensity 0\.00\b/)
+    expect(said).not.toMatch(/at 0\.00\b/)
+  })
+
+  it('distinguishes two values that used to render the same', () => {
+    expect(messages(1e-250).join(' ')).not.toBe(messages(1e-12).join(' '))
+  })
+
+  it('does not say a value is beyond a range when it is below it', () => {
+    // "beyond anything a cytometer reports" reads as a claim about the top end.
+    const said = messages(1e-250).join(' ')
+    expect(said).not.toContain('beyond anything a cytometer reports')
+    expect(said).toContain('outside anything a cytometer reports')
+  })
+})
