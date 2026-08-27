@@ -1,14 +1,15 @@
 name: CI
 
-# Every branch used to be watched here as well as every pull request, which
-# meant a branch in this repository with a PR open ran the whole suite twice
-# for one push: two identical green ticks and two runners. A pull request is
-# the moment the work is offered, and Main is the moment it lands, so those are
-# the two moments worth checking. Push a branch with no PR and nothing runs
-# until you open one, or dispatch it by hand.
+# Pull requests only.
+#
+# This watched every branch once, then Main and every pull request, and both
+# arrangements ran the suite twice for one push. Main is now covered by the
+# deploy workflow, which runs this same suite before it ships anything, so a
+# push to Main that also ran this would be doing the work twice over again.
+#
+# What is left is the moment the work is offered for review. Push a branch with
+# no pull request and nothing runs until you open one, or dispatch it by hand.
 on:
-  push:
-    branches: [Main]
   pull_request:
   workflow_dispatch:
 
