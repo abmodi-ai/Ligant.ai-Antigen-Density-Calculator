@@ -262,7 +262,7 @@ export function fitStandardCurve(standards: BeadStandard[]): CurveResult | { err
     const one = impossible.length === 1
     flags.push({
       level: 'critical',
-      message: `${impossible.join(', ')} ${one ? 'holds a value' : 'hold values'} beyond anything a cytometer reports or a certificate of analysis lists, so ${one ? 'it is not a measurement' : 'they are not measurements'}.`,
+      message: `${impossible.join(', ')} ${one ? 'holds a value' : 'hold values'} outside anything a cytometer reports or a certificate of analysis lists, so ${one ? 'it is not a measurement' : 'they are not measurements'}.`,
       remedy:
         'A value this size is a transcription artefact rather than a reading: a pasted exponent, a formula result, or a cell carried over from another sheet. The fit is levered by it, so nothing derived from this calibration can be reported until it is corrected or the population is unticked.',
     })
