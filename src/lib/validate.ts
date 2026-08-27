@@ -37,6 +37,30 @@ const MFI_CEILING = 1e7
 export const MFI_IMPOSSIBLE = 2 ** 32
 
 /**
+ * And the same distinction at the bottom, which was missing entirely.
+ *
+ * The reciprocal of full scale. A digitiser's least count is one channel, so
+ * rescaling its output so that full scale is 1 puts the smallest positive
+ * reading at 2^-32. Nothing below that is a reading on any rescaling a 32 bit
+ * instrument could produce.
+ *
+ * Weaker than its mirror at the top, and deliberately so. The calibration is a
+ * log-log fit, so multiplying every intensity by a constant only shifts the
+ * intercept: the unit a reader works in is their own, and an absolute floor
+ * cannot know it. The guard that actually catches a misplaced exponent is on
+ * the span of the standard rather than on any one value, and lives with the
+ * curve where it can see every population at once.
+ */
+export const MFI_IMPOSSIBLE_LOW = 2 ** -32
+
+/**
+ * Below one channel. A digitiser emits integers, so a positive intensity under
+ * one is either rescaled, derived, or mistyped. A caution rather than a
+ * refusal, because the first two are legitimate and the fit does not care.
+ */
+const MFI_SUBCHANNEL = 1
+
+/**
  * Certified capacities in these kits run from a few thousand to a few hundred
  * thousand. The bounds are an order of magnitude either side of that, so they
  * catch a misplaced decimal point without pretending to know any lot's values.
@@ -86,6 +110,20 @@ export function checkMfi(mfi: number | null): FieldIssue | null {
         'No cytometer digitises above 32 bit, so a value this large is not a reading on any scale. Check for a pasted exponent or a formula result.',
     }
   }
+  if (mfi < MFI_IMPOSSIBLE_LOW) {
+    return {
+      severity: 'error',
+      message:
+        'No digitiser resolves a positive reading this small on any scale, so this is not an intensity. Check for a pasted exponent or a formula result.',
+    }
+  }
+  if (mfi < MFI_SUBCHANNEL) {
+    return {
+      severity: 'warning',
+      message:
+        'This is below a single digitiser channel. That is legitimate for rescaled or derived values, and a misplaced decimal point otherwise.',
+    }
+  }
   if (mfi > MFI_CEILING) {
     return {
       severity: 'warning',
@@ -127,6 +165,13 @@ export function checkAssigned(
       severity: 'error',
       message:
         'A certified value is greater than zero. Untick this population to leave it out of the fit.',
+    }
+  }
+  if (assigned < MFI_IMPOSSIBLE_LOW) {
+    return {
+      severity: 'error',
+      message:
+        'No certificate carries a capacity this small, so this is not a certified value. Check for a pasted exponent or a formula result.',
     }
   }
   if (assigned >= ASSIGNED_IMPOSSIBLE) {

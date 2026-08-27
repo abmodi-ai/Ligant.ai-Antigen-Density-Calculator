@@ -731,6 +731,23 @@ td input.cell-warning { box-shadow: inset 0 -2px 0 rgba(184, 134, 11, 0.35); }
   cursor: pointer;
 }
 
+/* The citation, set apart from the prose above it so it reads as a thing to be
+   copied rather than a sentence to be read. */
+.footer-citation {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-left: 2px solid var(--border);
+  background: var(--surface-sunken);
+}
+.footer-citation p {
+  margin: 4px 0 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.footer-citation cite { font-style: normal; }
+
 /* A decision rather than a note: the rule is heavier and there is no dismiss,
    because the condition it describes is still true until one of the two
    buttons is pressed. Amber, like every other moment in this interface that

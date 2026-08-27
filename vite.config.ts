@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { SITE_URL, TOOLS } from './src/lib/site'
 
@@ -27,6 +28,17 @@ function siteMetadata(): Plugin {
     },
 
     generateBundle() {
+      // The footer says a copy of the licence is distributed with this
+      // software, and /LICENSE returned 404, so the one sentence on the page
+      // that a reader might actually follow went nowhere. Emitted from the file
+      // at the repository root rather than copied into public/, so there is one
+      // licence and it cannot drift from the one the repository carries.
+      this.emitFile({
+        type: 'asset',
+        fileName: 'LICENSE',
+        source: readFileSync(resolve(__dirname, 'LICENSE'), 'utf8'),
+      })
+
       this.emitFile({
         type: 'asset',
         fileName: 'robots.txt',

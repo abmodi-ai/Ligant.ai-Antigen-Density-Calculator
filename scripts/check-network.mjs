@@ -1905,6 +1905,88 @@ if (!staleSamples) {
 
 await page.evaluate(() => localStorage.clear())
 
+// ---------------------------------------------------------------------------
+// What a reader needs at the moment they decide to use a figure from this tool.
+//
+// The footer said a copy of the licence was distributed with this software and
+// linked nowhere, so /LICENSE answered 404. JSX also swallowed the space before
+// the code element, rendering "in theLICENSE file". And there was no citation
+// string anywhere on a page whose whole purpose is producing figures other
+// people will publish.
+// ---------------------------------------------------------------------------
+await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' })
+await page.waitForTimeout(400)
+
+const footerParts = await page.evaluate(() => {
+  const el = document.querySelector('.site-footer')
+  return {
+    text: el?.textContent ?? '',
+    licenceHref: el?.querySelector('a[href$="LICENSE"]')?.getAttribute('href') ?? null,
+    citation: el?.querySelector('.footer-citation p')?.textContent?.trim() ?? '',
+  }
+})
+if (footerParts.licenceHref === null) {
+  uiFailures.push('antigen density: the footer names a LICENSE file and links nothing to it')
+}
+if (/the\s*LICENSE/.test(footerParts.text) && !/the LICENSE/.test(footerParts.text)) {
+  uiFailures.push('antigen density: the footer reads "theLICENSE", with the space swallowed')
+}
+for (const part of ['Modi', 'Antigen Density Calculator', 'v0.1.0', 'benchtools.ligant.ai']) {
+  if (!footerParts.citation.includes(part)) {
+    uiFailures.push(`antigen density: the citation on the page does not carry ${part}`)
+  }
+}
+
+// The licence itself, served rather than only linked.
+const licence = await fetch(ORIGIN + '/LICENSE')
+if (!licence.ok) {
+  uiFailures.push(`antigen density: /LICENSE answers ${licence.status}, so the footer link is dead`)
+} else if (!(await licence.text()).includes('Apache License')) {
+  uiFailures.push('antigen density: /LICENSE answers but carries no licence text')
+}
+
+// ---------------------------------------------------------------------------
+// Changing kit is reversible.
+//
+// It clears the certified values, which is right, and the intensity column,
+// which is arguable: those are instrument readings and do not stop being
+// readings because a different kit was selected. Rather than guess, the change
+// is undoable, the way Clear all already is.
+// ---------------------------------------------------------------------------
+await page.getByRole('button', { name: 'Load worked example' }).click()
+await page.waitForTimeout(400)
+const before = await page.evaluate(() =>
+  [...document.querySelectorAll('input[aria-label^="MFI for"]')].map((i) => i.value),
+)
+await page.selectOption('#kit', { index: 1 })
+await page.waitForTimeout(400)
+const cleared = await page.evaluate(() =>
+  [...document.querySelectorAll('input[aria-label^="MFI for"]')].map((i) => i.value),
+)
+if (cleared.join() === before.join()) {
+  uiFailures.push('antigen density: changing the bead kit left the standards table unchanged')
+} else {
+  try {
+    await page.getByRole('button', { name: 'Undo kit change' }).click({ timeout: 5000 })
+    await page.waitForTimeout(400)
+    const restored = await page.evaluate(() =>
+      [...document.querySelectorAll('input[aria-label^="MFI for"]')].map((i) => i.value),
+    )
+    if (restored.join() !== before.join()) {
+      uiFailures.push(
+        `antigen density: undoing a kit change restored ${JSON.stringify(restored.slice(0, 3))}, ` +
+          `expected ${JSON.stringify(before.slice(0, 3))}`,
+      )
+    }
+  } catch (e) {
+    uiFailures.push(
+      `antigen density: a kit change offers no way back (${String(e).split('\n')[0].slice(0, 60)})`,
+    )
+  }
+}
+
+await page.evaluate(() => localStorage.clear())
+
 const fontsApplied = await page.evaluate(async () => {
   await document.fonts.ready
   return {

@@ -25,7 +25,7 @@ export function formatR2(v: number): string {
  * Above this a value is written in scientific notation, because rendering it in
  * full breaks the layout it sits in.
  */
-const SCIENTIFIC_ABOVE = 1e9
+export const SCIENTIFIC_ABOVE = 1e9
 
 /**
  * Human readable, with the precision the magnitude warrants.
