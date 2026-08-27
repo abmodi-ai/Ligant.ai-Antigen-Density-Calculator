@@ -56,10 +56,22 @@ jobs:
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - if: steps.creds.outputs.ready == 'true'
-        run: npm ci
-      - if: steps.creds.outputs.ready == 'true'
-        run: npm run build
+      # Prove it before shipping it.
+      #
+      # This step used to be `npm run build` alone, which is `tsc -b && vite
+      # build`. So a change that broke every test in the suite but still
+      # compiled would deploy to production, and CI would go red about it
+      # afterwards, next to a live site already serving the change. Nothing
+      # here read CI's result, and nothing waited for it.
+      #
+      # `npm run verify` is the same suite CI runs: style, privacy, typecheck,
+      # tests, build, and a full session in a real browser. It also produces
+      # the dist/ this job uploads, so it replaces the build rather than adding
+      # to it. Ungated by the credentials check above, because whether the
+      # change is sound is worth knowing even on a run that cannot deploy.
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run verify
 
       # `pages deploy` will not create a missing project in a non-interactive
       # shell, so create it on first run and leave it alone afterwards.
