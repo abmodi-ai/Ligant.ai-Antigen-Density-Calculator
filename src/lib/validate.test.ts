@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   ASSIGNED_IMPOSSIBLE,
   MFI_IMPOSSIBLE,
+  MFI_IMPOSSIBLE_LOW,
   checkAssigned,
   checkControl,
   checkMfi,
@@ -130,5 +131,28 @@ describe('a magnitude that is impossible rather than implausible', () => {
 
   it('still says nothing about a population left out of the fit', () => {
     expect(checkAssigned(1e300, { included: false })).toBeNull()
+  })
+})
+
+describe('the low end of the magnitude scale', () => {
+  it('marks an intensity below any digitiser least count as an error', () => {
+    expect(checkMfi(1e-250)?.severity).toBe('error')
+    expect(checkMfi(MFI_IMPOSSIBLE_LOW / 2)?.severity).toBe('error')
+  })
+
+  it('cautions below one channel without refusing it', () => {
+    // Legitimate for rescaled or derived values, so a caution. The number the
+    // reader typed is still used.
+    expect(checkMfi(0.0001)?.severity).toBe('warning')
+    expect(checkMfi(0.5)?.severity).toBe('warning')
+  })
+
+  it('leaves an ordinary dim reading alone', () => {
+    expect(checkMfi(1)).toBeNull()
+    expect(checkMfi(210)).toBeNull()
+  })
+
+  it('marks a certified value below any certificate as an error', () => {
+    expect(checkAssigned(1e-40, { included: true })?.severity).toBe('error')
   })
 })

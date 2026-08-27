@@ -9,7 +9,12 @@
  * The address and the email are plain text and a mailto link. Nothing here
  * contacts anything: a mailto is handled by the reader's own mail client and
  * fires no request, so the privacy guarantee is untouched.
+ *
+ * The citation is here rather than in the method section because it is the
+ * thing a reader needs at the moment they decide to use a figure from this
+ * tool in their own work, and that decision is made at the bottom of the page.
  */
+import { APP_VERSION, RELEASE_YEAR, SITE_URL } from '../../lib/site'
 export function SiteFooter() {
   return (
     <footer className="site-footer">
@@ -39,9 +44,26 @@ export function SiteFooter() {
         </address>
       </div>
 
+      <div className="footer-citation">
+        <span className="eyebrow">How to cite</span>
+        {/*
+          One line, in the order a reference manager expects, so it can be
+          copied without being rearranged. No DOI yet: one is minted with the
+          archived release, and a placeholder that looks like an identifier is
+          worse than an absent one.
+        */}
+        <p>
+          Modi, A.B. ({RELEASE_YEAR}). <cite>Antigen Density Calculator</cite> ({APP_VERSION})
+          [Computer software]. Ligant AI Incorporated. {SITE_URL.replace('https://', '')}
+        </p>
+      </div>
+
       <p className="footer-licence">
-        Licensed under the Apache License, Version 2.0. You may obtain a copy of the License in the
-        <code>LICENSE</code> file distributed with this software. Unless required by applicable law
+        Licensed under the Apache License, Version 2.0. You may obtain a copy of the License in the{' '}
+        <a href="/LICENSE">
+          <code>LICENSE</code>
+        </a>{' '}
+        file distributed with this software. Unless required by applicable law
         or agreed to in writing, software distributed under the License is distributed on an "AS
         IS" basis, without warranties or conditions of any kind, either express or implied.{' '}
         <strong>Research use only. Not for clinical or diagnostic decision-making.</strong>

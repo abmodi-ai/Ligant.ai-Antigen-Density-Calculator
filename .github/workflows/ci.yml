@@ -1,8 +1,14 @@
 name: CI
 
+# Every branch used to be watched here as well as every pull request, which
+# meant a branch in this repository with a PR open ran the whole suite twice
+# for one push: two identical green ticks and two runners. A pull request is
+# the moment the work is offered, and Main is the moment it lands, so those are
+# the two moments worth checking. Push a branch with no PR and nothing runs
+# until you open one, or dispatch it by hand.
 on:
   push:
-    branches: ['**']
+    branches: [Main]
   pull_request:
   workflow_dispatch:
 

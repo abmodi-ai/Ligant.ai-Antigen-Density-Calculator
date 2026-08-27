@@ -12,6 +12,7 @@ import {
   type Sample,
 } from './lib/quantify'
 import { persist, restoreOptions } from './lib/persist'
+import { APP_VERSION } from './lib/site'
 import { exportChartSvg, exportResultsCsv } from './lib/export'
 import { formatR2 } from './lib/format'
 import { StandardCurve } from './components/StandardCurve'
@@ -31,7 +32,8 @@ import type { ToolContext } from './lib/guidance/types'
 
 const CORPUS = [...ANTIGEN_DENSITY_GUIDANCE, ...SHARED_GUIDANCE]
 
-const APP_VERSION = 'v0.1.0'
+// APP_VERSION lives in src/lib/site.ts, beside the origin, so the footer's
+// citation and the version stamped into every export cannot disagree.
 const STORAGE_KEY = 'adc.state.v1'
 
 interface PersistedState {
@@ -115,7 +117,10 @@ function loadState(): PersistedState {
 export default function App() {
   const [state, setState] = useState<PersistedState>(loadState)
   // Clearing wipes transcribed data in one click, so it stays reversible.
-  const [undoState, setUndoState] = useState<PersistedState | null>(null)
+  // What to go back to, and what the reader did that they may want undone. The
+  // label travels with the state because two different actions now push here
+  // and "Undo clear" beside a kit change would name the wrong one.
+  const [undoState, setUndoState] = useState<{ state: PersistedState; label: string } | null>(null)
 
   const kit = BEAD_KITS.find((k) => k.id === state.kitId) ?? BEAD_KITS[0]
   const { standards, samples, options, lotId } = state
@@ -178,15 +183,27 @@ export default function App() {
   const setOptions = (patch: Partial<QuantifyOptions>) =>
     setState((s) => ({ ...s, options: { ...s.options, ...patch } }))
 
+  // Changing kit replaces the standards table, which is right for the certified
+  // values: they are issued per kit and per lot, and carrying them across would
+  // pair one kit's certificate with another's beads. It is less obviously right
+  // for the intensity column, which is a set of instrument readings that do not
+  // stop being readings because a different kit was selected.
+  //
+  // Rather than guess which the reader meant, the change is made reversible.
+  // Clear all already works this way and the affordance already exists, so this
+  // is the smaller of the two options and the one that cannot be wrong.
   const changeKit = (kitId: string) => {
     const next = BEAD_KITS.find((k) => k.id === kitId)
     if (!next) return
-    setState((s) => ({
-      ...s,
-      kitId,
-      standards: standardsForKit(next),
-      options: { ...s.options, standardKind: next.standardKind },
-    }))
+    setState((s) => {
+      setUndoState({ state: s, label: 'Undo kit change' })
+      return {
+        ...s,
+        kitId,
+        standards: standardsForKit(next),
+        options: { ...s.options, standardKind: next.standardKind },
+      }
+    })
   }
 
   const isPe = options.standardKind === 'pe-molecules'
@@ -393,7 +410,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => {
-                    setUndoState(state)
+                    setUndoState({ state, label: 'Undo clear' })
                     setState(emptyState(kit))
                   }}
                 >
@@ -403,11 +420,11 @@ export default function App() {
                   <button
                     className="primary"
                     onClick={() => {
-                      setState(undoState)
+                      setState(undoState.state)
                       setUndoState(null)
                     }}
                   >
-                    Undo clear
+                    {undoState.label}
                   </button>
                 )}
               </div>

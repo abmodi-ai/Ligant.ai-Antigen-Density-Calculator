@@ -25,8 +25,8 @@ import {
   type LinearFit,
 } from './stats'
 import type { Flag, FlagLevel } from './flags'
-import { formatNumber } from './format'
-import { ASSIGNED_IMPOSSIBLE, MFI_IMPOSSIBLE } from './validate'
+import { SCIENTIFIC_ABOVE, formatNumber } from './format'
+import { ASSIGNED_IMPOSSIBLE, MFI_IMPOSSIBLE, MFI_IMPOSSIBLE_LOW } from './validate'
 
 export type { Flag, FlagLevel }
 
@@ -187,6 +187,17 @@ const MIN_R2 = 0.98
  * the test there would report "no curvature detected" on curves it has no
  * ability to detect curvature in.
  */
+/**
+ * Decades of intensity a single standard may span.
+ *
+ * Its populations are acquired in one run at one detector setting, and the
+ * widest commercial bead set covers about three decades. Six is a thousandfold
+ * beyond any real design and still inside what a 32 bit digitiser could in
+ * principle resolve, so it refuses transcription errors without refusing an
+ * unusual standard.
+ */
+const MAX_STANDARD_DECADES = 6
+
 const MIN_CURVATURE_POPULATIONS = 6
 
 /** Two-sided level for the quadratic term. */
@@ -237,9 +248,13 @@ export function fitStandardCurve(standards: BeadStandard[]): CurveResult | { err
   // discards no reading anyone could have taken.
   const impossible = usable.flatMap((s) => {
     const label = s.label || 'An unnamed population'
-    if ((s.mfi as number) >= MFI_IMPOSSIBLE) return [`${label} (intensity ${formatNumber(s.mfi as number)})`]
-    if ((s.assigned as number) >= ASSIGNED_IMPOSSIBLE) {
-      return [`${label} (certified value ${formatNumber(s.assigned as number)})`]
+    const mfi = s.mfi as number
+    const assigned = s.assigned as number
+    if (mfi >= MFI_IMPOSSIBLE || mfi < MFI_IMPOSSIBLE_LOW) {
+      return [`${label} (intensity ${formatNumber(mfi)})`]
+    }
+    if (assigned >= ASSIGNED_IMPOSSIBLE || assigned < MFI_IMPOSSIBLE_LOW) {
+      return [`${label} (certified value ${formatNumber(assigned)})`]
     }
     return []
   })
@@ -250,6 +265,33 @@ export function fitStandardCurve(standards: BeadStandard[]): CurveResult | { err
       message: `${impossible.join(', ')} ${one ? 'holds a value' : 'hold values'} beyond anything a cytometer reports or a certificate of analysis lists, so ${one ? 'it is not a measurement' : 'they are not measurements'}.`,
       remedy:
         'A value this size is a transcription artefact rather than a reading: a pasted exponent, a formula result, or a cell carried over from another sheet. The fit is levered by it, so nothing derived from this calibration can be reported until it is corrected or the population is unticked.',
+    })
+  }
+
+  // What no per-value bound can see.
+  //
+  // The fit is log-log, so multiplying every intensity by a constant shifts the
+  // intercept and changes nothing else. The unit is the reader's own, which
+  // makes an absolute floor weak: 0.0001 is a typo on a channel scale and a
+  // legitimate reading on a normalised one, and nothing about a single value
+  // says which. The span between the populations is the quantity that does not
+  // depend on the unit, and it is bounded by physics rather than convention:
+  // the populations of one standard are acquired in one run at one detector
+  // setting, and no bead set spans more than about three decades. Six is a
+  // thousandfold beyond that.
+  //
+  // This is the guard that catches a misplaced exponent at either end. The
+  // per-value bounds above are the ones that can name a single cell.
+  const logMfiRange = Math.max(...logMfi) - Math.min(...logMfi)
+  if (impossible.length === 0 && logMfiRange > MAX_STANDARD_DECADES) {
+    const order = [...usable].sort((a, b) => (a.mfi as number) - (b.mfi as number))
+    const dimmest = order[0]
+    const brightest = order[order.length - 1]
+    flags.push({
+      level: 'critical',
+      message: `The populations span ${logMfiRange.toFixed(1)} decades of intensity, from ${dimmest.label || 'an unnamed population'} at ${formatNumber(dimmest.mfi as number)} to ${brightest.label || 'an unnamed population'} at ${formatNumber(brightest.mfi as number)}. No bead set covers that range, and no detector reports it at one setting.`,
+      remedy:
+        'These readings did not come from one acquisition. The usual cause is a misplaced decimal point or an exponent in one population; the other is two standards pasted into one table. Correct the outlying row or untick it.',
     })
   }
 
@@ -511,6 +553,14 @@ export function checkStandardConsistency(
  */
 function formatRatio(v: number): string {
   if (!Number.isFinite(v)) return 'n/a'
+  // The one case where an exponent is the readable form. An intensity of 1e-250
+  // in one row made this sentence carry the ratio twice as grouped integers,
+  // about 660 characters of digits and commas, in a note meant to be read at a
+  // bench. The small side of the same ratio reached the shared formatter and
+  // rendered as 8.3e-297; the large side stopped at toLocaleString and did not.
+  // Same threshold as everywhere else, so there is one definition of too big to
+  // write out.
+  if (v >= SCIENTIFIC_ABOVE) return v.toExponential(2)
   if (v >= 1000) return Math.round(v).toLocaleString('en-GB')
   if (v >= 1) return Number(v.toPrecision(3)).toString()
   // Below one, keep two significant figures so 0.0034 stays 0.0034.
@@ -526,6 +576,7 @@ function formatRatio(v: number): string {
 function formatFactor(v: number): string {
   if (!Number.isFinite(v)) return 'n/a'
   const rounded = Number(v.toPrecision(2))
+  if (rounded >= SCIENTIFIC_ABOVE) return rounded.toExponential(2)
   // "about 1,200 times", not "about 1.2e+3 times".
   if (rounded >= 1000) return Math.round(rounded).toLocaleString('en-GB')
   return String(rounded)

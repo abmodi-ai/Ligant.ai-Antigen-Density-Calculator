@@ -10,6 +10,19 @@
 export const SITE_URL = 'https://benchtools.ligant.ai'
 
 /**
+ * The released version, cited on the page and stamped into every export.
+ *
+ * Beside the origin rather than in the component that happened to need it
+ * first: a citation and an exported CSV that disagree about which version
+ * produced a figure are worse than either alone.
+ */
+export const APP_VERSION = 'v0.1.0'
+
+/** The year the citation carries. Fixed, not derived from the clock, so the
+ *  page renders the same for every reader and for every build. */
+export const RELEASE_YEAR = 2026
+
+/**
  * Where the source is, once there is somewhere to send a reader.
  *
  * The footer asserts Apache 2.0 and points at a LICENSE file "distributed with

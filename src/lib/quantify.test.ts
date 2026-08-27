@@ -1288,3 +1288,109 @@ describe('the reported numbers are a function of the fit and nothing else', () =
     expect(r.upper).toBe((r.netAbc as number) * factor)
   })
 })
+
+describe('a magnitude at the bottom of the scale', () => {
+  // F4 guarded the top and left the mirror case open. An intensity of 1e-250
+  // produced no magnitude flag of any kind: the cell was styled as filled, no
+  // row note mentioned magnitude, and the headline read valid. It was caught
+  // only incidentally, when the ratio consistency test happened to notice the
+  // row disagreed with the others.
+  const withMfi = (mfi: number) => DEMO_BEADS.map((b) => (b.id === 'd1' ? { ...b, mfi } : b))
+  const criticals = (beads: BeadStandard[]) => {
+    const r = fitStandardCurve(beads)
+    return 'error' in r ? [] : r.flags.filter((f) => f.level === 'critical')
+  }
+
+  it.each([1e-250, 1e-12, 0.0001])('refuses a standard containing %s', (mfi) => {
+    expect(criticals(withMfi(mfi)).length).toBeGreaterThan(0)
+  })
+
+  it('reaches the headline, which is what was wrong', () => {
+    const r = fitStandardCurve(withMfi(1e-250))
+    if ('error' in r) throw new Error(r.error)
+    const q = quantifyWithCalibration(DEMO_SAMPLES.cd19, r, DEMO_OPTIONS)
+    expect(calibrationValid(q)).toBe(false)
+  })
+
+  // The span guard is the one that does the work, because a log-log fit makes
+  // the intensity unit arbitrary: the same 0.0001 is a typo on a channel scale
+  // and a legitimate reading on a normalised one. What cannot be legitimate is
+  // one standard covering nine decades.
+  it('names the span rather than the value, where the value alone is ambiguous', () => {
+    const message = criticals(withMfi(0.0001))[0].message
+    expect(message).toContain('decades of intensity')
+    expect(message).toContain('Population 1')
+  })
+
+  it('is not fooled by a change of unit, since only the span matters', () => {
+    // Every intensity divided by a million: a legitimate rescaling, and the
+    // same standard. An absolute floor would refuse this; the span does not.
+    const rescaled = DEMO_BEADS.map((b) => ({ ...b, mfi: b.mfi === null ? null : b.mfi / 1e6 }))
+    expect(criticals(rescaled)).toHaveLength(0)
+  })
+
+  it('leaves the worked example alone', () => {
+    expect(criticals(DEMO_BEADS)).toHaveLength(0)
+  })
+
+  it('does not refuse a dim population for being dim', () => {
+    // Moved to 210 with its certified value scaled to match, so the row is
+    // still consistent with the others and only its magnitude has changed.
+    // Asserted against these guards by name: a dim population will trip other
+    // checks on other data, and this is about not tripping these.
+    const dim = DEMO_BEADS.map((b) =>
+      b.id === 'd1' ? { ...b, mfi: 210, assigned: 780 } : b,
+    )
+    const messages = criticals(dim).map((f) => f.message)
+    expect(messages.some((m) => m.includes('decades of intensity'))).toBe(false)
+    expect(messages.some((m) => m.includes('not an intensity'))).toBe(false)
+  })
+
+  it('refuses a certified value below anything a certificate carries', () => {
+    const beads = DEMO_BEADS.map((b) => (b.id === 'd1' ? { ...b, assigned: 1e-40 } : b))
+    expect(criticals(beads).some((f) => f.message.includes('certified value'))).toBe(true)
+  })
+})
+
+describe('no row note is longer than a reader will read', () => {
+  // An intensity of 1e-250 made the ratio message carry the same quantity twice
+  // as grouped integers: roughly 660 characters of digits and commas in one
+  // sentence. The small side of the ratio already reached the shared threshold
+  // and rendered as 8.3e-297; the large side did not.
+  const std = (label: string, mfi: number, assigned: number) => ({
+    id: label, label, mfi, assigned, included: true,
+  })
+
+  const notes = (beads: Parameters<typeof checkStandardConsistency>[0]) =>
+    checkStandardConsistency(beads).outliers.map((o) => `${o.message} ${o.remedy ?? ''}`)
+
+  it('keeps the ratio message readable when a row is out by 250 decades', () => {
+    const messages = notes([
+      std('Population 1', 1e-250, 8_300),
+      std('Population 2', 12_900, 51_000),
+      std('Population 3', 39_500, 175_000),
+      std('Population 4', 121_000, 512_000),
+    ])
+    expect(messages.length).toBeGreaterThan(0)
+    for (const m of messages) {
+      expect(m.length).toBeLessThan(400)
+      // No run of digits and separators long enough to be a wall of numerals.
+      expect(m).not.toMatch(/[\d,]{20}/)
+    }
+  })
+
+  // The reason the old behaviour survived: every magnitude anyone had tried
+  // was one a separator suits. This is the ceiling on any of them.
+  it('holds for every row note the calibration can produce', () => {
+    for (const extreme of [1e-250, 1e-12, 1e12, 1e250]) {
+      for (const m of notes([
+        std('Population 1', 2_050, 8_300),
+        std('Population 2', 12_900, 51_000),
+        std('Population 3', 39_500, 175_000),
+        std('Out of place', extreme, 512_000),
+      ])) {
+        expect(m.length).toBeLessThan(400)
+      }
+    }
+  })
+})

@@ -174,6 +174,23 @@ for (const name of ['Export SVG', 'Export CSV']) {
 }
 await page.waitForTimeout(800)
 
+// --- a path this repository no longer builds ---
+//
+// The cytotoxicity curve fitter was removed and nothing here emits that path,
+// yet a review found it answering 200 with an unfinished second tool under the
+// same branding. Nothing in the repository explains that, so the only way to
+// know is to ask the deployed site.
+const retired = await page.request.get(new URL('/cytotoxicity/', target).href, {
+  maxRedirects: 0,
+  failOnStatusCode: false,
+})
+if (retired.status() === 200) {
+  failures.push(
+    'the retired /cytotoxicity/ path answers 200. Nothing in this repository builds it, so the ' +
+      'deployment is serving an artefact the source does not explain.',
+  )
+}
+
 // --- what the served document references, whether or not it was fetched ---
 //
 // A tag the policy refuses to load makes no request, so the request log above
@@ -244,6 +261,19 @@ if (built.length === 0 && existsSync('dist/index.html')) {
     `the deployed page does not reference ${missing.join(', ')} from this build, so it is serving ` +
       'something else. The upload may not have taken, or the edge may be caching the previous one.',
   )
+}
+
+// --- the licence the footer sends a reader to ---
+const licence = await page.request.get(new URL('/LICENSE', target).href, {
+  failOnStatusCode: false,
+})
+if (!licence.ok()) {
+  failures.push(
+    `the footer links /LICENSE and it answers ${licence.status()}, so the one sentence on the ` +
+      'page a reader might follow goes nowhere',
+  )
+} else if (!(await licence.text()).includes('Apache License')) {
+  failures.push('/LICENSE answers, but does not contain the Apache licence text')
 }
 
 // --- assertions ---
