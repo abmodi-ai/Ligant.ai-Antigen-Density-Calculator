@@ -150,6 +150,11 @@ export function exportResultsCsv(payload: ExportPayload, filename: string) {
   rows.push(csvRow(['R squared', curve.fit.r2]))
   rows.push(csvRow(['Residual standard error', curve.fit.residualSE]))
   rows.push(csvRow(['Populations used (n)', curve.fit.n]))
+  // Where the populations sit, not how well they fit. Reported because the
+  // design's skew is a real property of a standard that R squared says nothing
+  // about, and because it governs how strongly the terms of the curvature test
+  // are coupled. Zero is an evenly spaced ladder, which is a construction.
+  rows.push(csvRow(['Design skew of log10(MFI)', curve.fit.skew]))
   rows.push(csvRow(['Degrees of freedom', curve.fit.df]))
   rows.push(csvRow(['MFI range', `${curve.mfiRange[0]} to ${curve.mfiRange[1]}`]))
   if (curve.curvature) {

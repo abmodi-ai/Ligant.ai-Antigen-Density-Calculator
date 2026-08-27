@@ -118,6 +118,21 @@ export interface LinearFit {
   meanX: number
   /** Sum of squared deviations of x about its mean. */
   sxx: number
+  /**
+   * Standardised skew of the design, m3 / m2^1.5 on the x values.
+   *
+   * A property of where the populations sit, not of how well they fit, and
+   * dimensionless so it compares across standards. It is reported for the same
+   * reason the slope is: it says something about the standard that R squared
+   * cannot. Zero means the populations are evenly spaced in the fitted space,
+   * which is a constructed ladder rather than a shipped kit; the further from
+   * zero, the more the design leans to one end.
+   *
+   * It is also the quantity that decides how much the linear and quadratic
+   * terms of the curvature test are coupled, which is how it came to be
+   * measured at all.
+   */
+  skew: number
 }
 
 /** Ordinary least squares fit of y = slope·x + intercept. Requires n >= 3. */
@@ -147,6 +162,13 @@ export function linearRegression(xs: number[], ys: number[]): LinearFit {
     sst += (ys[i] - meanY) ** 2
   }
 
+  // Standardised, so it is comparable between standards of different spread.
+  // Undefined for a degenerate design, which cannot reach here: sxx = 0 throws
+  // above.
+  const m2 = sxx / n
+  const m3 = xs.reduce((a, x) => a + (x - meanX) ** 3, 0) / n
+  const skew = m3 / m2 ** 1.5
+
   const df = n - 2
   return {
     slope,
@@ -157,6 +179,7 @@ export function linearRegression(xs: number[], ys: number[]): LinearFit {
     n,
     meanX,
     sxx,
+    skew,
   }
 }
 
@@ -201,13 +224,27 @@ export function meanResponseInterval(
  * That elimination is the whole of the arithmetic, and it has to be done
  * completely. An earlier version took the linear coefficient as t1 / s2, which
  * is the simple regression slope and omits the coupling to the quadratic term
- * through s3, the third moment of the centred x. On a symmetric design s3 is
- * zero and the omission costs nothing, which is why the tests written on
- * symmetric fixtures all passed. A bead standard is log-spaced and therefore
- * skewed, so s3 is never zero for the data this actually runs on: across four
- * thousand simulated six to eight population standards the omitted term moved
- * the quadratic coefficient by up to 99 percent and changed the flag decision
- * at alpha = 0.05 in about one run in eighteen.
+ * through s3, the third moment of the centred x. Where s3 is zero the omission
+ * costs nothing, which is why the tests written on symmetric fixtures all
+ * passed.
+ *
+ * s3 is zero when the populations are EVENLY spaced in log space, and that is
+ * the case no real kit provides. An even ladder is a construction; a shipped
+ * standard is unevenly spaced, and its s3 is not small. Measured, in log10
+ * units cubed:
+ *
+ *     evenly log-spaced, any n           0.000  (skew  0.00)
+ *     Quantum Simply Cellular, 4 pops   -0.340  (skew -0.30)
+ *     a six population standard          1.711  (skew  0.82)
+ *
+ * The first line is why an earlier version of this comment had the reasoning
+ * backwards, saying a standard is log-spaced and therefore skewed. Log spacing
+ * is what makes it symmetric. Uneven log spacing is what makes it skewed, and
+ * uneven is what arrives in a vial.
+ *
+ * Across four thousand simulated six to eight population standards the omitted
+ * term moved the quadratic coefficient by up to 99 percent and changed the flag
+ * decision at alpha = 0.05 in about one run in eighteen.
  */
 export interface CurvatureTest {
   /** Quadratic coefficient. Its sign is the direction of the bend. */

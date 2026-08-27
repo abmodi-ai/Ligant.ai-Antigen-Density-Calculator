@@ -180,8 +180,8 @@ export function Results({ entries, valency, confidenceLevel, saturationConfirmed
                       : formatNumber(result.sitesLow as number)}
                     <span className="hint" style={{ fontFamily: 'var(--font)' }}>
                       {valency === 'bivalent'
-                        ? ' derived from ABC assuming bivalent IgG binding; not measured'
-                        : ' derived from ABC assuming 1:1 binding; not measured'}
+                        ? ' engaged sites, derived from ABC assuming bivalent IgG binding. Not measured, and not an upper bound on antigen: an epitope the antibody cannot reach is not counted at all.'
+                        : ' engaged sites, derived from ABC assuming 1:1 binding. Not measured, and not an upper bound on antigen: an epitope the antibody cannot reach is not counted at all.'}
                     </span>
                   </dd>
                   {result.controlAbc !== null && (

@@ -142,6 +142,10 @@ export const ANTIGEN_DENSITY_GUIDANCE: GuidanceEntry[] = [
         kind: 'p',
         text: 'The calibration counts *antibody molecules bound*, so where the detection antibody binds with both arms, the number of antigen sites can be up to twice the number of antibodies. That is why the result is reported as a range rather than a single figure, and why the range is labelled as inferred: the tool has not measured how many arms were engaged, and neither have you.',
       },
+      {
+        kind: 'note',
+        text: 'The range bounds the sites that were engaged, and it bounds them from below. An epitope that was masked, already occupied, or internalised binds nothing and is counted nowhere, so the total antigen on the cell can exceed the top of the range by any amount. Twice the measured value is not a ceiling on antigen.',
+      },
     ],
   },
   {

@@ -424,6 +424,13 @@ try {
   if (!/^Curvature/m.test(csv)) {
     uiFailures.push('antigen density: CSV export says nothing about curvature, tested or not')
   }
+  // Where the populations sit, not only how well they fit. An even ladder has a
+  // skew of zero and no shipped kit provides one, so a reader comparing two
+  // standards has no way to see that difference from R squared alone.
+  if (!/^Design skew of log10\(MFI\),-0\.30/m.test(csv)) {
+    const line = (csv.match(/^Design skew.*$/m) ?? ['(no Design skew row at all)'])[0]
+    uiFailures.push(`antigen density: the CSV reports the design skew as "${line}"`)
+  }
 } catch (e) {
   uiFailures.push(`antigen density: CSV export failed (${String(e).slice(0, 70)})`)
 }
