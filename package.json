@@ -14,9 +14,10 @@
     "test:watch": "vitest",
     "check:style": "node scripts/check-style.mjs",
     "check:privacy": "node scripts/check-privacy.mjs",
+    "check:citation": "node scripts/check-citation.mjs",
     "check:network": "node scripts/check-network.mjs",
     "check:deployed": "node scripts/check-deployed.mjs",
-    "verify": "npm run check:style && npm run check:privacy && tsc -b && npm test && npm run build && npm run check:network"
+    "verify": "npm run check:style && npm run check:privacy && npm run check:citation && tsc -b && npm test && npm run build && npm run check:network"
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "^5.3.0",
