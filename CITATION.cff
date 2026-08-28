@@ -1,0 +1,43 @@
+# Citation metadata, in the format GitHub and Zenodo both read.
+#
+# The same claim appears in three places: this file, the footer of the tool
+# itself, and the manuscript's Availability section. Three copies of one string
+# is three chances to disagree, so a test asserts this file against the values
+# in src/lib/site.ts, and the remaining diff against the manuscript is done by
+# hand because nothing here can see that document.
+#
+# The DOI is deliberately absent. Zenodo mints it when the tagged release is
+# archived, and a placeholder that looks like an identifier is worse than an
+# absent one. Add it under `identifiers` once minted, and to the footer at the
+# same time.
+cff-version: 1.2.0
+message: If you use this software, please cite it as below.
+type: software
+title: Antigen Density Calculator
+abstract: >-
+  A deterministic browser tool that converts flow cytometry median fluorescence
+  intensity into antibody binding capacity against a calibrated bead standard,
+  reports the uncertainty of that conversion, and withholds a figure it cannot
+  defend. All computation is ordinary least squares in log10-log10 space. No
+  model, no imputation and no language model is applied to any reported value,
+  and no data entered by a user leaves the browser.
+authors:
+  - family-names: Modi
+    given-names: A.B.
+    affiliation: Ligant AI Incorporated
+# Matches APP_VERSION in src/lib/site.ts and the tag on the archived release.
+# The leading v is kept so that this file, the footer and the tag are the same
+# string rather than three conventions for one version.
+version: v0.1.0
+date-released: '2026-08-28'
+license: Apache-2.0
+repository-code: https://github.com/Ligant-ai/Antigen-Density-Calculator-OS
+url: https://benchtools.ligant.ai
+keywords:
+  - flow cytometry
+  - antigen density
+  - antibody binding capacity
+  - CAR T
+  - cell therapy
+  - calibration
+  - reproducible research
