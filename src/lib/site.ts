@@ -30,14 +30,22 @@ export const RELEASE_YEAR = 2026
  * assertion a reader cannot check is not verifiable, which is what a reviewer
  * called blocking, and it stays open until this is set.
  *
- * Null rather than the development repository, which is private and staying
- * private: a link nobody can open is worse than no link, because it converts an
- * unbacked claim into a broken one. Typed with the absence so a consumer has to
- * handle it rather than rendering an empty href, and asserted in
- * scripts/check-network.mjs in both states: with no URL the footer must link
- * nothing, and with one it must link it.
+ * The published mirror, under Ligant's own organisation. The development
+ * repository is private and stays private, and pointing a reader at that one
+ * would have converted an unbacked claim into a broken one, which is why this
+ * was null until there was somewhere real to send them.
+ *
+ * Typed with the absence still, because that is what makes the guard work:
+ * scripts/check-network.mjs asserts the true thing in either state. With no URL
+ * the footer must link nothing; with one, a footer claiming open source must
+ * link it. scripts/check-privacy.mjs allows this exact value and nothing wider,
+ * reading it from here rather than pattern-matching a host.
+ *
+ * Nothing on the page loads from it. It is an address a reader may choose to
+ * follow, which is also why no check here can confirm it resolves: this tool
+ * contacts no third party, and that includes to test its own links.
  */
-export const REPO_URL: string | null = null
+export const REPO_URL: string | null = 'https://github.com/Ligant-ai/Antigen-Density-Calculator-OS'
 
 export interface Tool {
   id: string
