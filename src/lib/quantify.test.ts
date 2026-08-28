@@ -1428,3 +1428,88 @@ describe('the flags that name an offending value can be acted on', () => {
     expect(said).toContain('outside anything a cytometer reports')
   })
 })
+
+// ---------------------------------------------------------------------------
+// A1: an endorsed calibration containing an intensity no instrument produces.
+//
+// No fixture in this file scaled both coordinates of one population together,
+// which is exactly why nothing caught it. Scaling a point's intensity and its
+// certified value by the same factor moves it along a line of slope one, and
+// the calibration's own slope is 1.017, so the point lands almost on the line
+// it is about to distort. R squared stays above 0.9999, the ratio test sees the
+// two errors cancel, and the span stays under six decades.
+//
+// The property this fixture family assumes, stated so it is auditable: both
+// columns move together, which is what a pasted decimal slip does and what
+// every other fixture here avoids by moving one column only.
+// ---------------------------------------------------------------------------
+describe('one population out of range while the rest are inside it', () => {
+  const std = (label: string, mfi: number, assigned: number) => ({
+    id: label, label, mfi, assigned, included: true,
+  })
+  const WORKED = [
+    std('Population 1', 2_050, 8_300),
+    std('Population 2', 12_900, 51_000),
+    std('Population 3', 39_500, 175_000),
+    std('Population 4', 121_000, 512_000),
+  ]
+  /** The reported case: one row's two columns scaled by the same factor. */
+  const scaledRow = (factor: number) => [
+    ...WORKED.slice(0, 3),
+    std('Population 4', 121_000 * factor, 512_000 * factor),
+  ]
+  const flagsOf = (beads: ReturnType<typeof scaledRow>) => {
+    const r = fitStandardCurve(beads)
+    if ('error' in r) throw new Error(r.error)
+    return r
+  }
+  const verdict = (beads: ReturnType<typeof scaledRow>) => {
+    const f = flagsOf(beads).flags
+    if (f.some((x) => x.level === 'critical')) return 'not usable'
+    return f.some((x) => x.level === 'warning') ? 'caveat' : 'valid'
+  }
+
+  it('is endorsed by every other check, which is why this one is needed', () => {
+    // Asserted so the premise cannot rot: if some other guard starts catching
+    // this, the reason for this one has changed and someone should know.
+    const r = flagsOf(scaledRow(1_000))
+    expect(r.fit.r2).toBeGreaterThan(0.9999)
+    expect(Math.abs(r.fit.slope - 1)).toBeLessThan(0.15)
+    expect(Math.max(...r.logMfi) - Math.min(...r.logMfi)).toBeLessThan(6)
+  })
+
+  it.each([100, 1_000])('caveats the headline for a x%s slip in both columns', (factor) => {
+    expect(verdict(scaledRow(factor))).toBe('caveat')
+    const said = flagsOf(scaledRow(factor)).flags.map((f) => f.message).join(' ')
+    expect(said).toContain('Population 4')
+    expect(said).toContain('outside what a cytometer reports')
+  })
+
+  it('does not withhold the figure, which is right to a fraction of a percent', () => {
+    // The auditor measured +0.2% at x1000, inside the reported interval. A
+    // refusal would overstate what is wrong.
+    expect(verdict(scaledRow(1_000))).not.toBe('not usable')
+  })
+
+  it('leaves the worked example valid', () => {
+    expect(verdict(WORKED)).toBe('valid')
+  })
+
+  // The invariance the fix had to preserve. A reader working in different units
+  // moves every population together, so every row is unusual at once and the
+  // count of odd rows is zero or all, never some.
+  it('still endorses a standard with every intensity divided by a million', () => {
+    const rescaled = WORKED.map((s) => ({ ...s, mfi: s.mfi / 1e6 }))
+    expect(verdict(rescaled)).toBe('valid')
+  })
+
+  // The designs that broke the two diagnostics tried first. A top-heavy bead
+  // set scores higher than the typo on both largest-gap-to-median and maximum
+  // leverage, so either would have refused a real kit.
+  it('leaves a legitimately top-heavy bead set alone', () => {
+    expect(verdict([
+      std('P1', 2_000, 7_000), std('P2', 4_000, 14_500),
+      std('P3', 8_000, 29_000), std('P4', 200_000, 760_000),
+    ])).toBe('valid')
+  })
+})
