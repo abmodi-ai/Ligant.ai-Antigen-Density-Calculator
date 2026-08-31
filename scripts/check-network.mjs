@@ -1987,6 +1987,74 @@ if (cleared.join() === before.join()) {
 
 await page.evaluate(() => localStorage.clear())
 
+// ---------------------------------------------------------------------------
+// The headline does not endorse a reading no instrument produces.
+//
+// Pasting a standard whose last population has both columns scaled by a
+// thousand gave "Calibration valid. Slope 1.00, R² 0.9999, 4 populations." over
+// an intensity of 1.21e8, with two row advisories underneath it that nothing
+// carried upward. Every other gate is silent by construction: scaling both
+// coordinates moves the point along a line of slope one, and the calibration's
+// slope is 1.017, so it lands on the line it is about to distort.
+//
+// Driven through a real paste rather than seeded state, because the paste is
+// how the defect was found and how a reader would meet it.
+// ---------------------------------------------------------------------------
+await page.goto(ORIGIN + '/', { waitUntil: 'networkidle' })
+await page.evaluate(() => localStorage.clear())
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForTimeout(600)
+// The worked example rather than an empty table, and the paste starts at
+// Population 1 rather than at the first cell. The example's four populations
+// are exactly the four being pasted, so the standard ends up as the auditor
+// typed it with the excluded blank and the three samples untouched, and there
+// is a quantified card to read the density off. Clearing first, which this did
+// at first, leaves no sample to report and the density assertion below reads an
+// empty card rather than a withheld figure.
+await page.getByRole('button', { name: 'Load worked example' }).click()
+await page.waitForTimeout(400)
+await page.evaluate(() => {
+  const cell = document.querySelector('input[aria-label="MFI for Population 1"]')
+  cell.focus()
+  const data = new DataTransfer()
+  data.setData(
+    'text/plain',
+    '2050\t8300\n12900\t51000\n39500\t175000\n121000000\t512000000',
+  )
+  cell.dispatchEvent(
+    new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }),
+  )
+})
+await page.waitForTimeout(600)
+
+const endorsed = await page.evaluate(() => {
+  const v = document.querySelector('.verdict')
+  return {
+    text: v?.textContent?.trim() ?? '',
+    valid: v?.classList.contains('verdict-valid') ?? false,
+    density: document.querySelector('.result-card .hero .value')?.textContent ?? '',
+  }
+})
+if (endorsed.valid || /Calibration valid/i.test(endorsed.text)) {
+  uiFailures.push(
+    `antigen density: a standard containing 121,000,000 reports "${endorsed.text.slice(0, 70)}"`,
+  )
+}
+if (!/caveat/i.test(endorsed.text)) {
+  uiFailures.push(
+    'antigen density: one population outside what a cytometer reports does not reach the headline',
+  )
+}
+// A caveat, not a refusal. The density is right to a fraction of a percent, so
+// withholding it would overstate what is wrong.
+if (!/^[\d,]/.test(endorsed.density)) {
+  uiFailures.push(
+    `antigen density: the figure was withheld ("${endorsed.density}") for a 0.2 percent error`,
+  )
+}
+
+await page.evaluate(() => localStorage.clear())
+
 const fontsApplied = await page.evaluate(async () => {
   await document.fonts.ready
   return {

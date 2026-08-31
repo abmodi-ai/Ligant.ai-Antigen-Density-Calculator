@@ -20,7 +20,7 @@
  * impossible, and a review that classed it as impossible was applying its own
  * rule for "violates physics regardless" to a number that does not.
  */
-const MFI_CEILING = 1e7
+export const MFI_CEILING = 1e7
 
 /**
  * And above this it is impossible rather than implausible.

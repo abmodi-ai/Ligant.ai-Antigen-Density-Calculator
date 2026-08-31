@@ -26,7 +26,7 @@ import {
 } from './stats'
 import type { Flag, FlagLevel } from './flags'
 import { SCIENTIFIC_ABOVE, formatNumber } from './format'
-import { ASSIGNED_IMPOSSIBLE, MFI_IMPOSSIBLE, MFI_IMPOSSIBLE_LOW } from './validate'
+import { ASSIGNED_IMPOSSIBLE, MFI_IMPOSSIBLE, MFI_IMPOSSIBLE_LOW, checkMfi } from './validate'
 
 export type { Flag, FlagLevel }
 
@@ -293,6 +293,48 @@ export function fitStandardCurve(standards: BeadStandard[]): CurveResult | { err
       remedy:
         'These readings did not come from one acquisition. The usual cause is a misplaced decimal point or an exponent in one population; the other is two standards pasted into one table. Correct the outlying row or untick it.',
     })
+  }
+
+  // A reading no instrument produces, sitting in a standard that looks fine.
+  //
+  // Scaling one population's intensity and its certified value by the same
+  // factor moves the point along a line of slope one, which is within a
+  // rounding error of the calibration's own slope. So a pasted decimal slip in
+  // both columns of one row leaves the fit excellent and every check here
+  // quiet: R squared stays above 0.9999, the slope barely moves, the ratio test
+  // sees the two errors cancel, and the span stays under six decades. The
+  // reported density is then wrong by about 0.2 percent, which is inside the
+  // interval, while the headline says the calibration is valid over an
+  // intensity of 1.2e8.
+  //
+  // Three design statistics were measured against this and all three failed to
+  // separate it: the span of the design, the largest gap between adjacent
+  // populations relative to the median gap, and the maximum leverage. A
+  // legitimately top-heavy four bead set scores higher than the typo on the
+  // last two, so any threshold that caught the typo would refuse real kits.
+  //
+  // What does separate them is uniformity. A reader working in different units
+  // rescales every population, so every row is unusual together and the fit is
+  // untouched. A transcription error moves one row. So the question is not
+  // whether a value is implausible, which checkMfi already answers per row, but
+  // whether it is implausible ALONE. That is scale-invariant by construction:
+  // multiply every intensity by anything and the count does not change.
+  //
+  // A caveat rather than a refusal. The density is right to a fraction of a
+  // percent, so withholding it would overstate the problem; what was wrong is
+  // a headline that read "valid" over rows carrying advisories.
+  if (impossible.length === 0) {
+    const odd = usable.filter((s) => checkMfi(s.mfi) !== null)
+    if (odd.length > 0 && odd.length < usable.length) {
+      const names = odd.map((s) => `${s.label || 'an unnamed population'} at ${formatNumber(s.mfi as number)}`)
+      const one = odd.length === 1
+      flags.push({
+        level: 'warning',
+        message: `${names.join(', ')} ${one ? 'is the only population whose' : 'are the only populations whose'} intensity lies outside what a cytometer reports, while the other ${usable.length - odd.length} lie inside it.`,
+        remedy:
+          'One population out of range is a transcription error more often than a property of the standard. Where its certified value was scaled with it, the point moves along the calibration line, so the fit stays excellent and nothing else here will remark on it. Check this row against the acquisition record.',
+      })
+    }
   }
 
   // Then whether it is a curve at all.
