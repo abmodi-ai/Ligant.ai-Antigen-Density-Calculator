@@ -76,6 +76,22 @@ function parsePolicy(value) {
   return out
 }
 
+// A thrown error means this script could not run, which is a different claim
+// from "the site is wrong" and must not be reported as one. Exit 2 says so, and
+// the deploy workflow does not retry it.
+//
+// Both events, because a rejected top level await surfaces as an uncaught
+// exception rather than as an unhandled rejection, which is how the crash this
+// guards against actually arrived.
+const crashed = (e) => {
+  console.error('\nThe deployed-site check could not run. This is a fault in the check, not a')
+  console.error(`verdict on ${target}:\n`)
+  console.error(String(e?.stack ?? e))
+  process.exit(2)
+}
+process.on('uncaughtException', crashed)
+process.on('unhandledRejection', crashed)
+
 const failures = []
 const authored = authoredHeaders()
 if (Object.keys(authored).length === 0) {
@@ -191,6 +207,19 @@ if (retired.status() === 200) {
   )
 }
 
+// --- the licence the footer sends a reader to ---
+const licence = await page.request.get(new URL('/LICENSE', target).href, {
+  failOnStatusCode: false,
+})
+if (!licence.ok()) {
+  failures.push(
+    `the footer links /LICENSE and it answers ${licence.status()}, so the one sentence on the ` +
+      'page a reader might follow goes nowhere',
+  )
+} else if (!(await licence.text()).includes('Apache License')) {
+  failures.push('/LICENSE answers, but does not contain the Apache licence text')
+}
+
 // --- what the served document references, whether or not it was fetched ---
 //
 // A tag the policy refuses to load makes no request, so the request log above
@@ -227,6 +256,14 @@ const offOrigin = referenced.filter((ref) => {
   return !new URL(ref, target).href.startsWith(ORIGIN)
 })
 
+// Nothing below this line may touch the network or the page. Everything after
+// it reads data already captured above.
+//
+// The /LICENSE assertion was appended to the end of the file, which put it
+// under a closed browser. It threw "Target page, context or browser has been
+// closed" on every production deploy for eleven days while the site itself was
+// fine, and the retry loop reported the crash three times as a failed
+// deployment. A new assertion that needs a request belongs above here.
 await browser.close()
 
 /**
@@ -261,19 +298,6 @@ if (built.length === 0 && existsSync('dist/index.html')) {
     `the deployed page does not reference ${missing.join(', ')} from this build, so it is serving ` +
       'something else. The upload may not have taken, or the edge may be caching the previous one.',
   )
-}
-
-// --- the licence the footer sends a reader to ---
-const licence = await page.request.get(new URL('/LICENSE', target).href, {
-  failOnStatusCode: false,
-})
-if (!licence.ok()) {
-  failures.push(
-    `the footer links /LICENSE and it answers ${licence.status()}, so the one sentence on the ` +
-      'page a reader might follow goes nowhere',
-  )
-} else if (!(await licence.text()).includes('Apache License')) {
-  failures.push('/LICENSE answers, but does not contain the Apache licence text')
 }
 
 // --- assertions ---

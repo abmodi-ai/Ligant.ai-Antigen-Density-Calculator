@@ -147,8 +147,21 @@ jobs:
           npx playwright install --with-deps chromium
           # Pages serves the new deployment within seconds, but not always by
           # the time wrangler returns. Three attempts, then it is a real failure.
+          #
+          # Only a failed assertion is retried. Exit 2 means the check could not
+          # run at all, which no amount of waiting fixes: it crashed on every
+          # deploy for eleven days while the site was fine, and the loop
+          # reported it three times over as a failed deployment.
           for attempt in 1 2 3; do
-            if node scripts/check-deployed.mjs; then exit 0; fi
+            set +e
+            node scripts/check-deployed.mjs
+            status=$?
+            set -e
+            if [ "$status" -eq 0 ]; then exit 0; fi
+            if [ "$status" -ne 1 ]; then
+              echo "The deployed-site check could not run (exit $status). The deployment itself is not implicated; scripts/check-deployed.mjs is." >> "$GITHUB_STEP_SUMMARY"
+              exit "$status"
+            fi
             echo "Attempt $attempt failed; retrying in 15s."
             sleep 15
           done
