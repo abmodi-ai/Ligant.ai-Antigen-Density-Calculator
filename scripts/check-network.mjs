@@ -31,6 +31,14 @@ const CHROME = process.env.CHROME_PATH
 
 /** The configured origin, from the single module that defines it. */
 const SITE_URL = (readFileSync('src/lib/site.ts', 'utf8').match(/SITE_URL\s*=\s*['"]([^'"]+)['"]/) ?? [])[1]
+// Read rather than repeated. This assertion carried the literal 'v0.1.0' and
+// so failed the release that bumped the version, which is the assertion
+// testing itself rather than the page.
+const APP_VERSION = (readFileSync('src/lib/site.ts', 'utf8').match(/APP_VERSION\s*=\s*['"]([^'"]+)['"]/) ?? [])[1]
+if (!APP_VERSION) {
+  console.error('Could not read APP_VERSION from src/lib/site.ts.')
+  process.exit(1)
+}
 if (!SITE_URL) {
   console.error('Could not read SITE_URL from src/lib/site.ts.')
   process.exit(1)
@@ -1931,7 +1939,7 @@ if (footerParts.licenceHref === null) {
 if (/the\s*LICENSE/.test(footerParts.text) && !/the LICENSE/.test(footerParts.text)) {
   uiFailures.push('antigen density: the footer reads "theLICENSE", with the space swallowed')
 }
-for (const part of ['Modi', 'Antigen Density Calculator', 'v0.1.0', 'benchtools.ligant.ai']) {
+for (const part of ['Modi', 'Antigen Density Calculator', APP_VERSION, 'benchtools.ligant.ai']) {
   if (!footerParts.citation.includes(part)) {
     uiFailures.push(`antigen density: the citation on the page does not carry ${part}`)
   }
