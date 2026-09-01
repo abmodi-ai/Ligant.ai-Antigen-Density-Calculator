@@ -4,7 +4,11 @@ dist-single/
 *.tsbuildinfo
 .DS_Store
 
-# Internal working conventions. Kept out of the published repository: the rules
-# that matter to a contributor are in README.md, and this file is house style
-# and reasoning for the people who maintain it.
+# Kept out of the published repository. The rules that matter to someone
+# reading or running this are in README.md; these two are how the people who
+# maintain it work, which is not the reader's concern.
+CONVENTIONS.md
 INTERNAL.md
+
+# Automation is configured outside the published repository.
+.github/workflows/
