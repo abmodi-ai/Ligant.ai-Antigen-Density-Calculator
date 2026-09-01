@@ -241,6 +241,16 @@ the only one of the three that can see what a host inserts after the build, and
 it exists because a reviewer found a Cloudflare Web Analytics beacon on the
 served page that neither of the other two could have caught.
 
+**What this repository can and cannot give you.** It ships the policy it is
+deployed under, in `public/_headers`, and the three checks above that hold the
+build to it. It does not ship a server. Response headers are applied by whatever
+host serves the files, so if you deploy this yourself the policy is yours to
+apply and yours to verify: `public/_headers` is read by Cloudflare Pages, and
+another host will need its own equivalent. No source-level check can see what a
+host inserts into a response after the build, which is the gap
+`npm run check:deployed` exists to close and the reason it runs against a URL
+rather than a directory.
+
 If you would rather not trust a website at all, `npm run build:single` emits one
 self-contained HTML file with everything inlined. It works from a local disk
 with no server and no network connection.
