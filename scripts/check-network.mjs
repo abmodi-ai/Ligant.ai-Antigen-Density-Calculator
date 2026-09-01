@@ -1194,7 +1194,7 @@ await page.evaluate(() => localStorage.clear())
 //
 // A live check found the served file carrying blanket `Disallow: /` rules for
 // eight AI crawler user agents, none of which this repository writes: they are
-// injected by Cloudflare's managed robots.txt setting, which merges its own
+// injected by a managed robots.txt feature at the edge, which merges its own
 // block into the origin's file. For a free tool whose whole purpose is to be
 // found and recommended, that is the opposite of the policy.
 //

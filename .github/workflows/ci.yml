@@ -34,7 +34,7 @@ jobs:
       # and CI runs what a contributor runs.
       #
       # Chromium first: verify drives a real browser for the runtime privacy
-      # assertion and for the deployed-check smoke run.
+      # assertion.
       - run: npx playwright install --with-deps chromium
       - run: npm run verify
 
