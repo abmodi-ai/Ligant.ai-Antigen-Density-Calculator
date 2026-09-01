@@ -167,7 +167,16 @@ if (existsSync('dist')) {
     }
   }
 } else {
-  console.log('note: dist/ not present, skipping bundle scan. Run npm run build first.')
+  // Not a skip. This scan is half of what the check exists to assert, and
+  // announcing success without it is the failure this project is otherwise
+  // careful about. It ran nowhere in CI for exactly this reason: verify called
+  // check:privacy before build, so on a fresh checkout dist/ was absent, the
+  // scan was skipped, and the check reported a pass it had not computed.
+  fail(
+    'bundle',
+    'dist/ is not present, so no built asset was scanned. Run npm run build first; ' +
+      'npm run verify now builds before this check.',
+  )
 }
 
 // ---- report ---------------------------------------------------------------

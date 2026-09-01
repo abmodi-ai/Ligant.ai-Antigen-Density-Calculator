@@ -45,7 +45,7 @@ export const RELEASE_YEAR = 2026
  * follow, which is also why no check here can confirm it resolves: this tool
  * contacts no third party, and that includes to test its own links.
  */
-export const REPO_URL: string | null = 'https://github.com/Ligant-ai/Antigen-Density-Calculator-OS'
+export const REPO_URL: string | null = 'https://github.com/abmodi-ai/Ligant.ai-Antigen-Density-Calculator'
 
 export interface Tool {
   id: string

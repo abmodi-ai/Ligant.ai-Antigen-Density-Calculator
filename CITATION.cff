@@ -35,7 +35,7 @@ version: v0.1.1
 # yet exist.
 date-released: '2026-09-01'
 license: Apache-2.0
-repository-code: https://github.com/Ligant-ai/Antigen-Density-Calculator-OS
+repository-code: https://github.com/abmodi-ai/Ligant.ai-Antigen-Density-Calculator
 url: https://benchtools.ligant.ai
 keywords:
   - flow cytometry

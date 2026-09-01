@@ -10,7 +10,7 @@ researchers. It runs entirely in the browser. Nothing you enter ever leaves
 your computer.
 
 Live at **[benchtools.ligant.ai](https://benchtools.ligant.ai)**. Source at
-**[github.com/Ligant-ai/Antigen-Density-Calculator-OS](https://github.com/Ligant-ai/Antigen-Density-Calculator-OS)**,
+**[github.com/abmodi-ai/Ligant.ai-Antigen-Density-Calculator](https://github.com/abmodi-ai/Ligant.ai-Antigen-Density-Calculator)**,
 linked from the footer of the tool itself so the licence on the page can be
 checked by the reader it is addressed to.
 
