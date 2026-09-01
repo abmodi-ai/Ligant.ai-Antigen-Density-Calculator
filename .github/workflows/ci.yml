@@ -24,19 +24,19 @@ jobs:
           cache: npm
       - run: npm ci
 
-      # Prose conventions, then privacy static analysis. Both are cheap and
-      # both fail fast, so a violation is reported before the slower steps run.
-      - run: npm run check:style
-      - run: npm run check:privacy
-
-      - run: npx tsc -b
-      - run: npm test
-      - run: npm run build
-
-      # The runtime proof that nothing leaves the origin. It needs a real
-      # browser, so it runs after the build and installs chromium first.
+      # One command, because the order matters and was encoded twice.
+      #
+      # This job used to list the steps itself, in an order that shadowed the
+      # one in package.json. When verify was corrected to build before
+      # check:privacy, this file still ran check:privacy first, against a
+      # checkout with no dist/, and the job failed on the very hole the
+      # correction closed. Calling verify means the order has one definition
+      # and CI runs what a contributor runs.
+      #
+      # Chromium first: verify drives a real browser for the runtime privacy
+      # assertion and for the deployed-check smoke run.
       - run: npx playwright install --with-deps chromium
-      - run: npm run check:network
+      - run: npm run verify
 
       - run: npm run build:single
       - uses: actions/upload-artifact@v4
