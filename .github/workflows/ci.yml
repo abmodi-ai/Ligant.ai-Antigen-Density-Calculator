@@ -1,0 +1,47 @@
+name: CI
+
+# Pull requests only.
+#
+# This watched every branch once, then Main and every pull request, and both
+# arrangements ran the suite twice for one push. Main is now covered by the
+# deploy workflow, which runs this same suite before it ships anything, so a
+# push to Main that also ran this would be doing the work twice over again.
+#
+# What is left is the moment the work is offered for review. Push a branch with
+# no pull request and nothing runs until you open one, or dispatch it by hand.
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # One command, because the order matters and was encoded twice.
+      #
+      # This job used to list the steps itself, in an order that shadowed the
+      # one in package.json. When verify was corrected to build before
+      # check:privacy, this file still ran check:privacy first, against a
+      # checkout with no dist/, and the job failed on the very hole the
+      # correction closed. Calling verify means the order has one definition
+      # and CI runs what a contributor runs.
+      #
+      # Chromium first: verify drives a real browser for the runtime privacy
+      # assertion and for the deployed-check smoke run.
+      - run: npx playwright install --with-deps chromium
+      - run: npm run verify
+
+      - run: npm run build:single
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: |
+            dist
+            dist-single

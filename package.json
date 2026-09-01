@@ -1,0 +1,39 @@
+{
+  "name": "ligant-bench-tools",
+  "private": true,
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "type": "module",
+  "description": "Deterministic, privacy-preserving browser tool for cell therapy research: antigen density quantification from flow cytometry",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "build:single": "tsc -b && vite build --config vite.config.single.ts",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check:style": "node scripts/check-style.mjs",
+    "check:privacy": "node scripts/check-privacy.mjs",
+    "check:citation": "node scripts/check-citation.mjs",
+    "check:network": "node scripts/check-network.mjs",
+    "check:deployed": "node scripts/check-deployed.mjs",
+    "check:deployed:runs": "node scripts/check-deployed-runs.mjs",
+    "verify": "npm run check:style && npm run check:citation && tsc -b && npm test && npm run build && npm run check:privacy && npm run check:network && npm run check:deployed:runs"
+  },
+  "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "playwright": "^1.62.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vite-plugin-singlefile": "^2.0.3",
+    "vitest": "^2.1.8"
+  }
+}

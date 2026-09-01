@@ -1,0 +1,30 @@
+# Cloudflare Pages header rules.
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  X-Frame-Options: DENY
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=(), interest-cohort=()
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
+  # No third-party origin appears anywhere in this policy. Typefaces are
+  # self-hosted, there is no analytics script, and connect-src is 'self', so the
+  # page cannot transmit anything anywhere even if a future change tried to.
+  # scripts/check-privacy.mjs fails the build if any external origin is added.
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+
+# Extensionless, so a static host would offer it as a download rather than
+# showing it. A licence is meant to be read in the tab the reader is already in.
+/LICENSE
+  Content-Type: text/plain; charset=utf-8
+
+# Asset filenames carry a content hash, so they can be cached indefinitely.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# The entry document must revalidate, or a deploy never reaches returning users.
+/
+  Cache-Control: public, max-age=0, must-revalidate
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+

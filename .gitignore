@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dist-single/
+*.tsbuildinfo
+.DS_Store
+
+# Internal working conventions. Kept out of the published repository: the rules
+# that matter to a contributor are in README.md, and this file is house style
+# and reasoning for the people who maintain it.
+INTERNAL.md
