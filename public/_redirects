@@ -1,4 +1,4 @@
-# Cloudflare Pages redirect rules.
+# Redirect rules, in the format many static hosts read.
 #
 # The cytotoxicity curve fitter was removed: this repository is the antigen
 # density calculator and nothing here builds that path any more. A review found
@@ -6,7 +6,7 @@
 # tool under the same branding, which nothing in the repository explains, so
 # this states the intent at the edge as well as by omission.
 #
-# Redirect rules in Pages apply only where no static asset matches, which is
+# Redirect rules of this kind apply only where no static asset matches, which is
 # what makes this safe: it cannot shadow a real page, and it catches the path
 # whether the 200 came from a stale artefact or from a cached response.
 /cytotoxicity/* / 301

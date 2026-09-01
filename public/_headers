@@ -1,4 +1,7 @@
-# Cloudflare Pages header rules.
+# Response header rules, in the format many static hosts read.
+#
+# Applying these is the deployer's job. A host that does not read this
+# file needs the same headers configured its own way.
 
 /*
   X-Content-Type-Options: nosniff
