@@ -4,9 +4,10 @@ Converts flow cytometry median fluorescence intensity into antibody binding
 capacity against a calibrated bead standard, reports the uncertainty, and
 refuses to report a number it cannot defend.
 
-Free, open source, and built by [Ligant](https://ligant.ai) and A.B. Modi for
-cell therapy researchers. It runs entirely in the browser. Nothing you enter
-ever leaves your computer.
+Free, open source, and built by [Ligant](https://ligant.ai) and
+[A.B. Modi](https://www.linkedin.com/in/abmodi-ai/) for cell therapy
+researchers. It runs entirely in the browser. Nothing you enter ever leaves
+your computer.
 
 Live at **[benchtools.ligant.ai](https://benchtools.ligant.ai)**. Source at
 **[github.com/Ligant-ai/Antigen-Density-Calculator-OS](https://github.com/Ligant-ai/Antigen-Density-Calculator-OS)**,
