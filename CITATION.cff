@@ -29,11 +29,11 @@ authors:
 # The leading v is kept so that this file, the footer and the tag are the same
 # string rather than three conventions for one version.
 version: v0.1.0
-# The day the tag was cut, not the day this file was written. Those were three
+# The day the tag was cut, not the day this file was written. Those were four
 # days apart, and a citation whose release date precedes the released commit is
 # wrong in the direction that matters: it points a reader at a tree that did not
 # yet exist.
-date-released: '2026-08-31'
+date-released: '2026-09-01'
 license: Apache-2.0
 repository-code: https://github.com/Ligant-ai/Antigen-Density-Calculator-OS
 url: https://benchtools.ligant.ai
