@@ -21,6 +21,8 @@ import { readFileSync } from 'node:fs'
 
 const cff = readFileSync('CITATION.cff', 'utf8')
 const site = readFileSync('src/lib/site.ts', 'utf8')
+const readme = readFileSync('README.md', 'utf8')
+const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
 
 const failures = []
 const fail = (message) => failures.push(message)
@@ -53,6 +55,29 @@ if (!/family-names:\s*Modi/.test(cff) || !/given-names:\s*A\.B\./.test(cff)) {
 if (!/affiliation:\s*Ligant AI Incorporated/.test(cff)) {
   fail('CITATION.cff does not name the affiliation the footer names')
 }
+// The version is stated in four places, not two.
+//
+// This check covered CITATION.cff against site.ts and nothing else, so
+// releasing v0.1.1 left README.md announcing v0.1.0 in its status line and
+// package.json still at 0.1.0, and the check passed. Two of the four agreeing
+// is not consistency. APP_VERSION is the source; the rest are asserted
+// against it.
+const appVersion = siteConst('APP_VERSION')
+if (appVersion) {
+  // README states it with a leading v, as the footer and the tag do.
+  const stated = (readme.match(/^`(v[\d.]+)`\.\s+\*\*Research use only/m) ?? [])[1]
+  if (!stated) {
+    fail('README.md has no version in its status line, so it cannot be held to APP_VERSION')
+  } else if (stated !== appVersion) {
+    fail(`README.md states ${stated} in its status line, but APP_VERSION is ${appVersion}`)
+  }
+  // package.json is semver, so it carries no leading v.
+  const bare = appVersion.replace(/^v/, '')
+  if (pkg.version !== bare) {
+    fail(`package.json version is ${pkg.version}, but APP_VERSION is ${appVersion}`)
+  }
+}
+
 if (cffField('license') !== 'Apache-2.0') {
   fail(`CITATION.cff states the licence as ${cffField('license')}, not Apache-2.0`)
 }
@@ -75,7 +100,8 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Citation check passed: CITATION.cff agrees with src/lib/site.ts on version ` +
-    `${cffField('version')}, repository and origin. The manuscript is not readable from here ` +
+  `Citation check passed: CITATION.cff, README.md and package.json all agree with ` +
+    `src/lib/site.ts on version ${cffField('version')}, and the citation file agrees on ` +
+    `repository and origin. The manuscript is not readable from here ` +
     'and must be diffed by hand.',
 )

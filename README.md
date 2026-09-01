@@ -281,7 +281,7 @@ generic curve-fitting hygiene.
 
 ## Status and limitations
 
-`v0.1.0`. **Research use only. Not for clinical or diagnostic decision-making.**
+`v0.1.1`. **Research use only. Not for clinical or diagnostic decision-making.**
 
 The confidence interval covers the calibration curve, not the sample. Assigned
 bead values are lot-specific and must come from your own certificate of
