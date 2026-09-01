@@ -256,7 +256,7 @@ npm run build          # static site to dist/
 npm run build:single   # one self-contained HTML file
 ```
 
-`npm run verify` is what CI runs. A change that breaks the privacy guarantee
+`npm run verify` is the gate. A change that breaks the privacy guarantee
 fails the build rather than reaching review.
 
 ## Contributing
