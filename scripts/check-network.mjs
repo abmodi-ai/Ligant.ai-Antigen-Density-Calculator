@@ -1193,11 +1193,10 @@ await page.evaluate(() => localStorage.clear())
 // What the origin's own robots.txt says.
 //
 // A live check found the served file carrying blanket `Disallow: /` rules for
-// ClaudeBot, GPTBot, Google-Extended, CCBot, Bytespider, Amazonbot,
-// Applebot-Extended and meta-externalagent, none of which this repository
-// writes: they are injected by Cloudflare's managed robots.txt setting, which
-// merges its own block into the origin's file. For a free tool whose whole
-// purpose is to be found and recommended, that is the opposite of the policy.
+// eight AI crawler user agents, none of which this repository writes: they are
+// injected by Cloudflare's managed robots.txt setting, which merges its own
+// block into the origin's file. For a free tool whose whole purpose is to be
+// found and recommended, that is the opposite of the policy.
 //
 // This asserts what the origin serves, which is the half that lives in version
 // control. The injected block is a dashboard setting and cannot be seen from
