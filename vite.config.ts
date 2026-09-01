@@ -46,9 +46,9 @@ function siteMetadata(): Plugin {
         // recommended, so nothing is disallowed to anyone.
         //
         // The Content-Signal directive states the policy in the origin's own
-        // file rather than leaving it to the edge. Cloudflare's managed
-        // robots.txt injects both a set of blanket `Disallow: /` rules for named
-        // AI crawlers and its own Content-Signal line, and the two arrive
+        // file rather than leaving it to the edge. A managed robots.txt
+        // feature can inject both a set of blanket `Disallow: /` rules for
+        // named AI crawlers and its own Content-Signal line, and the two arrive
         // together: turning the block off to stop the disallows would take the
         // signal with it. Stated here, the policy is versioned, reviewable in a
         // diff, and survives any change to that setting.
