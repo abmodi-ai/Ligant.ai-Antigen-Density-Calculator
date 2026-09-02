@@ -1,0 +1,96 @@
+/**
+ * What this tool is, who publishes it, and under what terms.
+ *
+ * The page has always said the computation stays in the browser. It has never
+ * said who is behind it, what it costs, or what may legally be done with it,
+ * which are the three things a reader deciding whether to use a measurement
+ * tool in their own work will want.
+ *
+ * The address and the email are plain text and a mailto link. Nothing here
+ * contacts anything: a mailto is handled by the reader's own mail client and
+ * fires no request, so the privacy guarantee is untouched.
+ *
+ * The citation is here rather than in the method section because it is the
+ * thing a reader needs at the moment they decide to use a figure from this
+ * tool in their own work, and that decision is made at the bottom of the page.
+ */
+import { APP_VERSION, RELEASE_YEAR, REPO_URL, SITE_URL } from '../../lib/site'
+export function SiteFooter() {
+  return (
+    <footer className="site-footer">
+      <div className="footer-grid">
+        <div className="footer-prose">
+          <p>
+            Ligant Bench Tools are free and open source under Apache 2.0, for research and
+            educational use. They run entirely in your browser: no data is transmitted.
+          </p>
+          {/*
+            The claim above and the evidence for it, in adjacent sentences. An
+            Apache 2.0 assertion a reader cannot check is worth what any
+            unverifiable claim is worth, and until this repository existed the
+            page made the claim and offered nowhere to go.
+
+            "Read, download or run it yourself" rather than "view the source",
+            because the useful thing about this particular tool being open is
+            not that the code can be admired: it is that a reader who does not
+            want to trust a website can check the arithmetic against what they
+            were shown, or run the whole thing from their own disk.
+          */}
+          {REPO_URL && (
+            <p>
+              Every figure on this page comes from code you can read, download or run yourself, at{' '}
+              <a href={REPO_URL} rel="noopener noreferrer">
+                {REPO_URL.replace('https://', '')}
+              </a>
+              . Clone it and <code>npm run dev</code> for a local copy, or{' '}
+              <code>npm run build:single</code> for one self-contained HTML file that works from a
+              disk with no server and no network.
+            </p>
+          )}
+          <p>
+            These tools are standalone calculators. Ligant's enterprise platform adds reference
+            databases, connected agentic workflows, on-premise language models, and full GxP
+            validation. If your lab needs that, please email us{' '}
+            <a href="mailto:hello@ligant.ai">hello@ligant.ai</a>.
+          </p>
+        </div>
+
+        <address className="footer-address">
+          <span className="eyebrow">Ligant AI Incorporated</span>
+          3675 Market Street
+          <br />
+          Suite 200
+          <br />
+          Philadelphia PA 19104
+          <br />
+          <a href="mailto:hello@ligant.ai">hello@ligant.ai</a>
+        </address>
+      </div>
+
+      <div className="footer-citation">
+        <span className="eyebrow">How to cite</span>
+        {/*
+          One line, in the order a reference manager expects, so it can be
+          copied without being rearranged. No DOI yet: one is minted with the
+          archived release, and a placeholder that looks like an identifier is
+          worse than an absent one.
+        */}
+        <p>
+          Modi, A.B. ({RELEASE_YEAR}). <cite>Antigen Density Calculator</cite> ({APP_VERSION})
+          [Computer software]. Ligant AI Incorporated. {SITE_URL.replace('https://', '')}
+        </p>
+      </div>
+
+      <p className="footer-licence">
+        Licensed under the Apache License, Version 2.0. You may obtain a copy of the License in the{' '}
+        <a href="/LICENSE">
+          <code>LICENSE</code>
+        </a>{' '}
+        file served with this page and distributed with the source. Unless required by applicable law
+        or agreed to in writing, software distributed under the License is distributed on an "AS
+        IS" basis, without warranties or conditions of any kind, either express or implied.{' '}
+        <strong>Research use only. Not for clinical or diagnostic decision-making.</strong>
+      </p>
+    </footer>
+  )
+}
