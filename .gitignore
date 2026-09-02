@@ -12,3 +12,8 @@ INTERNAL.md
 
 # Automation is configured outside the published repository.
 .github/workflows/
+
+# Deployment and release scripts. Same reason: how this is hosted and released
+# is not part of what the repository publishes. Keep local/ for anything that
+# should stay on your machine.
+local/
