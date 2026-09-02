@@ -75,8 +75,9 @@ export function SiteFooter() {
           {REPO_URL && (
             <p>
               Every figure on this page comes from code you can read, download or run yourself, at{' '}
-              <a href={REPO_URL} rel="noopener noreferrer">
+              <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
                 {REPO_URL.replace('https://', '')}
+                <span className="visually-hidden"> (opens in a new tab)</span>
               </a>
               . Clone it and <code>npm run dev</code> for a local copy, or{' '}
               <code>npm run build:single</code> for one self-contained HTML file that works from a
@@ -127,8 +128,9 @@ export function SiteFooter() {
 
       <p className="footer-licence">
         Licensed under the Apache License, Version 2.0. You may obtain a copy of the License in the{' '}
-        <a href="/LICENSE">
+        <a href="/LICENSE" target="_blank" rel="noopener">
           <code>LICENSE</code>
+          <span className="visually-hidden"> (opens in a new tab)</span>
         </a>{' '}
         file served with this page and distributed with the source. Unless required by applicable law
         or agreed to in writing, software distributed under the License is distributed on an "AS

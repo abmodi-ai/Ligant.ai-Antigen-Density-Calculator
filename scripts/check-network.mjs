@@ -1499,11 +1499,10 @@ await page.evaluate(() => localStorage.clear())
 // an assertion nobody can verify is worth what an assertion nobody can verify is
 // worth.
 //
-// It cannot be fixed by linking the development repository, which is private, so
-// REPO_URL is null and this asserts the only thing that is true today: the
-// footer links nowhere. Setting REPO_URL is what turns on the stronger
-// assertion, so the claim and its evidence can never be separated once there is
-// evidence to point at.
+// This asserts whichever thing is true. With REPO_URL unset the footer must link
+// nowhere; with it set, a footer claiming open source must link exactly there.
+// Setting REPO_URL is what turns on the stronger assertion, so the claim and its
+// evidence can never be separated once there is evidence to point at.
 //
 // Either way the link is an anchor rather than a resource. The foreign-request
 // guard at the top of this file is what proves nothing is loaded from it.
