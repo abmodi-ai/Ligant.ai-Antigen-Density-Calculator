@@ -46,8 +46,8 @@ identifiers:
     value: 10.5281/zenodo.22259176
     description: Concept DOI. Resolves to the newest archived version, and is the one to cite.
   - type: doi
-    value: 10.5281/zenodo.22259811
-    description: Version DOI for v0.1.2.
+    value: 10.5281/zenodo.22260187
+    description: Version DOI for v0.1.3.
 repository-code: https://github.com/abmodi-ai/Ligant.ai-Antigen-Density-Calculator
 url: https://benchtools.ligant.ai
 keywords:
