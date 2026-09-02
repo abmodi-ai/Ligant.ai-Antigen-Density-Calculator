@@ -160,7 +160,7 @@ number tomorrow. That is a design constraint here, not an aspiration:
 3. **The methods text travels with the numbers.** The CSV export carries the
    fit, the options in force, the flags raised, and a machine-readable status
    per sample, so a result can be audited without the session that produced it.
-4. **The whole thing is 313 tests and roughly 8,900 lines of TypeScript**, with
+4. **The whole thing is 387 tests and roughly 9,500 lines of TypeScript**, with
    no runtime dependency beyond React and two self-hosted typefaces.
 
 Where a threshold appears in this tool, it was chosen from measurement rather
