@@ -30,10 +30,10 @@ export const RELEASE_YEAR = 2026
  * assertion a reader cannot check is not verifiable, which is what a reviewer
  * called blocking, and it stays open until this is set.
  *
- * The published mirror, under Ligant's own organisation. The development
- * repository is private and stays private, and pointing a reader at that one
- * would have converted an unbacked claim into a broken one, which is why this
- * was null until there was somewhere real to send them.
+ * One public repository, which is both where the work is done and where a
+ * reader is sent. This was null until there was somewhere real to send them,
+ * because pointing at an address a reader cannot reach would have converted an
+ * unbacked claim into a broken one.
  *
  * Typed with the absence still, because that is what makes the guard work:
  * scripts/check-network.mjs asserts the true thing in either state. With no URL
