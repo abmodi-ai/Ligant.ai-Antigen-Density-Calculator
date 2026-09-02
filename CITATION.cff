@@ -33,7 +33,7 @@ version: v0.1.1
 # days apart, and a citation whose release date precedes the released commit is
 # wrong in the direction that matters: it points a reader at a tree that did not
 # yet exist.
-date-released: '2026-09-01'
+date-released: '2026-09-02'
 license: Apache-2.0
 repository-code: https://github.com/abmodi-ai/Ligant.ai-Antigen-Density-Calculator
 url: https://benchtools.ligant.ai
