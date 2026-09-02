@@ -11,6 +11,10 @@
 # the one to cite, and the version DOI for this release. The concept DOI is held
 # against CITATION_DOI in src/lib/site.ts by the same check that holds the
 # version, so the footer and this file cannot drift apart.
+#
+# The version DOI is recorded after the release that mints it, because a
+# release cannot contain its own identifier. Zenodo holds the full list of
+# versions under the concept DOI; only the current one is repeated here.
 cff-version: 1.2.0
 message: If you use this software, please cite it as below.
 type: software
@@ -42,8 +46,8 @@ identifiers:
     value: 10.5281/zenodo.22259176
     description: Concept DOI. Resolves to the newest archived version, and is the one to cite.
   - type: doi
-    value: 10.5281/zenodo.22259177
-    description: Version DOI for v0.1.1.
+    value: 10.5281/zenodo.22259811
+    description: Version DOI for v0.1.2.
 repository-code: https://github.com/abmodi-ai/Ligant.ai-Antigen-Density-Calculator
 url: https://benchtools.ligant.ai
 keywords:
