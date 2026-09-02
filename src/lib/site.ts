@@ -23,6 +23,21 @@ export const APP_VERSION = 'v0.1.1'
 export const RELEASE_YEAR = 2026
 
 /**
+ * The concept DOI, which Zenodo resolves to the newest archived version.
+ *
+ * The version DOI names one release and stops being current the moment there is
+ * another. A reader who follows a citation wants the software, not the release
+ * that happened to be current when the citation was written, so this is the one
+ * the footer prints and CITATION.cff states. The version DOI is recorded in
+ * CITATION.cff under identifiers, where it names the release it belongs to.
+ *
+ * Written as a bare identifier rather than a doi.org URL on purpose. The built
+ * bundle is asserted to embed no origin other than this site and the repository,
+ * and a DOI resolves perfectly well without one.
+ */
+export const CITATION_DOI = '10.5281/zenodo.22259176'
+
+/**
  * Where the source is, once there is somewhere to send a reader.
  *
  * The footer asserts Apache 2.0 and points at a LICENSE file "distributed with

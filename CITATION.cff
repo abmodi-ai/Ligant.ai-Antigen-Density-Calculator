@@ -6,10 +6,11 @@
 # in src/lib/site.ts, and the remaining diff against the manuscript is done by
 # hand because nothing here can see that document.
 #
-# The DOI is deliberately absent. Zenodo mints it when the tagged release is
-# archived, and a placeholder that looks like an identifier is worse than an
-# absent one. Add it under `identifiers` once minted, and to the footer at the
-# same time.
+# The DOI is minted by Zenodo when the tagged release is archived. Two are
+# recorded: the concept DOI, which always resolves to the newest version and is
+# the one to cite, and the version DOI for this release. The concept DOI is held
+# against CITATION_DOI in src/lib/site.ts by the same check that holds the
+# version, so the footer and this file cannot drift apart.
 cff-version: 1.2.0
 message: If you use this software, please cite it as below.
 type: software
@@ -35,6 +36,14 @@ version: v0.1.1
 # yet exist.
 date-released: '2026-09-02'
 license: Apache-2.0
+doi: 10.5281/zenodo.22259176
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.22259176
+    description: Concept DOI. Resolves to the newest archived version, and is the one to cite.
+  - type: doi
+    value: 10.5281/zenodo.22259177
+    description: Version DOI for v0.1.1.
 repository-code: https://github.com/abmodi-ai/Ligant.ai-Antigen-Density-Calculator
 url: https://benchtools.ligant.ai
 keywords:

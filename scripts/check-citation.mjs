@@ -39,6 +39,7 @@ for (const [cffName, siteName] of [
   ['version', 'APP_VERSION'],
   ['repository-code', 'REPO_URL'],
   ['url', 'SITE_URL'],
+  ['doi', 'CITATION_DOI'],
 ]) {
   const stated = cffField(cffName)
   const actual = siteConst(siteName)

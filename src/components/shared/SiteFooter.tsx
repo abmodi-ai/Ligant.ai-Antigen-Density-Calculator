@@ -14,7 +14,7 @@
  * thing a reader needs at the moment they decide to use a figure from this
  * tool in their own work, and that decision is made at the bottom of the page.
  */
-import { APP_VERSION, RELEASE_YEAR, REPO_URL, SITE_URL } from '../../lib/site'
+import { APP_VERSION, CITATION_DOI, RELEASE_YEAR, REPO_URL, SITE_URL } from '../../lib/site'
 export function SiteFooter() {
   return (
     <footer className="site-footer">
@@ -71,13 +71,16 @@ export function SiteFooter() {
         <span className="eyebrow">How to cite</span>
         {/*
           One line, in the order a reference manager expects, so it can be
-          copied without being rearranged. No DOI yet: one is minted with the
-          archived release, and a placeholder that looks like an identifier is
-          worse than an absent one.
+          copied without being rearranged. The concept DOI is printed rather
+          than the version DOI, so that following it reaches the newest archived
+          release rather than this one for ever, and as a bare identifier rather
+          than a doi.org link, because the bundle embeds no origin it does not
+          have to.
         */}
         <p>
           Modi, A.B. ({RELEASE_YEAR}). <cite>Antigen Density Calculator</cite> ({APP_VERSION})
-          [Computer software]. Ligant AI Incorporated. {SITE_URL.replace('https://', '')}
+          [Computer software]. Ligant AI Incorporated. {SITE_URL.replace('https://', '')}.{' '}
+          doi:{CITATION_DOI}
         </p>
       </div>
 
