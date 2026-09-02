@@ -16,7 +16,7 @@ export const SITE_URL = 'https://benchtools.ligant.ai'
  * first: a citation and an exported CSV that disagree about which version
  * produced a figure are worse than either alone.
  */
-export const APP_VERSION = 'v0.1.1'
+export const APP_VERSION = 'v0.1.2'
 
 /** The year the citation carries. Fixed, not derived from the clock, so the
  *  page renders the same for every reader and for every build. */
