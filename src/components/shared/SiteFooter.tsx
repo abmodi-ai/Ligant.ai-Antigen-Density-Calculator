@@ -14,8 +14,44 @@
  * thing a reader needs at the moment they decide to use a figure from this
  * tool in their own work, and that decision is made at the bottom of the page.
  */
+import { useState } from 'react'
+
 import { APP_VERSION, CITATION_DOI, RELEASE_YEAR, REPO_URL, SITE_URL } from '../../lib/site'
+
+/**
+ * The citation, in three pieces, so that what is shown and what is copied
+ * cannot differ.
+ *
+ * They are assembled one way for the page, which marks the title up as a title,
+ * and concatenated the other way for the clipboard. Written as two literals they
+ * would drift the first time the version or the DOI moved, and a copied citation
+ * that disagrees with the displayed one is an error that travels into someone
+ * else's reference list before anyone notices.
+ */
+const CITATION_TITLE = 'Antigen Density Calculator'
+const CITATION_LEAD = `Modi, A.B. (${RELEASE_YEAR}). `
+const CITATION_TAIL =
+  ` (${APP_VERSION}) [Computer software]. Ligant AI Incorporated. ` +
+  `${SITE_URL.replace('https://', '')}. doi:${CITATION_DOI}`
+const CITATION_TEXT = CITATION_LEAD + CITATION_TITLE + CITATION_TAIL
+
 export function SiteFooter() {
+  const [copied, setCopied] = useState(false)
+
+  // Writing to the clipboard is a local act. It contacts nothing, which is why
+  // it is allowed to exist on a page that promises to contact nothing.
+  const copyCitation = async () => {
+    try {
+      await navigator.clipboard.writeText(CITATION_TEXT)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // A browser may refuse clipboard access and there is nothing useful to
+      // say about that. The citation is on the page and selectable regardless,
+      // so silence is better than an error the reader cannot act on.
+    }
+  }
+
   return (
     <footer className="site-footer">
       <div className="footer-grid">
@@ -68,7 +104,6 @@ export function SiteFooter() {
       </div>
 
       <div className="footer-citation">
-        <span className="eyebrow">How to cite</span>
         {/*
           One line, in the order a reference manager expects, so it can be
           copied without being rearranged. The concept DOI is printed rather
@@ -77,10 +112,16 @@ export function SiteFooter() {
           than a doi.org link, because the bundle embeds no origin it does not
           have to.
         */}
+        <div className="footer-citation-head">
+          <span className="eyebrow">How to cite</span>
+          <button type="button" onClick={copyCitation} aria-live="polite">
+            {copied ? 'Copied' : 'Copy citation'}
+          </button>
+        </div>
         <p>
-          Modi, A.B. ({RELEASE_YEAR}). <cite>Antigen Density Calculator</cite> ({APP_VERSION})
-          [Computer software]. Ligant AI Incorporated. {SITE_URL.replace('https://', '')}.{' '}
-          doi:{CITATION_DOI}
+          {CITATION_LEAD}
+          <cite>{CITATION_TITLE}</cite>
+          {CITATION_TAIL}
         </p>
       </div>
 
