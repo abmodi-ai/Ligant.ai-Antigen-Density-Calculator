@@ -114,11 +114,12 @@ export const SHARED_GUIDANCE: GuidanceEntry[] = [
       },
       {
         // Added after a reviewer captured a beacon on the deployed site that no
-        // check here could have seen. Everything above is about the build; the
-        // edge sits between the build and the reader, and the claim has to
-        // cover that gap or stop being made.
+        // check here could have seen. The automated check against the served
+        // site went with the deployment pipeline, so this names the gap rather
+        // than claiming to close it. Stating it is what keeps the paragraph
+        // above from being read as covering more than it does.
         kind: 'p',
-        text: 'That check is on the build. The same session is run against this site as it is actually served, after every deploy, and fails if the page reaches another origin or if the policy arrives weakened. An origin introduced between the build and your browser is caught rather than assumed absent.',
+        text: 'That check is on the build, and the build is what gets published. What it cannot see is anything a host inserts into a response afterwards, which is a real failure mode rather than a hypothetical one. Whoever deploys this is the only party positioned to check for that, so the guarantee above is about the software rather than about any particular host.',
       },
     ],
   },

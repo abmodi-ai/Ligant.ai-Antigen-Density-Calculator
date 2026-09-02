@@ -31,10 +31,10 @@ export function PrivacyPanel({ storageKeys, onClearStorage }: Props) {
         session in a real browser produces a single request that leaves it.
       </p>
       <p>
-        That check is on the build. The same session is run against this site as it is actually
-        served, after every deploy, and fails if the page reaches another origin or if the policy
-        arrives weakened. An origin introduced between the build and your browser is caught rather
-        than assumed absent.
+        That check is on the build, and the build is what gets published. What no check here can
+        see is anything a host inserts into a response afterwards, which is a real failure mode
+        rather than a hypothetical one. Whoever deploys this is the only party positioned to check
+        for that.
       </p>
       <p>Stored in this browser, and nowhere else:</p>
       <ul>
