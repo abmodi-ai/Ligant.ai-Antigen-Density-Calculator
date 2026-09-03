@@ -280,6 +280,35 @@ analysis. The interpretation bands are reading aids and not validated cutoffs.
 The tool cannot see your gating, your compensation or your titration, and says
 so where those would change the answer.
 
+## Citation
+
+Two works, and a reference list wants both. The paper is the method and the
+argument for it; the software is what computed the number.
+
+**The paper**, which sets out why a goodness-of-fit statistic is not sufficient
+evidence that a calibration is sound, and which is the reason several of this
+tool's refusals exist:
+
+> Modi, A.B. (2026). Goodness-of-fit statistics do not detect consequential
+> calibration failures in flow cytometric antigen density quantification.
+> Zenodo. <https://doi.org/10.5281/zenodo.22283647>
+
+Preprint, v1.0, CC BY 4.0. The concept DOI
+[10.5281/zenodo.22283646](https://doi.org/10.5281/zenodo.22283646) resolves to
+the newest revision.
+
+**The software**:
+
+> Modi, A.B. (2026). Antigen Density Calculator (`v0.1.3`) [Computer software].
+> Ligant AI Incorporated. <https://doi.org/10.5281/zenodo.22259176>
+
+That is the concept DOI, which resolves to the newest release. Cite the version
+DOI instead where the claim being made is true of one release in particular; each
+is listed on the Zenodo record and in [`CITATION.cff`](CITATION.cff), which also
+names the paper as this repository's preferred citation.
+
+The footer of the running tool carries both, each with a control that copies it.
+
 ## Licence
 
 Apache License 2.0. See [`LICENSE`](LICENSE), which is also served at

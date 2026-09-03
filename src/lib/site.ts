@@ -38,6 +38,29 @@ export const RELEASE_YEAR = 2026
 export const CITATION_DOI = '10.5281/zenodo.22259176'
 
 /**
+ * The paper this tool implements, and the citation a reader should prefer.
+ *
+ * Two different works, and the distinction matters to whoever is writing a
+ * reference list. The software DOI above identifies the thing that computed
+ * their number. This identifies the method, and the argument for why a
+ * goodness-of-fit statistic is not sufficient evidence that a calibration is
+ * sound, which is the reason several of this tool's refusals exist at all.
+ *
+ * This is the version DOI, not the concept DOI, which is the opposite of the
+ * choice made for the software above. A reader of the software wants whatever
+ * version is current; a reader of a paper wants the text that was written, and
+ * v1.0 is the citation of record. The concept DOI, 10.5281/zenodo.22283646,
+ * resolves to the newest revision and is recorded in CITATION.cff.
+ *
+ * Written bare rather than as a doi.org URL, because the bundle embeds no
+ * origin it does not have to.
+ */
+export const PAPER_DOI = '10.5281/zenodo.22283647'
+export const PAPER_TITLE =
+  'Goodness-of-fit statistics do not detect consequential calibration failures in ' +
+  'flow cytometric antigen density quantification'
+
+/**
  * Where the source is, once there is somewhere to send a reader.
  *
  * The footer asserts Apache 2.0 and points at a LICENSE file "distributed with

@@ -93,6 +93,23 @@ if (/10\.5281\/zenodo\.0+\b/.test(cff)) {
   fail('CITATION.cff carries a placeholder DOI, which is worse than no DOI')
 }
 
+// The paper is cited in three places: the footer reads PAPER_DOI from site.ts,
+// CITATION.cff names it as the preferred citation, and README.md prints it for
+// a reader who never runs the tool. Same reasoning as the version: three copies
+// of one string is three chances to disagree, so the other two are held against
+// the source rather than trusted.
+const paperDoi = siteConst('PAPER_DOI')
+if (!paperDoi) {
+  fail('could not read PAPER_DOI from src/lib/site.ts')
+} else {
+  if (!cff.includes(paperDoi)) {
+    fail(`CITATION.cff does not carry the paper DOI ${paperDoi} that site.ts declares`)
+  }
+  if (!readme.includes(paperDoi)) {
+    fail(`README.md does not carry the paper DOI ${paperDoi} that site.ts declares`)
+  }
+}
+
 if (failures.length > 0) {
   console.error(`Citation check failed with ${failures.length} issue(s):\n`)
   for (const f of failures) console.error('  ' + f)

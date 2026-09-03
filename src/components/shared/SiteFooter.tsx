@@ -16,42 +16,79 @@
  */
 import { useState } from 'react'
 
-import { APP_VERSION, CITATION_DOI, RELEASE_YEAR, REPO_URL, SITE_URL } from '../../lib/site'
+import {
+  APP_VERSION,
+  CITATION_DOI,
+  PAPER_DOI,
+  PAPER_TITLE,
+  RELEASE_YEAR,
+  REPO_URL,
+  SITE_URL,
+} from '../../lib/site'
 
 /**
- * The citation, in three pieces, so that what is shown and what is copied
+ * Each reference in three pieces, so that what is shown and what is copied
  * cannot differ.
  *
- * They are assembled one way for the page, which marks the title up as a title,
- * and concatenated the other way for the clipboard. Written as two literals they
- * would drift the first time the version or the DOI moved, and a copied citation
- * that disagrees with the displayed one is an error that travels into someone
- * else's reference list before anyone notices.
+ * They are concatenated for the clipboard and assembled around a title element
+ * for the page. Written as two literals they would drift the first time a
+ * version or a DOI moved, and a copied citation that disagrees with the
+ * displayed one is an error that travels into someone else's reference list
+ * before anyone notices.
  */
-const CITATION_TITLE = 'Antigen Density Calculator'
-const CITATION_LEAD = `Modi, A.B. (${RELEASE_YEAR}). `
-const CITATION_TAIL =
+const SOFTWARE_TITLE = 'Antigen Density Calculator'
+const SOFTWARE_LEAD = `Modi, A.B. (${RELEASE_YEAR}). `
+const SOFTWARE_TAIL =
   ` (${APP_VERSION}) [Computer software]. Ligant AI Incorporated. ` +
   `${SITE_URL.replace('https://', '')}. doi:${CITATION_DOI}`
-const CITATION_TEXT = CITATION_LEAD + CITATION_TITLE + CITATION_TAIL
 
-export function SiteFooter() {
+const PAPER_LEAD = `Modi, A.B. (${RELEASE_YEAR}). `
+const PAPER_TAIL = `. Zenodo. doi:${PAPER_DOI}`
+
+interface CitationProps {
+  lead: string
+  title: string
+  tail: string
+  /** Names the work in the button's label, which is otherwise just "Copy". */
+  what: string
+}
+
+/**
+ * One reference, with a control that takes it in a single action.
+ *
+ * Writing to the clipboard is a local act. It contacts nothing, which is why it
+ * is allowed on a page that promises to contact nothing.
+ */
+function CitationRow({ lead, title, tail, what }: CitationProps) {
   const [copied, setCopied] = useState(false)
 
-  // Writing to the clipboard is a local act. It contacts nothing, which is why
-  // it is allowed to exist on a page that promises to contact nothing.
-  const copyCitation = async () => {
+  const copy = async () => {
     try {
-      await navigator.clipboard.writeText(CITATION_TEXT)
+      await navigator.clipboard.writeText(lead + title + tail)
       setCopied(true)
       window.setTimeout(() => setCopied(false), 2000)
     } catch {
       // A browser may refuse clipboard access and there is nothing useful to
-      // say about that. The citation is on the page and selectable regardless,
+      // say about that. The reference is on the page and selectable regardless,
       // so silence is better than an error the reader cannot act on.
     }
   }
 
+  return (
+    <div className="footer-citation-row">
+      <p>
+        {lead}
+        <cite>{title}</cite>
+        {tail}
+      </p>
+      <button type="button" onClick={copy} aria-label={`Copy the ${what} citation`} aria-live="polite">
+        {copied ? 'Copied' : 'Copy'}
+      </button>
+    </div>
+  )
+}
+
+export function SiteFooter() {
   return (
     <footer className="site-footer">
       <div className="footer-grid">
@@ -106,24 +143,26 @@ export function SiteFooter() {
 
       <div className="footer-citation">
         {/*
-          One line, in the order a reference manager expects, so it can be
-          copied without being rearranged. The concept DOI is printed rather
-          than the version DOI, so that following it reaches the newest archived
-          release rather than this one for ever, and as a bare identifier rather
-          than a doi.org link, because the bundle embeds no origin it does not
-          have to.
+          Two works, and a reference list wants both: the paper for the method,
+          the software for the thing that produced the number. The paper is
+          first because it is the one a reader of the literature is looking for.
+
+          Each identifier is bare rather than a doi.org link, because the bundle
+          embeds no origin it does not have to. The software carries its concept
+          DOI, which follows the newest release, and the paper its version DOI,
+          because a citation should reach the text that was actually written.
         */}
-        <div className="footer-citation-head">
-          <span className="eyebrow">How to cite</span>
-          <button type="button" onClick={copyCitation} aria-live="polite">
-            {copied ? 'Copied' : 'Copy citation'}
-          </button>
-        </div>
-        <p>
-          {CITATION_LEAD}
-          <cite>{CITATION_TITLE}</cite>
-          {CITATION_TAIL}
+        <span className="eyebrow">How to cite</span>
+        <p className="footer-citation-note">
+          Cite the paper for the method, and the software for the tool.
         </p>
+        <CitationRow lead={PAPER_LEAD} title={PAPER_TITLE} tail={PAPER_TAIL} what="paper" />
+        <CitationRow
+          lead={SOFTWARE_LEAD}
+          title={SOFTWARE_TITLE}
+          tail={SOFTWARE_TAIL}
+          what="software"
+        />
       </div>
 
       <p className="footer-licence">

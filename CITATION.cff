@@ -30,6 +30,7 @@ authors:
   - family-names: Modi
     given-names: A.B.
     affiliation: Ligant AI Incorporated
+    orcid: https://orcid.org/0009-0009-3837-6605
 # Matches APP_VERSION in src/lib/site.ts and the tag on the archived release.
 # The leading v is kept so that this file, the footer and the tag are the same
 # string rather than three conventions for one version.
@@ -58,3 +59,34 @@ keywords:
   - cell therapy
   - calibration
   - reproducible research
+
+# The paper, named as the citation to prefer over the software itself.
+#
+# preferred-citation is what GitHub and reference managers read to answer "cite
+# this repository" with the publication rather than the code. Both belong in a
+# reference list, and the README says so, but if a tool takes only one this is
+# the one to take.
+#
+# The version DOI is used here, not the concept DOI, and deliberately the
+# opposite way round from the software above: a reader of software wants the
+# current release, a reader of a paper wants the text that was written. The
+# concept DOI is recorded beside it. PAPER_DOI in src/lib/site.ts holds the same
+# value and npm run check:citation asserts the two agree.
+preferred-citation:
+  type: article
+  title: >-
+    Goodness-of-fit statistics do not detect consequential calibration failures
+    in flow cytometric antigen density quantification
+  authors:
+    - family-names: Modi
+      given-names: A.B.
+      affiliation: Ligant AI Incorporated
+      orcid: https://orcid.org/0009-0009-3837-6605
+  year: 2026
+  month: 9
+  doi: 10.5281/zenodo.22283647
+  url: https://zenodo.org/records/22283647
+  license: CC-BY-4.0
+  notes: >-
+    Preprint, version 1.0, published on Zenodo on 2026-09-03. Concept DOI
+    10.5281/zenodo.22283646 resolves to the newest revision.

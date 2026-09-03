@@ -35,6 +35,7 @@ const SITE_URL = (readFileSync('src/lib/site.ts', 'utf8').match(/SITE_URL\s*=\s*
 // so failed the release that bumped the version, which is the assertion
 // testing itself rather than the page.
 const APP_VERSION = (readFileSync('src/lib/site.ts', 'utf8').match(/APP_VERSION\s*=\s*['"]([^'"]+)['"]/) ?? [])[1]
+const PAPER_DOI = (readFileSync('src/lib/site.ts', 'utf8').match(/PAPER_DOI\s*=\s*['"]([^'"]+)['"]/) ?? [])[1]
 if (!APP_VERSION) {
   console.error('Could not read APP_VERSION from src/lib/site.ts.')
   process.exit(1)
@@ -1928,7 +1929,12 @@ const footerParts = await page.evaluate(() => {
   return {
     text: el?.textContent ?? '',
     licenceHref: el?.querySelector('a[href$="LICENSE"]')?.getAttribute('href') ?? null,
-    citation: el?.querySelector('.footer-citation p')?.textContent?.trim() ?? '',
+    // Every reference, not the first paragraph in the block. The block also
+    // holds a line of prose telling the reader which to use, and reading that
+    // as the citation is how this assertion quietly stopped checking anything.
+    citations: [...(el?.querySelectorAll('.footer-citation-row p') ?? [])].map(
+      (n) => n.textContent?.trim() ?? '',
+    ),
   }
 })
 if (footerParts.licenceHref === null) {
@@ -1937,9 +1943,19 @@ if (footerParts.licenceHref === null) {
 if (/the\s*LICENSE/.test(footerParts.text) && !/the LICENSE/.test(footerParts.text)) {
   uiFailures.push('antigen density: the footer reads "theLICENSE", with the space swallowed')
 }
+// Two references, and each has to be whole. The software citation identifies
+// what produced a number, the paper the method it implements, and a reference
+// list built from this page needs both to arrive intact.
+const softwareCitation = footerParts.citations.find((c) => c.includes('Computer software')) ?? ''
+const paperCitation = footerParts.citations.find((c) => c.includes('Zenodo')) ?? ''
 for (const part of ['Modi', 'Antigen Density Calculator', APP_VERSION, 'benchtools.ligant.ai']) {
-  if (!footerParts.citation.includes(part)) {
-    uiFailures.push(`antigen density: the citation on the page does not carry ${part}`)
+  if (!softwareCitation.includes(part)) {
+    uiFailures.push(`antigen density: the software citation on the page does not carry ${part}`)
+  }
+}
+for (const part of ['Modi', 'Goodness-of-fit statistics', PAPER_DOI]) {
+  if (!paperCitation.includes(part)) {
+    uiFailures.push(`antigen density: the paper citation on the page does not carry ${part}`)
   }
 }
 
